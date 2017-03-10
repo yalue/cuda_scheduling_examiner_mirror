@@ -164,7 +164,7 @@ static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
     entry = cJSON_GetObjectItem(current_benchmark, "cuda_device");
     if (entry) {
       if (entry->type != cJSON_Number) {
-        printf("Invalid cuda_device number in config.\n");
+        printf("Invalid benchmark cuda_device number in config.\n");
         goto ErrorCleanup;
       }
       benchmarks[i].cuda_device = entry->valueint;
@@ -258,7 +258,7 @@ GlobalConfiguration* ParseConfiguration(const char *filename) {
   // Begin reading the global settings values.
   entry = cJSON_GetObjectItem(root, "max_iterations");
   if (!entry || (entry->type != cJSON_Number)) {
-    printf("Missing/invalid default max iterations in config.\n");
+    printf("Missing/invalid default max_iterations in config.\n");
     goto ErrorCleanup;
   }
   // Use valuedouble here, since valueint is just a double cast to an int
@@ -267,7 +267,7 @@ GlobalConfiguration* ParseConfiguration(const char *filename) {
   to_return->max_iterations = entry->valuedouble;
   entry = cJSON_GetObjectItem(root, "max_time");
   if (!entry || (entry->type != cJSON_Number)) {
-    printf("Missing/invalid default max time in config.\n");
+    printf("Missing/invalid default max_time in config.\n");
     goto ErrorCleanup;
   }
   to_return->max_time = entry->valuedouble;
@@ -285,7 +285,7 @@ GlobalConfiguration* ParseConfiguration(const char *filename) {
   entry = cJSON_GetObjectItem(root, "cuda_device");
   if (entry) {
     if (entry->type != cJSON_Number) {
-      printf("Invalid CUDA device in config.\n");
+      printf("Invalid cuda_device number in config.\n");
       goto ErrorCleanup;
     }
     to_return->cuda_device = entry->valueint;

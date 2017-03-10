@@ -272,11 +272,12 @@ static const char* GetName(void) {
   return "Mandelbrot Set";
 }
 
-void RegisterFunctions(BenchmarkLibraryFunctions *functions) {
+int RegisterFunctions(BenchmarkLibraryFunctions *functions) {
   functions->initialize = Initialize;
   functions->copy_in = CopyIn;
   functions->execute = Execute;
   functions->copy_out = CopyOut;
   functions->cleanup = Cleanup;
   functions->get_name = GetName;
+  return 1;
 }

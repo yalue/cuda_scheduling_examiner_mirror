@@ -33,7 +33,7 @@ typedef struct {
   uint64_t data_size;
   // Contains an optional user-specified string which is taken from the
   // additional_info field in the benchmark's user-supplied JSON config.
-  const char *additional_info;
+  char *additional_info;
   // The CUDA device ID to use. If this equals USE_DEFAULT_DEVICE, the library
   // must *not* call cudaSetDevice, or attempt to associate with a particular
   // device.
@@ -112,9 +112,11 @@ typedef struct {
   GetNameFunction get_name;
 } BenchmarkLibraryFunctions;
 
-// Every library must implement this function, used for filling in further
-// callbacks in the BenchmarkLibraryFunctions struct.
-extern void RegisterFunctions(BenchmarkLibraryFunctions *functions);
+
+// Every library must implement this function, which will be the first thing to
+// be called after dlopen(...). Fills in the functions struct and returns 0 on
+// error, nonzero on success.
+extern int RegisterFunctions(BenchmarkLibraryFunctions *functions);
 
 #ifdef __cplusplus
 }  // extern "C"

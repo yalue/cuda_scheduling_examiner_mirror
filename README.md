@@ -24,8 +24,7 @@ Usage
 The tool must be provided a JSON configuration file, which will contain
 information about which benchmark libraries to run, how to run them, and what
 parameters to give file. `configs/simple.json` has been provided as a minimal
-example, running one instance of the `mandelbrot.so` benchmark and one instance
-of the `timer_spin.so` benchmark. To run it:
+example, running one instance of the `mandelbrot.so` benchmark. To run it:
 
 ```bash
 ./bin/runner ./configs/simple.json
@@ -55,13 +54,16 @@ The layout of each configuration file is as follows:
     benchmarks. If unset, benchmarks will not call cudaSetDevice by default.>,
   "base_result_directory": <String, defaulting to "./results". This is the
     directory into which individual JSON files from each benchmark will be
-    written.>,
+    written. It must already exist.>,
   "benchmarks": [
     {
-      "filename": <String. Required. The name of the benchmark file.>,
+      "filename": <String. Required. The path to the benchmark file, relative
+        to the current working directory.>,
       "log_name": <String. Optional. The filename of the JSON log for this
         particular benchmark. If not provided, this benchmark's log will be
-        given a default name based on its filename, process and thread ID.>,
+        given a default name based on its filename, process and thread ID. If
+        this doesn't start with '/', it will be relative to
+        base_result_directory.>,
       "thread_count": <Number. Required, but may be ignored. The number of CUDA
         threads this benchmark should use.>,
       "block_count": <Number. Required, but may be ignored. The number of CUDA

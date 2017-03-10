@@ -219,11 +219,12 @@ static const char* GetName(void) {
 
 // This should be the only function we export from the library, to provide
 // pointers to all of the other functions.
-void RegisterFunctions(BenchmarkLibraryFunctions *functions) {
+int RegisterFunctions(BenchmarkLibraryFunctions *functions) {
   functions->initialize = Initialize;
   functions->copy_in = CopyIn;
   functions->execute = Execute;
   functions->copy_out = CopyOut;
   functions->cleanup = Cleanup;
   functions->get_name = GetName;
+  return 1;
 }

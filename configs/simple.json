@@ -1,0 +1,13 @@
+{
+  "max_iterations": 0,
+  "max_time": 5,
+  "cuda_device": 0,
+  "benchmarks": [
+    {
+      "filename": "./bin/mandelbrot.so",
+      "thread_count": 256,
+      "block_count": 256,
+      "data_size": 1000000
+    }
+  ]
+}

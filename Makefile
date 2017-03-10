@@ -2,8 +2,8 @@
 
 CFLAGS := -Wall -Werror -O3 -g -fPIC
 
-NVCCFLAGS := -arch=sm_50 -g --ptxas-options=-v --cudart shared \
-	--compiler-options="$(CFLAGS)"
+NVCCFLAGS := -arch=sm_50 -g --ptxas-options=-v --compiler-options="$(CFLAGS)" \
+	--cudart=shared
 
 all: directories benchmarks bin/runner
 
@@ -13,17 +13,11 @@ directories:
 	mkdir -p bin/
 	mkdir -p obj/
 
-obj/mandelbrot.o: src/mandelbrot.cu src/library_interface.h
-	nvcc -c $(NVCCFLAGS) -o obj/mandelbrot.o src/mandelbrot.cu
+bin/mandelbrot.so: src/mandelbrot.cu src/library_interface.h
+	nvcc --shared $(NVCCFLAGS) -o bin/mandelbrot.so src/mandelbrot.cu
 
-bin/mandelbrot.so: obj/mandelbrot.o
-	g++ -shared -o bin/mandelbrot.so obj/mandelbrot.o
-
-obj/timer_spin.o: src/timer_spin.cu src/library_interface.h
-	nvcc -c $(NVCCFLAGS) -o obj/timer_spin.o src/timer_spin.cu
-
-bin/timer_spin.so: obj/timer_spin.o
-	g++ -shared -o bin/timer_spin.so obj/timer_spin.o
+bin/timer_spin.so: src/timer_spin.cu src/library_interface.h
+	nvcc --shared $(NVCCFLAGS) -o bin/timer_spin.so src/timer_spin.cu
 
 obj/cjson.o: src/third_party/cJSON.c src/third_party/cJSON.h
 	gcc -c $(CFLAGS) -o obj/cjson.o src/third_party/cJSON.c
@@ -36,8 +30,8 @@ obj/runner.o: src/runner.c src/third_party/cJSON.h src/library_interface.h
 	gcc -c $(CFLAGS) -o obj/runner.o src/runner.c
 
 bin/runner: obj/runner.o obj/cjson.o obj/parse_config.o
-	gcc $(CFLAGS) -o bin/runner obj/runner.o obj/cjson.o obj/parse_config.o \
-		-lpthread -ldl
+	nvcc $(NVCCFLAGS) -o bin/runner obj/runner.o obj/cjson.o obj/parse_config.o \
+		-lpthread -ldl -lm
 
 clean:
 	rm -f bin/*
