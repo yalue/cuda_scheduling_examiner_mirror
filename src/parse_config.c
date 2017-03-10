@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "library_interface.h"
 #include "third_party/cJSON.h"
 #include "parse_config.h"
 
@@ -27,7 +28,7 @@ static int SetBufferSize(void **buffer, size_t new_size) {
     *buffer = NULL;
     return 1;
   }
-  new_pointer = realloc(old_pointer, new_size);
+  new_pointer = realloc(*buffer, new_size);
   if (!new_pointer) return 0;
   *buffer = new_pointer;
   return 1;
@@ -53,7 +54,7 @@ static uint8_t* GetConfigFileContent(const char *filename) {
       return NULL;
     }
   }
-  if (!SetBufferSize(&raw_content, FILE_CHUNK_SIZE)) {
+  if (!SetBufferSize((void **) (&raw_content), FILE_CHUNK_SIZE)) {
     printf("Failed allocating buffer for config file content.\n");
     if (config_file != stdin) fclose(config_file);
     return NULL;
@@ -62,14 +63,14 @@ static uint8_t* GetConfigFileContent(const char *filename) {
   // there's no way to use stdin, since we don't know the size ahead of time.
   // Also, we need to full buffer in order to parse the JSON.
   while (1) {
-    current_chunk_start = raw_content + bytes_read;
+    current_chunk_start = raw_content + total_bytes_read;
     last_bytes_read = fread(current_chunk_start, 1, FILE_CHUNK_SIZE,
       config_file);
     // If we failed to read an entire chunk, we're either at the end of the
     // file or we encountered an error.
     if (last_bytes_read != FILE_CHUNK_SIZE) {
       if (!feof(config_file) || ferror(config_file)) {
-        printf("Error reading the config file: %s\n", strerror(errno));
+        printf("Error reading the config.\n");
         free(raw_content);
         if (config_file != stdin) fclose(config_file);
         return NULL;
@@ -78,8 +79,9 @@ static uint8_t* GetConfigFileContent(const char *filename) {
       break;
     }
     // Allocate space for another chunk of the file to be read.
-    bytes_read += FILE_CHUNK_SIZE;
-    if (!SetBufferSize(&raw_content, bytes_read + FILE_CHUNK_SIZE)) {
+    total_bytes_read += FILE_CHUNK_SIZE;
+    if (!SetBufferSize((void **) (&raw_content), total_bytes_read +
+      FILE_CHUNK_SIZE)) {
       printf("Failed obtaining more memory for the config file.\n");
       free(raw_content);
       if (config_file != stdin) fclose(config_file);
@@ -94,10 +96,11 @@ static uint8_t* GetConfigFileContent(const char *filename) {
 // given by list_start. The list_start entry must have already been valideated
 // when this is called. On error, this will return 0 and leave the config
 // object unmodified. On success, this returns 1.
-static int ParseBenchmarkList(GlobalConfig *config, cJSON *list_start) {
+static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
   cJSON *current_benchmark = NULL;
   cJSON *entry = NULL;
   int benchmark_count = 1;
+  int i;
   size_t benchmarks_size = 0;
   SingleBenchmarkConfiguration *benchmarks = NULL;
   // Start by counting the number of benchmarks in the array and allocating
@@ -129,7 +132,7 @@ static int ParseBenchmarkList(GlobalConfig *config, cJSON *list_start) {
     entry = cJSON_GetObjectItem(current_benchmark, "log_name");
     if (entry) {
       if (entry->type != cJSON_String) {
-        printf("Invalid benchmark log name in the config file.\n");
+        printf("Invalid benchmark log_name in the config file.\n");
         goto ErrorCleanup;
       }
       benchmarks[i].log_name = strdup(entry->valuestring);
@@ -138,17 +141,86 @@ static int ParseBenchmarkList(GlobalConfig *config, cJSON *list_start) {
         goto ErrorCleanup;
       }
     }
-    // TODO: Continue parsing individual benchmark JSON configs:
-    //  - thread_count, reqd
-    //  - block_count, reqd
-    //  - data_size, reqd
-    //  - cuda_device, optional
-    //  - additional_info, optional string
-    //  - max_iterations, optional int64
-    //  - max_time, optional double
-    //  - release_time, optional double
+    entry = cJSON_GetObjectItem(current_benchmark, "thread_count");
+    if (!entry || (entry->type != cJSON_Number)) {
+      printf("Missing/invalid benchmark thread_count in config.\n");
+      goto ErrorCleanup;
+    }
+    benchmarks[i].thread_count = entry->valueint;
+    entry = cJSON_GetObjectItem(current_benchmark, "block_count");
+    if (!entry || (entry->type != cJSON_Number)) {
+      printf("Missing/invalid benchmark block_count in config.\n");
+      goto ErrorCleanup;
+    }
+    benchmarks[i].block_count = entry->valueint;
+    entry = cJSON_GetObjectItem(current_benchmark, "data_size");
+    if (!entry || (entry->type != cJSON_Number)) {
+      printf("Missing/invalid benchmark data_size in config.\n");
+      goto ErrorCleanup;
+    }
+    // As with max iterations (both benchmark-specific and default), use
+    // valuedouble for a better range. valueint is just a cast double already.
+    benchmarks[i].data_size = entry->valuedouble;
+    entry = cJSON_GetObjectItem(current_benchmark, "cuda_device");
+    if (entry) {
+      if (entry->type != cJSON_Number) {
+        printf("Invalid cuda_device number in config.\n");
+        goto ErrorCleanup;
+      }
+      benchmarks[i].cuda_device = entry->valueint;
+    } else {
+      benchmarks[i].cuda_device = USE_DEFAULT_DEVICE;
+    }
+    entry = cJSON_GetObjectItem(current_benchmark, "additional_info");
+    if (entry) {
+      if (entry->type != cJSON_String) {
+        printf("Invalid benchmark additional_info string in config.\n");
+        goto ErrorCleanup;
+      }
+      benchmarks[i].additional_info = strdup(entry->valuestring);
+      if (!benchmarks[i].additional_info) {
+        printf("Error copying additional info string.\n");
+        goto ErrorCleanup;
+      }
+    }
+    entry = cJSON_GetObjectItem(current_benchmark, "max_iterations");
+    if (entry) {
+      if (entry->type != cJSON_Number) {
+        printf("Invalid benchmark max_iterations in config.\n");
+        goto ErrorCleanup;
+      }
+      // As with data_size, valuedouble provides a better range than valueint.
+      benchmarks[i].max_iterations = entry->valuedouble;
+    } else {
+      // Remember, 0 means unlimited, negative means unset.
+      benchmarks[i].max_iterations = -1;
+    }
+    entry = cJSON_GetObjectItem(current_benchmark, "max_time");
+    if (entry) {
+      if (entry->type != cJSON_Number) {
+        printf("Invalid benchmark max_time in config.\n");
+        goto ErrorCleanup;
+      }
+      benchmarks[i].max_time = entry->valuedouble;
+    } else {
+      // As with max_iterations, negative means the value wasn't set.
+      benchmarks[i].max_time = -1;
+    }
+    entry = cJSON_GetObjectItem(current_benchmark, "release_time");
+    if (entry) {
+      if (entry->type != cJSON_Number) {
+        printf("Invalid benchmark release_time in config.\n");
+        goto ErrorCleanup;
+      }
+      benchmarks[i].release_time = entry->valuedouble;
+    } else {
+      // Negative indicates this wasn't set.
+      benchmarks[i].release_time = -1;
+    }
     current_benchmark = current_benchmark->next;
   }
+  config->benchmarks = benchmarks;
+  config->benchmark_count = benchmark_count;
   return 1;
 ErrorCleanup:
   // This won't free anything we didn't allocate, because we zero the entire
@@ -176,7 +248,7 @@ GlobalConfiguration* ParseConfiguration(const char *filename) {
     return NULL;
   }
   memset(to_return, 0, sizeof(*to_return));
-  root = cJSON_Parse(raw_content);
+  root = cJSON_Parse((char *) raw_content);
   if (!root) {
     printf("Failed parsing JSON.\n");
     free(raw_content);
@@ -189,8 +261,10 @@ GlobalConfiguration* ParseConfiguration(const char *filename) {
     printf("Missing/invalid default max iterations in config.\n");
     goto ErrorCleanup;
   }
-  // TODO: Use valuedouble here for a better range?
-  to_return->max_iterations = entry->valueint;
+  // Use valuedouble here, since valueint is just a double cast to an int
+  // already. Casting valuedouble to a uint64_t will be just as good, and will
+  // have a bigger range.
+  to_return->max_iterations = entry->valuedouble;
   entry = cJSON_GetObjectItem(root, "max_time");
   if (!entry || (entry->type != cJSON_Number)) {
     printf("Missing/invalid default max time in config.\n");
@@ -207,6 +281,16 @@ GlobalConfiguration* ParseConfiguration(const char *filename) {
     to_return->use_processes = tmp == cJSON_True;
   } else {
     to_return->use_processes = DEFAULT_USE_PROCESSES;
+  }
+  entry = cJSON_GetObjectItem(root, "cuda_device");
+  if (entry) {
+    if (entry->type != cJSON_Number) {
+      printf("Invalid CUDA device in config.\n");
+      goto ErrorCleanup;
+    }
+    to_return->cuda_device = entry->valueint;
+  } else {
+    to_return->cuda_device = USE_DEFAULT_DEVICE;
   }
   entry = cJSON_GetObjectItem(root, "base_result_directory");
   // Any string entries will be copied--we have to assume that freeing cJSON

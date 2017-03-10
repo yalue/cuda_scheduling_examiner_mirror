@@ -28,7 +28,8 @@ bin/timer_spin.so: obj/timer_spin.o
 obj/cjson.o: src/third_party/cJSON.c src/third_party/cJSON.h
 	gcc -c $(CFLAGS) -o obj/cjson.o src/third_party/cJSON.c
 
-obj/parse_config.o: src/parse_config.c src/parse_config.h
+obj/parse_config.o: src/parse_config.c src/parse_config.h \
+		src/third_party/cJSON.h
 	gcc -c $(CFLAGS) -o obj/parse_config.o src/parse_config.c
 
 obj/runner.o: src/runner.c src/third_party/cJSON.h src/library_interface.h

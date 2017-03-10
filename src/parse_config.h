@@ -51,6 +51,9 @@ typedef struct {
   // Set to 0 if each benchmark should be run in a separate thread. Set to 1 if
   // each should be run in a child process instead.
   int use_processes;
+  // The default CUDA device to run benchmarks on, if individual benchmarks do
+  // not set a CUDA device.
+  int cuda_device;
   // The path to the base directory in which benchmark's log files are stored.
   char *base_result_directory;
   // The number of entries in the benchmarks list. Must never be 0.
