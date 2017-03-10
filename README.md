@@ -31,6 +31,10 @@ of the `timer_spin.so` benchmark. To run it:
 ./bin/runner ./configs/simple.json
 ```
 
+Additionally, the character `-` may be used in place of a config file name, in
+which case the tool will attempt to read a JSON configuration object from
+stdin. The file will be read completely before any benchmarks begin execution.
+
 Configuration Files
 -------------------
 
@@ -41,14 +45,15 @@ The layout of each configuration file is as follows:
 
 ```
 {
-  "release_time"
   "max_iterations": <Number. Required. Default cap on the number of iterations
-    for each benchmark. If negative, don't impose a limit on iterations.>,
+    for each benchmark. 0 = unlimited.>,
   "max_time": <Number. Required. Default cap on the number of number of seconds
-    to run each benchmark.>,
+    to run each benchmark. 0 = unlimited.>,
   "use_processes": <Boolean, defaulting to false. If this is true, each
     benchmark is run in a separate process. Normally, they run as threads.>
-  "base_log_directory": <Boolean
+  "base_result_directory": <String, defaulting to "./results". This is the
+    directory into which individual JSON files from each benchmark will be
+    written.>,
   "benchmarks": [
     {
       "filename": <String. Required. The name of the benchmark file.>,
@@ -66,9 +71,9 @@ The layout of each configuration file is as follows:
       "additional_info": <String. Optional. This can be used to pass additional
         benchmark-specific configuration parameters.>,
       "max_iterations": <Number. Optional. If specified, overrides the default
-        max_iterations for this benchmark alone.>,
+        max_iterations for this benchmark alone. 0 = unlimited.>,
       "max_time": <Number. Optional. If specified, overrides the default
-        max_time for this benchmark alone.>,
+        max_time for this benchmark alone. 0 = unlimited.>,
       "release_time": <Number. Optional. If set, this benchmark will sleep for
         the given number of seconds (between initialization and the start of
         the first iteration) before beginning execution.>

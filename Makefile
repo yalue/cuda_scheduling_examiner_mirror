@@ -28,11 +28,15 @@ bin/timer_spin.so: obj/timer_spin.o
 obj/cjson.o: src/third_party/cJSON.c src/third_party/cJSON.h
 	gcc -c $(CFLAGS) -o obj/cjson.o src/third_party/cJSON.c
 
+obj/parse_config.o: src/parse_config.c src/parse_config.h
+	gcc -c $(CFLAGS) -o obj/parse_config.o src/parse_config.c
+
 obj/runner.o: src/runner.c src/third_party/cJSON.h src/library_interface.h
 	gcc -c $(CFLAGS) -o obj/runner.o src/runner.c
 
-bin/runner: obj/runner.o obj/cjson.o
-	gcc $(CFLAGS) -o bin/runner obj/runner.o obj/cjson.o -lpthread -ldl
+bin/runner: obj/runner.o obj/cjson.o obj/parse_config.o
+	gcc $(CFLAGS) -o bin/runner obj/runner.o obj/cjson.o obj/parse_config.o \
+		-lpthread -ldl
 
 clean:
 	rm -f bin/*
