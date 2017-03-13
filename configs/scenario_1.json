@@ -1,0 +1,41 @@
+{
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "benchmarks": [
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "kernel_1.json",
+      "thread_count": 512,
+      "block_count": 2,
+      "data_size": 0,
+      "additional_info": "500000000"
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "kernel_2.json",
+      "thread_count": 512,
+      "block_count": 2,
+      "data_size": 0,
+      "additional_info": "500000000"
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "kernel_3.json",
+      "thread_count": 512,
+      "block_count": 2,
+      "data_size": 0,
+      "additional_info": "500000000",
+      "release_time": 0.25
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "kernel_4.json",
+      "thread_count": 512,
+      "block_count": 2,
+      "data_size": 0,
+      "additional_info": "500000000",
+      "release_time": 0.25
+    }
+  ]
+}

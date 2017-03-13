@@ -108,6 +108,7 @@ static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
   entry = list_start;
   while (entry->next) {
     benchmark_count++;
+    entry = entry->next;
   }
   benchmarks_size = benchmark_count * sizeof(SingleBenchmarkConfiguration);
   benchmarks = (SingleBenchmarkConfiguration *) malloc(benchmarks_size);

@@ -6,7 +6,6 @@
 // While this benchmark will spin for an arbitrary default number of
 // nanoseconds, the specific amount of time to spin may be given as a number
 // of nanoseconds provided as a string "additional_info" configuration field.
-
 #include <cuda_runtime.h>
 #include <stdint.h>
 #include <stdio.h>

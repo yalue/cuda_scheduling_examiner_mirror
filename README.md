@@ -89,6 +89,37 @@ The layout of each configuration file is as follows:
 }
 ```
 
+Output File Format
+------------------
+
+Each benchmark, when run, will generate a JSON log file at the location
+specified in the configuration. If the benchmark did not complete successfully,
+the JSON file may be in an invalid state. Times will be recorded as
+floating-point numbers of seconds. The format of the log file is:
+
+```
+{
+  "benchmark_name": "<benchmark name>",
+  "thread_count": <thread count>,
+  "block_count": <block count>,
+  "data_size": <data size>,
+  "PID": <pid>,
+  "TID": <The thread ID, if benchmarks were run as threads>,
+  "times": [
+    {},
+    {
+      "kernel_times": [<start time>, <end time>, ...],
+      "block_times": [<start time>, <end time>, ...]
+    },
+    ...
+  ]
+}
+
+```
+
+Notice that the first entry in the "times" array will be blank and should be
+ignored.
+
 Creating New Benchmarks
 -----------------------
 

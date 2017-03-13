@@ -1,6 +1,6 @@
 {
-  "max_iterations": 0,
-  "max_time": 5,
+  "max_iterations": 10,
+  "max_time": 0,
   "cuda_device": 0,
   "benchmarks": [
     {

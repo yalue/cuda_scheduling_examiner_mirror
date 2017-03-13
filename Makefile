@@ -29,9 +29,13 @@ obj/parse_config.o: src/parse_config.c src/parse_config.h \
 obj/runner.o: src/runner.c src/third_party/cJSON.h src/library_interface.h
 	gcc -c $(CFLAGS) -o obj/runner.o src/runner.c
 
-bin/runner: obj/runner.o obj/cjson.o obj/parse_config.o
-	nvcc $(NVCCFLAGS) -o bin/runner obj/runner.o obj/cjson.o obj/parse_config.o \
-		-lpthread -ldl -lm
+obj/gpu_utilities.o: src/gpu_utilities.cu src/gpu_utilities.h \
+		src/library_interface.h
+	nvcc -c $(NVCCFLAGS) -o obj/gpu_utilities.o src/gpu_utilities.cu
+
+bin/runner: obj/runner.o obj/cjson.o obj/parse_config.o obj/gpu_utilities.o
+	nvcc $(NVCCFLAGS) -o bin/runner obj/runner.o obj/parse_config.o \
+		obj/cjson.o obj/gpu_utilities.o -lpthread -ldl -lm
 
 clean:
 	rm -f bin/*
