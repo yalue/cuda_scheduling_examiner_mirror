@@ -105,7 +105,7 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
     return 0;
   }
   for (i = 0; i < times->block_times_count; i++) {
-    since_start = times->kernel_times[i] - base_nanoseconds;
+    since_start = times->block_times[i] - base_nanoseconds;
     if (fprintf(output, "%f%s", (double) since_start / 1e9,
       (i != (times->block_times_count - 1)) ? "," : "") < 0) {
       return 0;
