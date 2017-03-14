@@ -44,6 +44,7 @@ The layout of each configuration file is as follows:
 
 ```
 {
+  "name": <String. Required. The name of this scenario.>,
   "max_iterations": <Number. Required. Default cap on the number of iterations
     for each benchmark. 0 = unlimited.>,
   "max_time": <Number. Required. Default cap on the number of number of seconds
@@ -70,8 +71,6 @@ The layout of each configuration file is as follows:
         blocks this benchmark should use.>,
       "data_size": <Number. Required, but may be ignored. The input size, in
         bytes, for the benchmark.>,
-      "cuda_device": <Number. Optional. If specified, attempt to run the
-        benchmark on the CUDA device with the given ID.>,
       "additional_info": <String. Optional. This can be used to pass additional
         benchmark-specific configuration parameters.>,
       "max_iterations": <Number. Optional. If specified, overrides the default
@@ -99,10 +98,14 @@ floating-point numbers of seconds. The format of the log file is:
 
 ```
 {
+  "scenario_name": "<Scenario name>",
   "benchmark_name": "<benchmark name>",
   "thread_count": <thread count>,
   "block_count": <block count>,
+  "max_resident_threads": <The maximum number of threads that can be assigned
+    to the GPU at a time (from all benchmarks in the scenario)>,
   "data_size": <data size>,
+  "release_time": <requested release time in seconds>,
   "PID": <pid>,
   "TID": <The thread ID, if benchmarks were run as threads>,
   "times": [

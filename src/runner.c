@@ -44,6 +44,10 @@ typedef struct {
   GlobalConfiguration *global_config;
   // The approximate GPU global timer at the start of the program.
   uint64_t starting_gpu_clock;
+  // The time at the start of the program, as measured by the host, in seconds.
+  double starting_seconds;
+  // The maximum number of threads resident on the GPU at a time.
+  int max_resident_threads;
 } ParentState;
 
 // Holds data about a given benchmark, in addition to configuration parameters.
@@ -188,6 +192,11 @@ static int WriteOutputHeader(ProcessConfig *config) {
   if (fprintf(output, "{\n") < 0) {
     return 0;
   }
+  SanitizeJSONString(config->parent_state->global_config->scenario_name,
+    buffer, sizeof(buffer));
+  if (fprintf(output, "\"scenario_name\": \"%s\",\n", buffer) < 0) {
+    return 0;
+  }
   SanitizeJSONString(config->benchmark.get_name(), buffer, sizeof(buffer));
   if (fprintf(output, "\"benchmark_name\": \"%s\",\n", buffer) < 0) {
     return 0;
@@ -200,8 +209,15 @@ static int WriteOutputHeader(ProcessConfig *config) {
     < 0) {
     return 0;
   }
+  if (fprintf(output, "\"max_resident_threads\": %d,\n",
+    config->parent_state->max_resident_threads) < 0) {
+    return 0;
+  }
   if (fprintf(output, "\"data_size\": %lld,\n",
     (long long int) config->parameters.data_size) < 0) {
+    return 0;
+  }
+  if (fprintf(output, "\"release_time\": %f,\n", config->release_time) < 0) {
     return 0;
   }
   if (fprintf(output, "\"PID\": %d,\n", getpid()) < 0) {
@@ -243,7 +259,7 @@ static void* RunBenchmark(void *data) {
     printf("Failed writing metadata to log file.\n");
     return NULL;
   }
-  if (config->release_time >= 0) {
+  if (config->release_time > 0) {
     // Convert the release time in seconds to microseconds.
     usleep(config->release_time * 1e6);
   }
@@ -358,9 +374,6 @@ static ProcessConfig* CreateProcessConfigs(ParentState *parent_state) {
       new_list[i].max_seconds = benchmark->max_time;
     }
     new_list[i].parameters.cuda_device = config->cuda_device;
-    if (benchmark->cuda_device != USE_DEFAULT_DEVICE) {
-      new_list[i].parameters.cuda_device = benchmark->cuda_device;
-    }
     // These settings must all be specified in the benchmark-specific settings.
     new_list[i].parameters.thread_count = benchmark->thread_count;
     new_list[i].parameters.block_count = benchmark->block_count;
@@ -512,30 +525,44 @@ int main(int argc, char **argv) {
   int result;
   ParentState parent_state;
   ProcessConfig *process_configs = NULL;
+  GlobalConfiguration *global_config = NULL;
   memset(&parent_state, 0, sizeof(parent_state));
   if (argc != 2) {
     printf("Usage: %s <config file.json>\n", argv[0]);
     return 1;
   }
-  parent_state.global_config = ParseConfiguration(argv[1]);
-  if (!parent_state.global_config) return 1;
+  // First, load the configuration file
+  global_config = ParseConfiguration(argv[1]);
+  if (!global_config) return 1;
   printf("Config parsed.\n");
+  parent_state.global_config = global_config;
+  // Next, get information about the GPU being used.
+  parent_state.max_resident_threads = GetMaxResidentThreads(
+    global_config->cuda_device);
+  if (parent_state.max_resident_threads == 0) {
+    printf("Couldn't get max resident GPU threads. Continuing anyway...\n");
+  }
+  // Next, create the structures that will be passed to each thread or process.
   process_configs = CreateProcessConfigs(&parent_state);
   if (!process_configs) return 1;
   printf("Process configs created.\n");
+  // After the heavy initialization work has been done, record an approximate
+  // GPU time and system time.
   parent_state.starting_gpu_clock = GetCurrentGPUNanoseconds(
-    parent_state.global_config->cuda_device);
+    global_config->cuda_device);
   if (parent_state.starting_gpu_clock == 0) {
     printf("Couldn't read initial GPU time. Continuing anyway...\n");
   }
-  if (parent_state.global_config->use_processes) {
+  parent_state.starting_seconds = CurrentSeconds();
+  // Finally, run the benchmarks in threads or processes
+  if (global_config->use_processes) {
     result = RunAsProcesses(&parent_state, process_configs);
   } else {
     result = RunAsThreads(&parent_state, process_configs);
   }
-  CleanupProcessConfigs(process_configs,
-    parent_state.global_config->benchmark_count);
-  FreeGlobalConfiguration(parent_state.global_config);
+  // Last, clean up allocated state.
+  CleanupProcessConfigs(process_configs, global_config->benchmark_count);
+  FreeGlobalConfiguration(global_config);
   if (!result) {
     printf("An error occurred in one or more benchmarks.\n");
     return 1;

@@ -25,6 +25,11 @@ uint64_t GetCurrentGPUNanoseconds(int cuda_device);
 int SpinGPU(int cuda_device, int thread_count, int block_count,
     uint64_t nanoseconds);
 
+// Returns the maximum number of threads that can be sent to the GPU at once.
+// This will be equal to the number of warps per SM * the number of SMs * warp
+// size. Returns 0 on error.
+int GetMaxResidentThreads(int cuda_device);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif

@@ -162,16 +162,6 @@ static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
     // As with max iterations (both benchmark-specific and default), use
     // valuedouble for a better range. valueint is just a cast double already.
     benchmarks[i].data_size = entry->valuedouble;
-    entry = cJSON_GetObjectItem(current_benchmark, "cuda_device");
-    if (entry) {
-      if (entry->type != cJSON_Number) {
-        printf("Invalid benchmark cuda_device number in config.\n");
-        goto ErrorCleanup;
-      }
-      benchmarks[i].cuda_device = entry->valueint;
-    } else {
-      benchmarks[i].cuda_device = USE_DEFAULT_DEVICE;
-    }
     entry = cJSON_GetObjectItem(current_benchmark, "additional_info");
     if (entry) {
       if (entry->type != cJSON_String) {
@@ -215,8 +205,7 @@ static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
       }
       benchmarks[i].release_time = entry->valuedouble;
     } else {
-      // Negative indicates this wasn't set.
-      benchmarks[i].release_time = -1;
+      benchmarks[i].release_time = 0;
     }
     current_benchmark = current_benchmark->next;
   }
@@ -293,9 +282,21 @@ GlobalConfiguration* ParseConfiguration(const char *filename) {
   } else {
     to_return->cuda_device = USE_DEFAULT_DEVICE;
   }
-  entry = cJSON_GetObjectItem(root, "base_result_directory");
   // Any string entries will be copied--we have to assume that freeing cJSON
   // and/or the raw_content will free them otherwise.
+  entry = cJSON_GetObjectItem(root, "name");
+  if (!entry || (entry->type != cJSON_String)) {
+    printf("Missing scenario name in config.\n");
+    goto ErrorCleanup;
+  }
+  to_return->scenario_name = strdup(entry->valuestring);
+  if (!to_return->scenario_name) {
+    printf("Failed allocating memory for the scenario name.\n");
+    goto ErrorCleanup;
+  }
+  entry = cJSON_GetObjectItem(root, "base_result_directory");
+  // Like the scenario_name entry, the result directory must also be copied.
+  // However, it is optional so we'll copy the default if it's not present.
   if (entry) {
     if (entry->type != cJSON_String) {
       printf("Invalid base_result_directory in config.\n");
@@ -327,6 +328,7 @@ GlobalConfiguration* ParseConfiguration(const char *filename) {
   return to_return;
 ErrorCleanup:
   if (to_return->base_result_directory) free(to_return->base_result_directory);
+  if (to_return->scenario_name) free(to_return->scenario_name);
   free(raw_content);
   free(to_return);
   cJSON_Delete(root);
@@ -343,6 +345,7 @@ void FreeGlobalConfiguration(GlobalConfiguration *config) {
   }
   free(benchmarks);
   free(config->base_result_directory);
+  free(config->scenario_name);
   memset(config, 0, sizeof(*config));
   free(config);
 }

@@ -65,3 +65,14 @@ int SpinGPU(int cuda_device, int thread_count, int block_count,
   GPUSpinKernel<<<block_count, thread_count>>>(nanoseconds);
   return 1;
 }
+
+int GetMaxResidentThreads(int cuda_device) {
+  struct cudaDeviceProp properties;
+  int warps_per_sm = 64;
+  if (!CheckCUDAError(cudaGetDeviceProperties(&properties, cuda_device))) {
+    return 0;
+  }
+  // Compute capability 2.0 devices have a 48 warps per SM.
+  if (properties.major <= 2) warps_per_sm = 48;
+  return warps_per_sm * properties.multiProcessorCount * properties.warpSize;
+}

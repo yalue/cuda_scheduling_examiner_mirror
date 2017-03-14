@@ -21,8 +21,6 @@ typedef struct {
   int block_count;
   // The size, in bytes, of the input data the benchmark should generate or use
   uint64_t data_size;
-  // The CUDA device to run the benchmark on.
-  int cuda_device;
   // A string containing an additional user-defined argument to pass to the
   // benchmark during initialization. May be either NULL or empty if
   // unspecified.
@@ -34,7 +32,7 @@ typedef struct {
   // the global limit if set (0 = unlimited, negative = unset).
   double max_time;
   // The number of seconds for which the benchmark should sleep before
-  // starting. If negative, it won't sleep at all.
+  // starting. If 0 or negative, it won't sleep at all.
   double release_time;
 } SingleBenchmarkConfiguration;
 
@@ -55,6 +53,8 @@ typedef struct {
   int cuda_device;
   // The path to the base directory in which benchmark's log files are stored.
   char *base_result_directory;
+  // The name of the scenario being tested.
+  char *scenario_name;
   // The number of entries in the benchmarks list. Must never be 0.
   int benchmark_count;
   // The list of benchmarks to run.
