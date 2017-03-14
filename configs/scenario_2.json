@@ -7,6 +7,7 @@
     {
       "filename": "./bin/timer_spin.so",
       "log_name": "kernel_1.json",
+      "label": "Released first",
       "thread_count": 256,
       "block_count": 5,
       "data_size": 0,
@@ -15,6 +16,7 @@
     {
       "filename": "./bin/timer_spin.so",
       "log_name": "kernel_2.json",
+      "label": "Released second",
       "thread_count": 512,
       "block_count": 2,
       "data_size": 0,
@@ -24,6 +26,7 @@
     {
       "filename": "./bin/timer_spin.so",
       "log_name": "kernel_3.json",
+      "label": "Released 3rd, could cut ahead",
       "thread_count": 256,
       "block_count": 1,
       "data_size": 0,

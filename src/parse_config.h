@@ -15,6 +15,8 @@ typedef struct {
   // The name of the benchmark's JSON log, relative to base_result_directory.
   // If NULL, a log name will be used based on the benchmark's filename.
   char *log_name;
+  // An extra label or name for the benchmark, included in its JSON log file.
+  char *label;
   // The number of threads to request the benchmark to use
   int thread_count;
   // The number of blocks to request the benchmark to use

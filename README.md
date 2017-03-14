@@ -7,7 +7,8 @@ About
 This project was intended to provide a tool for examining block-level
 scheduling behavior and coscheduling performance on CUDA devices. The tool is
 capable of running any benchmark which can be self-contained in a shared
-library file exporting specific functions.
+library file exporting specific functions. Currently, this tool only runs under
+Linux, and is unlikely to support other systems in the future.
 
 
 Compilation
@@ -33,6 +34,18 @@ example, running one instance of the `mandelbrot.so` benchmark. To run it:
 Additionally, the character `-` may be used in place of a config file name, in
 which case the tool will attempt to read a JSON configuration object from
 stdin. The file will be read completely before any benchmarks begin execution.
+
+Some scripts have been included to visualize results. They require python,
+numpy, and matplotlib. All such scripts are located in the scripts directory.
+For example:
+
+```bash
+# Run all known configurations
+find configs/*.json -exec ./bin/runner {} \;
+
+# Visualize the block scheduling timelines for each scenario
+python scripts/view_timeline.py
+```
 
 Configuration Files
 -------------------
@@ -65,6 +78,8 @@ The layout of each configuration file is as follows:
         given a default name based on its filename, process and thread ID. If
         this doesn't start with '/', it will be relative to
         base_result_directory.>,
+      "label:": <String. Optional. A label or name for this specific benchmark,
+        to be copied to its output file.>,
       "thread_count": <Number. Required, but may be ignored. The number of CUDA
         threads this benchmark should use.>,
       "block_count": <Number. Required, but may be ignored. The number of CUDA
@@ -100,6 +115,7 @@ floating-point numbers of seconds. The format of the log file is:
 {
   "scenario_name": "<Scenario name>",
   "benchmark_name": "<benchmark name>",
+  "label": "<this benchmark's label, if given in the config>",
   "thread_count": <thread count>,
   "block_count": <block count>,
   "max_resident_threads": <The maximum number of threads that can be assigned

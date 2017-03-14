@@ -60,6 +60,11 @@ def get_block_timeline(benchmark):
             # Only end times are left, so keep decrementing the block count.
             current_time = end_times.pop()
             is_start_time = False
+        # Make sure that changes between numbers of running blocks look abrupt.
+        # Accomplish this by making sure the "slope" between two successive
+        # blocks goes over a very short time interval.
+        timeline_times.append(current_time - 1e-20)
+        timeline_values.append(current_block_count)
         if is_start_time:
             current_block_count += 1
         else:
@@ -67,15 +72,6 @@ def get_block_timeline(benchmark):
         timeline_times.append(current_time)
         timeline_values.append(current_block_count)
     return [timeline_times, timeline_values]
-
-def get_largest_value(lists):
-    """Takes a list of lists, and returns the largest value at the tail of one
-    or more of the lists."""
-    current_max = -1e99
-    for v in lists:
-        if (len(v) > 0) and (v[-1] > current_max):
-            current_max = v[-1]
-    return current_max
 
 def all_lists_empty(lists):
     """Returns true if all of the given lists contain no entries."""
@@ -88,12 +84,69 @@ def get_stackplot_values(benchmarks):
     """Takes a list of benchmark results and returns a list of lists of data
     that can be passed as arguments to stackplot (with a single list of
     x-values followed by multiple lists of y-values)."""
-    # TODO (next): Re-do this completely! Just keep track of current indices
-    # into each timeline, and build the resulting timeline from start to end
-    # rather than in reverse order.
     timelines = []
     for b in benchmarks:
         timelines.append(get_block_timeline(b))
+    # Track indices into the list of times and values from each benchmark as
+    # we build an aggregate list.
+    times_lists = []
+    values_lists = []
+    indices = []
+    new_times = []
+    new_values = []
+
+    for t in timelines:
+        times_lists.append(t[0])
+        values_lists.append(t[1])
+        indices.append(0)
+        new_values.append([])
+
+    # Selects the next smallest time we need to add to our output list.
+    def current_min_time():
+        current_min = 1e99
+        for i in range(len(indices)):
+            n = indices[i]
+            if n >= len(times_lists[i]):
+                continue
+            if times_lists[i][n] < current_min:
+                current_min = times_lists[i][n]
+        return current_min
+
+    # Returns true if we've seen all the times in every list.
+    def all_times_done():
+        for i in range(len(indices)):
+            if indices[i] < len(times_lists[i]):
+                return False
+        return True
+
+    # Moves to the next time for each input list if the current time is at the
+    # head of the list.
+    def update_indices(current_time):
+        for i in range(len(indices)):
+            n = indices[i]
+            if n >= len(times_lists[i]):
+                continue
+            if times_lists[i][n] == current_time:
+                indices[i] += 1
+
+    def update_values():
+        for i in range(len(indices)):
+            n = indices[i]
+            if n >= len(values_lists[i]):
+                new_values[i].append(0)
+                continue
+            new_values[i].append(values_lists[i][n])
+
+    while not all_times_done():
+        current_time = current_min_time()
+        new_times.append(current_time)
+        update_values()
+        update_indices(current_time)
+
+    to_return = []
+    to_return.append(new_times)
+    for v in new_values:
+        to_return.append(v)
     return to_return
 
 def plot_scenario(benchmarks, name):
@@ -104,8 +157,9 @@ def plot_scenario(benchmarks, name):
     axes = figure.add_subplot(1, 1, 1)
     axes.set_title(name)
     values = get_stackplot_values(benchmarks)
-    print values
     axes.stackplot(*values)
+    # TODO: Add labels of each individual benchmark instance, if a "label"
+    # is available.
     return figure
 
 def show_plots(filenames):

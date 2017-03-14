@@ -64,6 +64,8 @@ typedef struct {
   FILE *output_file;
   // The handle to the benchmark's shared library file, returned by dlopen.
   void *library_handle;
+  // The benchmark's label to include in the output file, or NULL.
+  char *label;
   // Holds information shared between all benchmarks.
   ParentState *parent_state;
 } ProcessConfig;
@@ -200,6 +202,12 @@ static int WriteOutputHeader(ProcessConfig *config) {
   SanitizeJSONString(config->benchmark.get_name(), buffer, sizeof(buffer));
   if (fprintf(output, "\"benchmark_name\": \"%s\",\n", buffer) < 0) {
     return 0;
+  }
+  if (config->label) {
+    SanitizeJSONString(config->label, buffer, sizeof(buffer));
+    if (fprintf(output, "\"label\": \"%s\",\n", buffer) < 0) {
+      return 0;
+    }
   }
   if (fprintf(output, "\"thread_count\": %d,\n",
     config->parameters.thread_count) < 0) {
@@ -373,6 +381,7 @@ static ProcessConfig* CreateProcessConfigs(ParentState *parent_state) {
     if (benchmark->max_time >= 0) {
       new_list[i].max_seconds = benchmark->max_time;
     }
+    new_list[i].label = benchmark->label;
     new_list[i].parameters.cuda_device = config->cuda_device;
     // These settings must all be specified in the benchmark-specific settings.
     new_list[i].parameters.thread_count = benchmark->thread_count;

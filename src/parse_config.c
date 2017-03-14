@@ -142,6 +142,18 @@ static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
         goto ErrorCleanup;
       }
     }
+    entry = cJSON_GetObjectItem(current_benchmark, "label");
+    if (entry) {
+      if (entry->type != cJSON_String) {
+        printf("Invalid benchmark label in the config file.\n");
+        goto ErrorCleanup;
+      }
+      benchmarks[i].label = strdup(entry->valuestring);
+      if (!benchmarks[i].label) {
+        printf("Failed copying benchmark label.\n");
+        goto ErrorCleanup;
+      }
+    }
     entry = cJSON_GetObjectItem(current_benchmark, "thread_count");
     if (!entry || (entry->type != cJSON_Number)) {
       printf("Missing/invalid benchmark thread_count in config.\n");
@@ -219,6 +231,7 @@ ErrorCleanup:
     if (benchmarks[i].filename) free(benchmarks[i].filename);
     if (benchmarks[i].log_name) free(benchmarks[i].log_name);
     if (benchmarks[i].additional_info) free(benchmarks[i].additional_info);
+    if (benchmarks[i].label) free(benchmarks[i].label);
   }
   free(benchmarks);
   return 0;
@@ -342,6 +355,7 @@ void FreeGlobalConfiguration(GlobalConfiguration *config) {
     free(benchmarks[i].filename);
     free(benchmarks[i].log_name);
     if (benchmarks[i].additional_info) free(benchmarks[i].additional_info);
+    if (benchmarks[i].label) free(benchmarks[i].label);
   }
   free(benchmarks);
   free(config->base_result_directory);

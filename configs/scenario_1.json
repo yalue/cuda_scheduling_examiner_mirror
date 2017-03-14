@@ -6,7 +6,8 @@
   "benchmarks": [
     {
       "filename": "./bin/timer_spin.so",
-      "log_name": "kernel_1.json",
+      "log_name": "coschedule_1.json",
+      "label": "Kernel 1",
       "thread_count": 512,
       "block_count": 2,
       "data_size": 0,
@@ -14,7 +15,8 @@
     },
     {
       "filename": "./bin/timer_spin.so",
-      "log_name": "kernel_2.json",
+      "log_name": "coschedule_2.json",
+      "label": "Kernel 2",
       "thread_count": 512,
       "block_count": 2,
       "data_size": 0,
@@ -22,7 +24,8 @@
     },
     {
       "filename": "./bin/timer_spin.so",
-      "log_name": "kernel_3.json",
+      "log_name": "coschedule_3.json",
+      "label": "Kernel 3",
       "thread_count": 512,
       "block_count": 2,
       "data_size": 0,
@@ -31,7 +34,8 @@
     },
     {
       "filename": "./bin/timer_spin.so",
-      "log_name": "kernel_4.json",
+      "log_name": "coschedule_4.json",
+      "label": "Kernel 4",
       "thread_count": 512,
       "block_count": 2,
       "data_size": 0,
