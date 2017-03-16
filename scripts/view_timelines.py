@@ -180,7 +180,8 @@ def draw_release_arrow(axes, release_time):
     width = (right - left) * 0.004
     bottom, top = axes.get_ylim()
     height = (top - bottom) * 0.8
-    axes.arrow(release_time, bottom, 0, height, color='b', lw=2, width=width,
+    color = 'pink'
+    axes.arrow(release_time, bottom, 0, height, color=color, lw=2, width=width,
         length_includes_head=True, head_length=height * 0.15,
         head_width=width * 5)
 
@@ -207,7 +208,7 @@ def plot_scenario(benchmarks, name):
         # Draw the release arrow before (below) the plotted line
         if "release_time" in benchmark:
             draw_release_arrow(axes, benchmark["release_time"])
-        axes.plot(timeline[0], timeline[1], c='k', lw=2)
+        axes.plot(timeline[0], timeline[1], c='k', lw=3)
         label = "# threads,\n%d: %s" % (i + 1, benchmark["benchmark_name"])
         if "label" in benchmark:
             label = benchmark["label"]
@@ -219,7 +220,7 @@ def plot_scenario(benchmarks, name):
     axes.set_ylabel("# threads, total\n(max supported: %d): " %
         (max_resident_threads))
     axes.set_xlabel("Time (seconds)")
-    axes.plot(total_timeline[0], total_timeline[1], c='k', lw=2)
+    axes.plot(total_timeline[0], total_timeline[1], c='k', lw=3)
     return figure
 
 def show_plots(filenames):
