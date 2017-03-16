@@ -19,6 +19,8 @@ installed. The `nvcc` command must be available on your PATH. The tool has not
 been tested with devices earlier than compute capability 5.0 or CUDA versions
 earlier than 8.0.
 
+To build, clone the repository, `cd` into it, and run `make`.
+
 Usage
 -----
 

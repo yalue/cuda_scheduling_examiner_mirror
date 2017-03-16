@@ -12,8 +12,6 @@ def get_block_timeline(benchmark):
     """"Takes a parsed benchmark dict and returns timeline data consisting of
     a list of two lists. The first list will contain times, and the second list
     will contain the corresponding number of threads running at each time."""
-    # TODO: Make the results files contain the *actual* number of threads per
-    # block in kernels?
     start_times = []
     end_times = []
     # Remember, the first entry in the times array is an empty object.
@@ -49,8 +47,11 @@ def get_block_timeline(benchmark):
         current_time = 0.0
         is_start_time = False
         if len(start_times) != 0:
-            # Get the next closest time, be it a start or an end time.
-            if start_times[-1] < end_times[-1]:
+            # Get the next closest time, be it a start or an end time. The <=
+            # is important, since we always want increment the block count
+            # before decrementing in the case when a block starts at the same
+            # time another ends.
+            if start_times[-1] <= end_times[-1]:
                 current_time = start_times.pop()
                 is_start_time = True
             else:
@@ -61,16 +62,22 @@ def get_block_timeline(benchmark):
             current_time = end_times.pop()
             is_start_time = False
         # Make sure that changes between numbers of running blocks look abrupt.
-        # Accomplish this by making sure the "slope" between two successive
-        # blocks goes over a very short time interval.
-        timeline_times.append(current_time - 1e-20)
+        # Do this by only changing the number of blocks at the instant they
+        # actually change rather than interpolating between two values.
+        timeline_times.append(current_time)
         timeline_values.append(current_block_count)
+        # Update the current running number of blocks
         if is_start_time:
             current_block_count += 1
         else:
             current_block_count -= 1
         timeline_times.append(current_time)
         timeline_values.append(current_block_count)
+    # Convert the block count to a thread count
+    # TODO: When multiple kernels are supported, this will probably need to be
+    # updated.
+    for i in range(len(timeline_values)):
+        timeline_values[i] *= benchmark["thread_count"]
     return [timeline_times, timeline_values]
 
 def all_lists_empty(lists):
