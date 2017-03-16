@@ -8,7 +8,7 @@ import json
 import matplotlib.pyplot as plot
 import sys
 
-def get_block_timeline(benchmark):
+def get_thread_timeline(benchmark):
     """"Takes a parsed benchmark dict and returns timeline data consisting of
     a list of two lists. The first list will contain times, and the second list
     will contain the corresponding number of threads running at each time."""
@@ -80,20 +80,13 @@ def get_block_timeline(benchmark):
         timeline_values[i] *= benchmark["thread_count"]
     return [timeline_times, timeline_values]
 
-def all_lists_empty(lists):
-    """Returns true if all of the given lists contain no entries."""
-    for v in lists:
-        if len(v) != 0:
-            return False
-    return True
-
 def get_stackplot_values(benchmarks):
     """Takes a list of benchmark results and returns a list of lists of data
     that can be passed as arguments to stackplot (with a single list of
     x-values followed by multiple lists of y-values)."""
     timelines = []
     for b in benchmarks:
-        timelines.append(get_block_timeline(b))
+        timelines.append(get_thread_timeline(b))
     # Track indices into the list of times and values from each benchmark as
     # we build an aggregate list.
     times_lists = []
@@ -155,6 +148,18 @@ def get_stackplot_values(benchmarks):
     for v in new_values:
         to_return.append(v)
     return to_return
+
+def get_total_timeline(benchmarks):
+    """Similar to get_stackplot_values, but only returns a single list of
+    values, containing the total number of threads from all benchmarks."""
+    data = get_stackplot_values(benchmarks)
+    total_counts = []
+    for i in range(len(data[0])):
+        total_counts.append(0)
+    for i in range(len(data) - 1):
+        for j in range(len(data[i + 1])):
+            total_counts[j] += data[i + 1][j]
+    return [data[0], total_counts]
 
 def plot_scenario(benchmarks, name):
     """Takes a list of parsed benchmark results and a scenario name and

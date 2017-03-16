@@ -45,8 +45,8 @@ For example:
 # Run all known configurations
 find configs/*.json -exec ./bin/runner {} \;
 
-# Visualize the block scheduling timelines for each scenario
-python scripts/view_timeline.py
+# Visualize the scheduling timelines for each scenario
+python scripts/view_timelines.py
 ```
 
 Configuration Files
