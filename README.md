@@ -16,7 +16,7 @@ Compilation
 
 This tool can only be run on a computer with a CUDA-capable GPU and with CUDA
 installed. The `nvcc` command must be available on your PATH. The tool has not
-been tested with devices earlier than compute capability 5.0 or CUDA versions
+been tested with devices earlier than compute capability 3.0 or CUDA versions
 earlier than 8.0.
 
 To build, clone the repository, `cd` into it, and run `make`.

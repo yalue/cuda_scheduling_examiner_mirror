@@ -2,8 +2,11 @@
 
 CFLAGS := -Wall -Werror -O3 -g -fPIC
 
-NVCCFLAGS := -arch=sm_50 -g --ptxas-options=-v --compiler-options="$(CFLAGS)" \
-	--cudart=shared
+NVCCFLAGS := -g --ptxas-options=-v --compiler-options="$(CFLAGS)" \
+	--cudart=shared --generate-code arch=compute_30,code=[compute_30,sm_30] \
+	--generate-code arch=compute_35,code=[compute_35,sm_35] \
+	--generate-code arch=compute_50,code=[compute_50,sm_50] \
+	--generate-code arch=compute_53,code=[compute_53,sm_53]
 
 all: directories benchmarks bin/runner
 
