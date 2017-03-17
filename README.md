@@ -135,7 +135,8 @@ floating-point numbers of seconds. The format of the log file is:
     {},
     {
       "kernel_times": [<start time>, <end time>, ...],
-      "block_times": [<start time>, <end time>, ...]
+      "block_times": [<start time>, <end time>, ...],
+      "cpu_core": <the current CPU core being used>,
     },
     ...
   ]

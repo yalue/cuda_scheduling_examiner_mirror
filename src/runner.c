@@ -123,7 +123,8 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
   // times smaller in the logs, rather than very large numbers.
   uint64_t since_start;
   uint64_t i;
-  if (fprintf(output, ",\n{\"kernel times\": [") < 0) {
+  // TODO: Add underscores to these to make them consistent with other JSON
+  if (fprintf(output, ",\n{\"kernel_times\": [") < 0) {
     return 0;
   }
   for (i = 0; i < times->kernel_times_count; i++) {
@@ -133,7 +134,7 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
       return 0;
     }
   }
-  if (fprintf(output, "], \"block times\": [") < 0) {
+  if (fprintf(output, "], \"block_times\": [") < 0) {
     return 0;
   }
   for (i = 0; i < times->block_times_count; i++) {
@@ -143,7 +144,8 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
       return 0;
     }
   }
-  if (fprintf(output, "]}") < 0) return 0;
+  // Finally, as a sanity check, output the CPU core on which we're running.
+  if (fprintf(output, "], \"cpu_core\": %d}\n", sched_getcpu()) < 0) return 0;
   fflush(output);
   return 1;
 }
