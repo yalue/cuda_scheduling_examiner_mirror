@@ -219,6 +219,16 @@ static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
     } else {
       benchmarks[i].release_time = 0;
     }
+    entry = cJSON_GetObjectItem(current_benchmark, "cpu_core");
+    if (entry) {
+      if (entry->type != cJSON_Number) {
+        printf("Invalid benchmark CPU core in config.\n");
+        goto ErrorCleanup;
+      }
+      benchmarks[i].cpu_core = entry->valueint;
+    } else {
+      benchmarks[i].cpu_core = USE_DEFAULT_CPU_CORE;
+    }
     current_benchmark = current_benchmark->next;
   }
   config->benchmarks = benchmarks;
@@ -322,6 +332,18 @@ GlobalConfiguration* ParseConfiguration(const char *filename) {
   if (!to_return->base_result_directory) {
     printf("Failed allocating memory for result path.\n");
     goto ErrorCleanup;
+  }
+  // The cycle_cpus setting defaults to 0 (false)
+  entry  = cJSON_GetObjectItem(root, "cycle_cpus");
+  if (entry) {
+    tmp = entry->type;
+    if ((tmp != cJSON_True) && (tmp != cJSON_False)) {
+      printf("Invalid cycle_cpus setting in config.\n");
+      goto ErrorCleanup;
+    }
+    to_return->cycle_cpus = tmp == cJSON_True;
+  } else {
+    to_return->cycle_cpus = 0;
   }
   // Finally, parse the benchmark list. Ensure that we've obtained a valid JSON
   // array for the benchmarks before calling ParseBenchmarkList.

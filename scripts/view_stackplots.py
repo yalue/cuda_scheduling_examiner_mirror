@@ -18,7 +18,7 @@ def get_thread_timeline(benchmark):
     all_times = benchmark["times"][1:]
     # Get only the block times.
     for i in range(len(all_times)):
-        all_times[i] = all_times[i]["block times"]
+        all_times[i] = all_times[i]["block_times"]
     # Separate each list of times into start and stop times.
     for invocation in all_times:
         for i in range(len(invocation)):

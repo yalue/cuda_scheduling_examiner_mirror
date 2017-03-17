@@ -5,10 +5,12 @@
 //
 // Usage: ./runner [optional arguments] <list of .so files>
 // Running with the --help argument will print more detailed usage information.
+#define _GNU_SOURCE
 #include <dlfcn.h>
 #include <errno.h>
 #include <libgen.h>
 #include <pthread.h>
+#include <sched.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -66,6 +68,9 @@ typedef struct {
   void *library_handle;
   // The benchmark's label to include in the output file, or NULL.
   char *label;
+  // The CPU core to which this process should be pinned, or negative if the
+  // CPU affinity should be left as-is.
+  int cpu_core;
   // Holds information shared between all benchmarks.
   ParentState *parent_state;
 } ProcessConfig;
@@ -87,6 +92,27 @@ static double CurrentSeconds(void) {
   return ((double) ts.tv_sec) + (((double) ts.tv_nsec) / 1e9);
 }
 
+// Sets the CPU affinity for the calling process or thread. Returns 0 on error
+// and nonzero on success. Requires a pointer to a ProcessConfig to determine
+// whether the caller is a process or a thread. Does nothing if the process'
+// cpu_core is set to USE_DEFAULT_CPU_CORE.
+static int SetCPUAffinity(ProcessConfig *config) {
+  cpu_set_t cpu_set;
+  int result;
+  int cpu_core = config->cpu_core;
+  if (config->cpu_core == USE_DEFAULT_CPU_CORE) return 1;
+  CPU_ZERO(&cpu_set);
+  CPU_SET(cpu_core, &cpu_set);
+  // Different functions are used for setting threads' and process' CPU
+  // affinities.
+  if (config->parent_state->global_config->use_processes) {
+    result = sched_setaffinity(0, sizeof(cpu_set), &cpu_set);
+  } else {
+    result = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set), &cpu_set);
+  }
+  return result == 0;
+}
+
 // Formats the given timing information as a JSON object and appends it to the
 // output file. Returns 0 on error and 1 on success. Times will be written in a
 // floatig-point number of *seconds*, even though they are recorded in ns. This
@@ -97,7 +123,8 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
   // times smaller in the logs, rather than very large numbers.
   uint64_t since_start;
   uint64_t i;
-  if (fprintf(output, ",\n{\"kernel times\": [") < 0) {
+  // TODO: Add underscores to these to make them consistent with other JSON
+  if (fprintf(output, ",\n{\"kernel_times\": [") < 0) {
     return 0;
   }
   for (i = 0; i < times->kernel_times_count; i++) {
@@ -107,7 +134,7 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
       return 0;
     }
   }
-  if (fprintf(output, "], \"block times\": [") < 0) {
+  if (fprintf(output, "], \"block_times\": [") < 0) {
     return 0;
   }
   for (i = 0; i < times->block_times_count; i++) {
@@ -117,7 +144,8 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
       return 0;
     }
   }
-  if (fprintf(output, "]}") < 0) return 0;
+  // Finally, as a sanity check, output the CPU core on which we're running.
+  if (fprintf(output, "], \"cpu_core\": %d}\n", sched_getcpu()) < 0) return 0;
   fflush(output);
   return 1;
 }
@@ -257,6 +285,10 @@ static void* RunBenchmark(void *data) {
   const char *name = benchmark->get_name();
   uint64_t i = 0;
   double start_time;
+  if (!SetCPUAffinity(config)) {
+    printf("Failed pinning benchmark %s to CPU core.\n", name);
+    return NULL;
+  }
   printf("Benchmark %s started.\n", name);
   user_data = benchmark->initialize(&(config->parameters));
   if (!user_data) {
@@ -350,6 +382,16 @@ static char* GetLogFileName(GlobalConfiguration *config, int benchmark_index) {
   return to_return;
 }
 
+// This is used to cycle to the next valid CPU core in the set of available
+// CPUs, since they may not be strictly in-order.
+static int CycleToNextCPU(int count, int current_cpu, cpu_set_t *cpu_set) {
+  if (count <= 1) return current_cpu;
+  while (1) {
+    current_cpu = (current_cpu + 1) % count;
+    if (CPU_ISSET(current_cpu, cpu_set)) return current_cpu;
+  }
+}
+
 // Takes the shared program state, then allocates and returns a list of
 // ProcessConfig structures, which can then be used to kick off the actual
 // benchmark processes. Returns 0 on error. The process_config_list will hold
@@ -360,8 +402,10 @@ static ProcessConfig* CreateProcessConfigs(ParentState *parent_state) {
   SingleBenchmarkConfiguration *benchmark = NULL;
   char *log_name;
   int i = 0;
+  int cpu_count, current_cpu_core;
   ProcessConfig *new_list = NULL;
   GlobalConfiguration *config = parent_state->global_config;
+  cpu_set_t cpu_set;
   new_list = (ProcessConfig *) malloc(config->benchmark_count *
     sizeof(ProcessConfig));
   if (!new_list) {
@@ -369,6 +413,21 @@ static ProcessConfig* CreateProcessConfigs(ParentState *parent_state) {
     return NULL;
   }
   memset(new_list, 0, config->benchmark_count * sizeof(ProcessConfig));
+  // This CPU count shouldn't be the number of available CPUs, but simply the
+  // number at which our cyclic assignment to CPU cores rolls over.
+  cpu_count = sysconf(_SC_NPROCESSORS_CONF);
+  // Normally, start the current CPU at core 1, but there won't be a core 1 on
+  // a single-CPU system, in which case use core 0 instead.
+  if (cpu_count <= 1) {
+    current_cpu_core = 0;
+  } else {
+    current_cpu_core = 1;
+  }
+  CPU_ZERO(&cpu_set);
+  if (sched_getaffinity(0, sizeof(cpu_set), &cpu_set) != 0) {
+    printf("Failed getting CPU list.\n");
+    goto ErrorCleanup;
+  }
   for (i = 0; i < config->benchmark_count; i++) {
     benchmark = config->benchmarks + i;
     // The time, iterations and cuda device can either be the global setting or
@@ -389,6 +448,20 @@ static ProcessConfig* CreateProcessConfigs(ParentState *parent_state) {
     new_list[i].parameters.data_size = benchmark->data_size;
     new_list[i].parameters.additional_info = benchmark->additional_info;
     new_list[i].release_time = benchmark->release_time;
+    // Either cycle through CPUs or use the per-benchmark CPU core.
+    if (config->cycle_cpus) {
+      new_list[i].cpu_core = current_cpu_core;
+      current_cpu_core = CycleToNextCPU(cpu_count, current_cpu_core, &cpu_set);
+    } else {
+      // Check that if the user specified a GPU that it's a valid one
+      if ((benchmark->cpu_core != USE_DEFAULT_CPU_CORE) && !CPU_ISSET(
+        benchmark->cpu_core, &cpu_set)) {
+        printf("CPU core %d doesn't exist/isn't available.\n",
+          benchmark->cpu_core);
+        goto ErrorCleanup;
+      }
+      new_list[i].cpu_core = benchmark->cpu_core;
+    }
     // Retain a pointer to the global configuration.
     new_list[i].parent_state = parent_state;
     // Now that all the easy information has been gathered, open the log file.
