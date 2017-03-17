@@ -66,6 +66,9 @@ typedef struct {
   void *library_handle;
   // The benchmark's label to include in the output file, or NULL.
   char *label;
+  // The CPU core to which this process should be pinned, or negative if the
+  // CPU affinity should be left as-is.
+  int cpu_core;
   // Holds information shared between all benchmarks.
   ParentState *parent_state;
 } ProcessConfig;

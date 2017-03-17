@@ -36,6 +36,8 @@ typedef struct {
   // The number of seconds for which the benchmark should sleep before
   // starting. If 0 or negative, it won't sleep at all.
   double release_time;
+  // The CPU core to pin this benchmark to. Ignored if negative.
+  int cpu_core;
 } SingleBenchmarkConfiguration;
 
 // Holds default settings for all benchmarks, and a list of individual
@@ -57,6 +59,10 @@ typedef struct {
   char *base_result_directory;
   // The name of the scenario being tested.
   char *scenario_name;
+  // If zero, CPU assignment is either handled by the system or taken from each
+  // benchmark's cpu_core setting. If nonzero, benchmarks are distributed
+  // evenly accrorss CPU cores.
+  int cycle_cpus;
   // The number of entries in the benchmarks list. Must never be 0.
   int benchmark_count;
   // The list of benchmarks to run.
