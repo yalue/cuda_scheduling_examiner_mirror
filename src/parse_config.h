@@ -7,6 +7,8 @@ extern "C" {
 #endif
 #include <stdint.h>
 
+#define USE_DEFAULT_CPU_CORE (-1)
+
 // Holds the configuration for a single benchmark, as specified by the JSON
 // format given in the README.
 typedef struct {

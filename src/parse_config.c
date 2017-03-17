@@ -227,7 +227,7 @@ static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
       }
       benchmarks[i].cpu_core = entry->valueint;
     } else {
-      benchmarks[i].cpu_core = -1;
+      benchmarks[i].cpu_core = USE_DEFAULT_CPU_CORE;
     }
     current_benchmark = current_benchmark->next;
   }
