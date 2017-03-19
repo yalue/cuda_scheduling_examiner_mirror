@@ -7,9 +7,10 @@
 #include <stdlib.h>
 #include "library_interface.h"
 
-// The maximum number of iterations used when determining if a point escapes
-// the mandelbrot set.
-#define MANDELBROT_ITERATIONS (10000)
+// The default number of iterations used when determining if a point escapes
+// the mandelbrot set. Optionally, the number of iterations can be specified
+// using the additional_info field.
+#define DEFAULT_MAX_ITERATIONS (1000)
 
 // This macro takes a cudaError_t value. It prints an error message and returns
 // 0 if the cudaError_t isn't cudaSuccess. Otherwise, it returns nonzero.
@@ -51,7 +52,7 @@ typedef struct {
   uint8_t *host_points;
   uint8_t *device_points;
   // The maximum number of iterations used when drawing the set.
-  uint32_t max_iterations;
+  uint64_t max_iterations;
   // The dimensions of the complex plane used when drawing the mandelbrot set.
   FractalDimensions dimensions;
   // Holds 2 64-bit elements: the start and stop times of the kernel, as
@@ -108,6 +109,25 @@ static int AllocateMemory(ThreadInformation *info) {
   return 1;
 }
 
+// Checks the additional_info argument to see if it's non-empty and non-NULL,
+// in which case it can override the default max iterations if it's parsed into
+// a valid base-10 integer.
+static int SetMaxIterations(const char *arg, ThreadInformation *info) {
+  int64_t parsed_value;
+  if (!arg || (strlen(arg) == 0)) {
+    info->max_iterations = DEFAULT_MAX_ITERATIONS;
+    return 1;
+  }
+  char *end = NULL;
+  parsed_value = strtoll(arg, &end, 10);
+  if ((*end != 0) || (parsed_value < 0)) {
+    printf("Invalid max iterations: %s\n", arg);
+    return 0;
+  }
+  info->max_iterations = (uint64_t) parsed_value;
+  return 1;
+}
+
 // Implements the Initialize() function required by the library interface.
 static void* Initialize(InitializationParameters *params) {
   ThreadInformation *info = NULL;
@@ -141,7 +161,13 @@ static void* Initialize(InitializationParameters *params) {
   // Set the block count based on thread_count and the image dimensions.
   info->block_count = (dimensions->w * dimensions->h) / params->thread_count;
   // In case the image isn't evenly divisible by the thread_count...
-  info->block_count++;
+  if (((dimensions->w * dimensions->h) % params->thread_count) != 0) {
+    info->block_count++;
+  }
+  if (!SetMaxIterations(params->additional_info, info)) {
+    Cleanup(info);
+    return NULL;
+  }
   // Allocate both host and device memory.
   if (!AllocateMemory(info)) {
     Cleanup(info);
@@ -182,7 +208,7 @@ static __device__ __inline__ uint64_t GlobalTimer64(void) {
 
 // A basic mandelbrot set calculator which sets each element in data to 1 if
 // the point escapes within the given number of iterations.
-static __global__ void BasicMandelbrot(uint8_t *data, int iterations,
+static __global__ void BasicMandelbrot(uint8_t *data, uint64_t iterations,
     FractalDimensions dimensions, uint64_t *kernel_times,
     uint64_t *block_times) {
   uint64_t start_time = GlobalTimer64();
@@ -208,7 +234,7 @@ static __global__ void BasicMandelbrot(uint8_t *data, int iterations,
     start_imag);
   uint8_t escaped = 0;
   double tmp;
-  int i;
+  uint64_t i;
   for (i = 0; i < iterations; i++) {
     if (magnitude_squared < 4) {
       tmp = (current_real * current_real) - (current_imag * current_imag) +
