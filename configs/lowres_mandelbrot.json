@@ -1,0 +1,16 @@
+{
+  "name": "64x64 mandelbrot set rendering",
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "benchmarks": [
+    {
+      "filename": "./bin/mandelbrot.so",
+      "log_name": "lowres_mandelbrot.json",
+      "thread_count": 1024,
+      "block_count": 4,
+      "data_size": 4096,
+      "additional_info": "1000000"
+    }
+  ]
+}

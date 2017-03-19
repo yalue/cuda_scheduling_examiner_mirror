@@ -209,7 +209,7 @@ def plot_scenario(benchmarks, name):
         if "release_time" in benchmark:
             draw_release_arrow(axes, benchmark["release_time"])
         axes.plot(timeline[0], timeline[1], c='k', lw=3)
-        label = "# threads,\n%d: %s" % (i + 1, benchmark["benchmark_name"])
+        label = "%d: %s" % (i + 1, benchmark["benchmark_name"])
         if "label" in benchmark:
             label = benchmark["label"]
         axes.set_ylabel("# threads,\n" + label)
