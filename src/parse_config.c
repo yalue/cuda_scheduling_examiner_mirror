@@ -333,17 +333,17 @@ GlobalConfiguration* ParseConfiguration(const char *filename) {
     printf("Failed allocating memory for result path.\n");
     goto ErrorCleanup;
   }
-  // The cycle_cpus setting defaults to 0 (false)
-  entry  = cJSON_GetObjectItem(root, "cycle_cpus");
+  // The pin_cpus setting defaults to 0 (false)
+  entry  = cJSON_GetObjectItem(root, "pin_cpus");
   if (entry) {
     tmp = entry->type;
     if ((tmp != cJSON_True) && (tmp != cJSON_False)) {
-      printf("Invalid cycle_cpus setting in config.\n");
+      printf("Invalid pin_cpus setting in config.\n");
       goto ErrorCleanup;
     }
-    to_return->cycle_cpus = tmp == cJSON_True;
+    to_return->pin_cpus = tmp == cJSON_True;
   } else {
-    to_return->cycle_cpus = 0;
+    to_return->pin_cpus = 0;
   }
   // Finally, parse the benchmark list. Ensure that we've obtained a valid JSON
   // array for the benchmarks before calling ParseBenchmarkList.

@@ -449,7 +449,7 @@ static ProcessConfig* CreateProcessConfigs(ParentState *parent_state) {
     new_list[i].parameters.additional_info = benchmark->additional_info;
     new_list[i].release_time = benchmark->release_time;
     // Either cycle through CPUs or use the per-benchmark CPU core.
-    if (config->cycle_cpus) {
+    if (config->pin_cpus) {
       new_list[i].cpu_core = current_cpu_core;
       current_cpu_core = CycleToNextCPU(cpu_count, current_cpu_core, &cpu_set);
     } else {

@@ -71,9 +71,9 @@ The layout of each configuration file is as follows:
   "base_result_directory": <String, defaulting to "./results". This is the
     directory into which individual JSON files from each benchmark will be
     written. It must already exist.>,
-  "cycle_cpus": <Boolean. Optional, defaults to false. If true, attempt to
-    evenly distribute benchmark threads across CPU cores. If true, individual
-    benchmark cpu_core settings are ignored.>,
+  "pin_cpus": <Boolean. Optional, defaults to false. If true, attempt to pin
+    benchmarks to CPU cores, evenly distributed across cores. If true,
+    individual benchmark cpu_core settings are ignored.>,
   "benchmarks": [
     {
       "filename": <String. Required. The path to the benchmark file, relative
@@ -100,7 +100,7 @@ The layout of each configuration file is as follows:
       "release_time": <Number. Optional. If set, this benchmark will sleep for
         the given number of seconds (between initialization and the start of
         the first iteration) before beginning execution.>,
-      "cpu_core": <Number. Optional. If specified, and cycle_cpus is false, the
+      "cpu_core": <Number. Optional. If specified, and pin_cpus is false, the
         system will attempt to pin this benchmark onto the given CPU core.>
     },
     {

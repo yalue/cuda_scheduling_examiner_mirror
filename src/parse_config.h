@@ -64,7 +64,7 @@ typedef struct {
   // If zero, CPU assignment is either handled by the system or taken from each
   // benchmark's cpu_core setting. If nonzero, benchmarks are distributed
   // evenly accrorss CPU cores.
-  int cycle_cpus;
+  int pin_cpus;
   // The number of entries in the benchmarks list. Must never be 0.
   int benchmark_count;
   // The list of benchmarks to run.
