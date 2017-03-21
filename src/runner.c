@@ -92,6 +92,17 @@ static double CurrentSeconds(void) {
   return ((double) ts.tv_sec) + (((double) ts.tv_nsec) / 1e9);
 }
 
+// Takes a number of seconds to sleep. Returns 0 on error. Does nothing if the
+// given amount of time is 0 or negative. Returns 1 on success.
+static int SleepSeconds(double seconds) {
+  if (seconds <= 0) return 1;
+  if (usleep(seconds * 1e6) < 0) {
+    printf("Failed sleeping %f seconds: %s\n", seconds, strerror(errno));
+    return 0;
+  }
+  return 1;
+}
+
 // Sets the CPU affinity for the calling process or thread. Returns 0 on error
 // and nonzero on success. Requires a pointer to a ProcessConfig to determine
 // whether the caller is a process or a thread. Does nothing if the process'
@@ -123,7 +134,6 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
   // times smaller in the logs, rather than very large numbers.
   uint64_t since_start;
   uint64_t i;
-  // TODO: Add underscores to these to make them consistent with other JSON
   if (fprintf(output, ",\n{\"kernel_times\": [") < 0) {
     return 0;
   }
@@ -299,10 +309,8 @@ static void* RunBenchmark(void *data) {
     printf("Failed writing metadata to log file.\n");
     return NULL;
   }
-  if (config->release_time > 0) {
-    // Convert the release time in seconds to microseconds.
-    usleep(config->release_time * 1e6);
-  }
+  // This function does nothing if the release time is 0 or lower.
+  if (!SleepSeconds(config->release_time)) return NULL;
   start_time = CurrentSeconds();
   while (1) {
     // Iterations and times are unlimited if they're zero.
@@ -622,7 +630,9 @@ int main(int argc, char **argv) {
   parent_state.max_resident_threads = GetMaxResidentThreads(
     global_config->cuda_device);
   if (parent_state.max_resident_threads == 0) {
-    printf("Couldn't get max resident GPU threads. Continuing anyway...\n");
+    printf("Error getting max number of resident threads.\n");
+    FreeGlobalConfiguration(global_config);
+    return 1;
   }
   // Next, create the structures that will be passed to each thread or process.
   process_configs = CreateProcessConfigs(&parent_state);
@@ -633,7 +643,10 @@ int main(int argc, char **argv) {
   parent_state.starting_gpu_clock = GetCurrentGPUNanoseconds(
     global_config->cuda_device);
   if (parent_state.starting_gpu_clock == 0) {
-    printf("Couldn't read initial GPU time. Continuing anyway...\n");
+    printf("Failed reading starting GPU clock.\n");
+    CleanupProcessConfigs(process_configs, global_config->benchmark_count);
+    FreeGlobalConfiguration(global_config);
+    return 1;
   }
   parent_state.starting_seconds = CurrentSeconds();
   // Finally, run the benchmarks in threads or processes

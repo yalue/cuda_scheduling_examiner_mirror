@@ -15,16 +15,6 @@ extern "C" {
 // call cudaSetDevice(...).
 uint64_t GetCurrentGPUNanoseconds(int cuda_device);
 
-// This invokes a kernel on the GPU with the given grid dimensions that spins
-// for the specified number of nanoseconds. This may be used, for example, to
-// "release" several other kernels at the same time, by blocking them until a
-// spinning kernel has completed. Returns 0 on error and nonzero on success.
-// This does *not* block, so an error could actually occur without it being
-// detected until the next CUDA call. Once again, cuda_device can be
-// USE_DEFAULT_DEVICE.
-int SpinGPU(int cuda_device, int thread_count, int block_count,
-    uint64_t nanoseconds);
-
 // Returns the maximum number of threads that can be sent to the GPU at once.
 // This will be equal to the number of warps per SM * the number of SMs * warp
 // size. Returns 0 on error.
