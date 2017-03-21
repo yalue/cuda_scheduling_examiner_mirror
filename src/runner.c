@@ -134,7 +134,6 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
   // times smaller in the logs, rather than very large numbers.
   uint64_t since_start;
   uint64_t i;
-  // TODO: Add underscores to these to make them consistent with other JSON
   if (fprintf(output, ",\n{\"kernel_times\": [") < 0) {
     return 0;
   }

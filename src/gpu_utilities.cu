@@ -1,6 +1,7 @@
 // This file contains the implementation of the functions defined in
 // gpu_utilities.h--used by runner.c to work with the GPU.
 #include <cuda_runtime.h>
+#include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -70,19 +71,25 @@ static uint64_t InternalReadGPUNanoseconds(int cuda_device) {
     return 0;
   }
   cudaFree(device_time);
-  return 1;
+  return host_time;
 }
 
 uint64_t GetCurrentGPUNanoseconds(int cuda_device) {
   uint64_t *shared_time = NULL;
   uint64_t to_return = 0;
-  int pid, status;
+  int status;
+  pid_t pid = -1;
   shared_time = (uint64_t *) AllocateSharedBuffer(sizeof(*shared_time));
   if (!shared_time) {
     printf("Failed allocating shared buffer for IPC.\n");
     return 0;
   }
   pid = fork();
+  if (pid < 0) {
+    printf("Failed creating a child process to get GPU time: %s\n", strerror(
+      errno));
+    return 0;
+  }
   if (pid == 0) {
     // The following CUDA code is run in the child process
     *shared_time = InternalReadGPUNanoseconds(cuda_device);
@@ -90,7 +97,7 @@ uint64_t GetCurrentGPUNanoseconds(int cuda_device) {
   }
   // The parent will wait for the child to finish, then return the value
   // written to the shared buffer.
-  if (waitpid(pid, &status, 1) < 0) {
+  if (wait(&status) < 0) {
     printf("Failed waiting on the child process.\n");
     FreeSharedBuffer(shared_time, sizeof(*shared_time));
     return 0;
@@ -117,7 +124,8 @@ static int InternalGetMaxResidentThreads(int cuda_device) {
 }
 
 int GetMaxResidentThreads(int cuda_device) {
-  int pid, status, to_return;
+  int to_return, status;
+  pid_t pid = -1;
   int *max_thread_count = NULL;
   max_thread_count = (int *) AllocateSharedBuffer(sizeof(*max_thread_count));
   if (!max_thread_count) {
@@ -125,6 +133,11 @@ int GetMaxResidentThreads(int cuda_device) {
     return 0;
   }
   pid = fork();
+  if (pid < 0) {
+    printf("Failed creating a child process to get thread count: %s\n",
+      strerror(errno));
+    return 0;
+  }
   if (pid == 0) {
     // The following CUDA code is run in the child process
     *max_thread_count = InternalGetMaxResidentThreads(cuda_device);
@@ -132,7 +145,7 @@ int GetMaxResidentThreads(int cuda_device) {
   }
   // The parent will wait for the child to finish, then return the value
   // written to the shared buffer.
-  if (waitpid(pid, &status, 1) < 0) {
+  if (wait(&status) < 0) {
     printf("Failed waiting on the child process.\n");
     FreeSharedBuffer(max_thread_count, sizeof(*max_thread_count));
     return 0;
