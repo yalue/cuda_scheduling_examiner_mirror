@@ -3,7 +3,7 @@
   "max_iterations": 1,
   "max_time": 0,
   "cuda_device": 0,
-  "cycle_cpus": true,
+  "pin_cpus": true,
   "benchmarks": [
     {
       "filename": "./bin/timer_spin.so",
