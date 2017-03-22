@@ -92,6 +92,72 @@ static uint8_t* GetConfigFileContent(const char *filename) {
   return raw_content;
 }
 
+// Returns 0 if any key in the given cJSON config isn't in the given list of
+// valid keys, and nonzero otherwise. The cJSON object must refer to the first
+// sibling.
+static int VerifyConfigKeys(cJSON *config, char **valid_keys,
+  int valid_keys_count) {
+  int i, found;
+  while (config != NULL) {
+    found = 0;
+    if (!config->string) {
+      printf("Found a setting without a name in the config.\n");
+      return 0;
+    }
+    for (i = 0; i < valid_keys_count; i++) {
+      if (strncmp(config->string, valid_keys[i], strlen(valid_keys[i])) == 0) {
+        found = 1;
+        break;
+      }
+    }
+    if (!found) {
+      printf("Unknown setting in config: %s\n", config->string);
+      return 0;
+    }
+    config = config->next;
+  }
+  return 1;
+}
+
+// Ensures that all JSON key names in global config are known. Returns 0 if an
+// unknown setting is found, and nonzero otherwise.
+static int VerifyGlobalConfigKeys(cJSON *main_config) {
+  int keys_count = 0;
+  char *valid_keys[] = {
+    "name",
+    "max_iterations",
+    "max_time",
+    "use_processes",
+    "cuda_device",
+    "base_result_directory",
+    "pin_cpus",
+    "benchmarks",
+  };
+  keys_count = sizeof(valid_keys) / sizeof(char*);
+  return VerifyConfigKeys(main_config, valid_keys, keys_count);
+}
+
+// Ensures that all JSON key names in a benchmark config are known. Returns 0
+// if an unknown setting is found, and nonzero otherwise.
+static int VerifyBenchmarkConfigKeys(cJSON *benchmark_config) {
+  int keys_count = 0;
+  char *valid_keys[] = {
+    "filename",
+    "log_name",
+    "label",
+    "thread_count",
+    "block_count",
+    "data_size",
+    "additional_info",
+    "max_iterations",
+    "max_time",
+    "release_time",
+    "cpu_core",
+  };
+  keys_count = sizeof(valid_keys) / sizeof(char*);
+  return VerifyConfigKeys(benchmark_config, valid_keys, keys_count);
+}
+
 // Parses the list of individaul benchmark settings, starting with the entry
 // given by list_start. The list_start entry must have already been valideated
 // when this is called. On error, this will return 0 and leave the config
@@ -120,6 +186,9 @@ static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
   // Next, traverse the array and fill in our parsed copy.
   current_benchmark = list_start;
   for (i = 0; i < benchmark_count; i++) {
+    if (!VerifyBenchmarkConfigKeys(current_benchmark->child)) {
+      goto ErrorCleanup;
+    }
     entry = cJSON_GetObjectItem(current_benchmark, "filename");
     if (!entry || (entry->type != cJSON_String)) {
       printf("Missing/invalid benchmark filename in the config file.\n");
@@ -267,6 +336,9 @@ GlobalConfiguration* ParseConfiguration(const char *filename) {
     free(raw_content);
     free(to_return);
     return NULL;
+  }
+  if (!VerifyGlobalConfigKeys(root->child)) {
+    goto ErrorCleanup;
   }
   // Begin reading the global settings values.
   entry = cJSON_GetObjectItem(root, "max_iterations");
