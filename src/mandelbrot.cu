@@ -138,10 +138,7 @@ static void* Initialize(InitializationParameters *params) {
     return NULL;
   }
   memset(info, 0, sizeof(*info));
-  // Set the device if necessary
-  if (params->cuda_device != USE_DEFAULT_DEVICE) {
-    if (!CheckCUDAError(cudaSetDevice(params->cuda_device))) return NULL;
-  }
+  if (!CheckCUDAError(cudaSetDevice(params->cuda_device))) return NULL;
   // Round the thread count up to a value evenly divisble by 32.
   if ((params->thread_count % WARP_SIZE) != 0) {
     params->thread_count += WARP_SIZE - (params->thread_count % WARP_SIZE);

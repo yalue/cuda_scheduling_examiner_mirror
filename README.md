@@ -66,8 +66,8 @@ The layout of each configuration file is as follows:
     to run each benchmark. 0 = unlimited.>,
   "use_processes": <Boolean, defaulting to false. If this is true, each
     benchmark is run in a separate process. Normally, they run as threads.>
-  "cuda_device": <Number. Optional. The default CUDA device to use for
-    benchmarks. If unset, benchmarks will not call cudaSetDevice by default.>,
+  "cuda_device": <Number. Required. The CUDA device to use for benchmarks to
+    use.>,
   "base_result_directory": <String, defaulting to "./results". This is the
     directory into which individual JSON files from each benchmark will be
     written. It must already exist.>,

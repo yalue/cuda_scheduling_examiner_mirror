@@ -5,8 +5,6 @@
 #define BENCHMARK_INTERFACE_H
 #include <stdint.h>
 
-#define USE_DEFAULT_DEVICE (-1)
-
 // The number of threads in a warp for CUDA devices. This should be 32 for all
 // relevant GPUs.
 #define WARP_SIZE (32)
@@ -34,9 +32,7 @@ typedef struct {
   // Contains an optional user-specified string which is taken from the
   // additional_info field in the benchmark's user-supplied JSON config.
   char *additional_info;
-  // The CUDA device ID to use. If this equals USE_DEFAULT_DEVICE, the library
-  // must *not* call cudaSetDevice, or attempt to associate with a particular
-  // device.
+  // The CUDA device ID to use.
   int cuda_device;
 } InitializationParameters;
 
