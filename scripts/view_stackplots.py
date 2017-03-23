@@ -5,6 +5,7 @@
 # Usage: python view_timeline.py [results directory (default: ./results)]
 import glob
 import json
+import math
 import matplotlib.pyplot as plot
 import sys
 
@@ -161,7 +162,7 @@ def get_total_timeline(benchmarks):
             total_counts[j] += data[i + 1][j]
     return [data[0], total_counts]
 
-def plot_scenario(benchmarks, name):
+def plot_scenario(benchmarks, name, ymax):
     """Takes a list of parsed benchmark results and a scenario name and
     generates a plot showing the timeline of benchmark behaviors for the
     specific scenario. Returns a matplotlib Figure object."""
@@ -170,6 +171,7 @@ def plot_scenario(benchmarks, name):
     axes.set_title(name)
     values = get_stackplot_values(benchmarks)
     axes.stackplot(*values)
+    plot.ylim([0, math.ceil(ymax / 2000.0) * 2000]) # round up to max for machine
     # TODO: Add labels of each individual benchmark instance, if a "label"
     # is available.
     return figure
@@ -190,7 +192,8 @@ def show_plots(filenames):
         scenarios[scenario].append(benchmark)
     figures = []
     for scenario in scenarios:
-        figures.append(plot_scenario(scenarios[scenario], scenario))
+        figures.append(plot_scenario(scenarios[scenario], scenario,
+                                     benchmark["max_resident_threads"]))
     plot.show()
 
 if __name__ == "__main__":
