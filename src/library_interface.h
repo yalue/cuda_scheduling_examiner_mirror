@@ -51,13 +51,16 @@ typedef struct {
   // contain corresponding end times.
   uint64_t *kernel_times;
   // The number of elements in block_times. May be 0 if no block times were
-  // recorded. Must be even. If this is nonzero, block_times will be freed by
-  // the caller of CopyFromGPU.
+  // recorded. Must be even. If this is nonzero, block_times and block_smids
+  // will be freed by the caller of CopyFromGPU.
   uint64_t block_times_count;
   // A buffer containing times for individual blocks. Even-numbered positions
   // contain start times for each block, and odd-numbered positions contain the
   // corresponding end times, in nanoseconds.
   uint64_t *block_times;
+  // A buffer containing the ID of the SM each block was run on. There should
+  // be block_times_count/2 elements.
+  uint32_t *block_smids;
   // This may be set to the host data buffer containing the results of GPU
   // processing (e.g. an output image). This should be set to NULL if the
   // benchmark doesn't use it. If non-NULL, the benchmark must ensure that this

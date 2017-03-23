@@ -43,6 +43,10 @@ typedef struct {
   // block from the most recent kernel to have completed.
   uint64_t *device_block_times;
   uint64_t *host_block_times;
+  // Holds host and device copies of the SM ID for each block from the most
+  // recent kernel to have completed.
+  uint32_t *device_block_smids;
+  uint32_t *host_block_smids;
   // The number of nanoseconds for which each CUDA thread should spin.
   uint64_t spin_duration;
   // Holds the grid dimension to use, set during initialization.
@@ -57,6 +61,8 @@ static void Cleanup(void *data) {
   if (state->device_kernel_times) cudaFree(state->device_kernel_times);
   if (state->device_block_times) cudaFree(state->device_block_times);
   if (state->host_block_times) free(state->host_block_times);
+  if (state->device_block_smids) cudaFree(state->device_block_smids);
+  if (state->host_block_smids) free(state->host_block_smids);
   if (state->stream_created) {
     // Call CheckCUDAError here to print a message, even though we won't check
     // the return value.
@@ -69,6 +75,7 @@ static void Cleanup(void *data) {
 // Allocates GPU and CPU memory. Returns 0 on error, 1 otherwise.
 static int AllocateMemory(BenchmarkState *state) {
   uint64_t block_times_size = state->block_count * sizeof(uint64_t) * 2;
+  uint64_t block_smids_size = state->block_count * sizeof(uint32_t);
   if (!CheckCUDAError(cudaMalloc(&(state->device_kernel_times),
     sizeof(state->host_kernel_times)))) {
     return 0;
@@ -79,6 +86,14 @@ static int AllocateMemory(BenchmarkState *state) {
   }
   state->host_block_times = (uint64_t *) malloc(block_times_size);
   if (!state->host_block_times) {
+    return 0;
+  }
+  if (!CheckCUDAError(cudaMalloc(&(state->device_block_smids),
+    block_smids_size))) {
+    return 0;
+  }
+  state->host_block_smids = (uint32_t *) malloc(block_smids_size);
+  if (!state->host_block_smids) {
     return 0;
   }
   return 1;
@@ -152,6 +167,14 @@ static int CopyIn(void *data) {
   return 1;
 }
 
+
+// Returns the ID of the SM this is executed on.
+static __device__ __inline__ uint32_t __smid() {
+  uint32_t to_return;
+  asm volatile("mov.u32 %0, %%smid;" : "=r"(to_return));
+  return to_return;
+}
+
 // Returns the value of CUDA's global nanosecond timer.
 static __device__ __inline__ uint64_t GlobalTimer64(void) {
   uint64_t to_return;
@@ -161,12 +184,13 @@ static __device__ __inline__ uint64_t GlobalTimer64(void) {
 
 // Spins in a loop until at least spin_duration nanoseconds have elapsed.
 static __global__ void GPUSpin(uint64_t spin_duration, uint64_t *kernel_times,
-    uint64_t *block_times) {
+    uint64_t *block_times, uint32_t *block_smids) {
   uint64_t start_time = GlobalTimer64();
   // First, record the kernel and block start times
   if (kernel_times[0] > start_time) kernel_times[0] = start_time;
   if (threadIdx.x == 0) {
     block_times[blockIdx.x * 2] = start_time;
+    block_smids[blockIdx.x] = __smid();
   }
   __syncthreads();
   // The actual spin loop--most of this kernel code is for recording block and
@@ -185,7 +209,7 @@ static int Execute(void *data) {
   BenchmarkState *state = (BenchmarkState *) data;
   GPUSpin<<<state->block_count, state->thread_count, 0, state->stream>>>(
     state->spin_duration, state->device_kernel_times,
-    state->device_block_times);
+    state->device_block_times, state->device_block_smids);
   if (!CheckCUDAError(cudaStreamSynchronize(state->stream))) return 0;
   return 1;
 }
@@ -193,6 +217,7 @@ static int Execute(void *data) {
 static int CopyOut(void *data, TimingInformation *times) {
   BenchmarkState *state = (BenchmarkState *) data;
   uint64_t block_times_count = state->block_count * 2;
+  uint64_t block_smids_count = state->block_count;
   memset(times, 0, sizeof(*times));
   if (!CheckCUDAError(cudaMemcpyAsync(state->host_kernel_times,
     state->device_kernel_times, sizeof(state->host_kernel_times),
@@ -204,11 +229,17 @@ static int CopyOut(void *data, TimingInformation *times) {
     cudaMemcpyDeviceToHost, state->stream))) {
     return 0;
   }
+  if (!CheckCUDAError(cudaMemcpyAsync(state->host_block_smids,
+    state->device_block_smids, block_smids_count * sizeof(uint32_t),
+    cudaMemcpyDeviceToHost, state->stream))) {
+    return 0;
+  }
   if (!CheckCUDAError(cudaStreamSynchronize(state->stream))) return 0;
   times->kernel_times_count = 2;
   times->kernel_times = state->host_kernel_times;
   times->block_times_count = block_times_count;
   times->block_times = state->host_block_times;
+  times->block_smids = state->host_block_smids;
   return 1;
 }
 

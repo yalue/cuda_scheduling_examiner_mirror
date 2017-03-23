@@ -155,7 +155,16 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
     }
   }
   // Finally, as a sanity check, output the CPU core on which we're running.
-  if (fprintf(output, "], \"cpu_core\": %d}\n", sched_getcpu()) < 0) return 0;
+  if (fprintf(output, "], \"cpu_core\": %d,\n", sched_getcpu()) < 0) return 0;
+  if (fprintf(output, "\"block_smids\": [") < 0) {
+    return 0;
+  }
+  for (i = 0; i < times->block_times_count / 2; i++) {
+    if (fprintf(output, "%d%s", times->block_smids[i],
+      (i != ((times->block_times_count / 2) - 1)) ? "," : "]}") < 0) {
+      return 0;
+    }
+  }
   fflush(output);
   return 1;
 }
