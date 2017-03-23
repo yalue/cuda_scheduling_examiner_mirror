@@ -9,7 +9,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include "library_interface.h"
 #include "gpu_utilities.h"
 
 // This macro takes a cudaError_t value. It prints an error message and returns
@@ -58,9 +57,7 @@ static void FreeSharedBuffer(void *buffer, size_t size) {
 static uint64_t InternalReadGPUNanoseconds(int cuda_device) {
   uint64_t *device_time = NULL;
   uint64_t host_time = 0;
-  if (cuda_device != USE_DEFAULT_DEVICE) {
-    if (!CheckCUDAError(cudaSetDevice(cuda_device))) return 0;
-  }
+  if (!CheckCUDAError(cudaSetDevice(cuda_device))) return 0;
   if (!CheckCUDAError(cudaMalloc(&device_time, sizeof(*device_time)))) {
     return 0;
   }

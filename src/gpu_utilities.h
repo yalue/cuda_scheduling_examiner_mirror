@@ -3,16 +3,13 @@
 #ifndef GPU_UTILITIES_H
 #define GPU_UTILITIES_H
 #include <stdint.h>
-#include "library_interface.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 // Returns the current value of the GPU's globaltimer64 register. Of course,
 // this will only be a rough value since there will also be overheads for
-// allocating and copying memory. Returns 0 on error. Setting
-// USE_DEFAULT_DEVICE (defined in library_interface.h) will cause this to not
-// call cudaSetDevice(...).
+// allocating and copying memory. Returns 0 on error.
 uint64_t GetCurrentGPUNanoseconds(int cuda_device);
 
 // Returns the maximum number of threads that can be sent to the GPU at once.

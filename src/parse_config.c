@@ -368,15 +368,11 @@ GlobalConfiguration* ParseConfiguration(const char *filename) {
     to_return->use_processes = DEFAULT_USE_PROCESSES;
   }
   entry = cJSON_GetObjectItem(root, "cuda_device");
-  if (entry) {
-    if (entry->type != cJSON_Number) {
-      printf("Invalid cuda_device number in config.\n");
-      goto ErrorCleanup;
-    }
-    to_return->cuda_device = entry->valueint;
-  } else {
-    to_return->cuda_device = USE_DEFAULT_DEVICE;
+  if (!entry || (entry->type != cJSON_Number)) {
+    printf("Missing/invalid cuda_device number in config.\n");
+    goto ErrorCleanup;
   }
+  to_return->cuda_device = entry->valueint;
   // Any string entries will be copied--we have to assume that freeing cJSON
   // and/or the raw_content will free them otherwise.
   entry = cJSON_GetObjectItem(root, "name");
