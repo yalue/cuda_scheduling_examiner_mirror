@@ -169,7 +169,7 @@ static int CopyIn(void *data) {
 
 
 // Returns the ID of the SM this is executed on.
-static __device__ __inline__ uint32_t __smid() {
+static __device__ __inline__ uint32_t GetSMID(void) {
   uint32_t to_return;
   asm volatile("mov.u32 %0, %%smid;" : "=r"(to_return));
   return to_return;
@@ -190,7 +190,7 @@ static __global__ void GPUSpin(uint64_t spin_duration, uint64_t *kernel_times,
   if (kernel_times[0] > start_time) kernel_times[0] = start_time;
   if (threadIdx.x == 0) {
     block_times[blockIdx.x * 2] = start_time;
-    block_smids[blockIdx.x] = __smid();
+    block_smids[blockIdx.x] = GetSMID();
   }
   __syncthreads();
   // The actual spin loop--most of this kernel code is for recording block and

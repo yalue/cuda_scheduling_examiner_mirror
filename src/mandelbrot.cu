@@ -212,7 +212,7 @@ static int CopyIn(void *data) {
 }
 
 // Returns the ID of the SM this is executed on.
-static __device__ __inline__ uint32_t __smid() {
+static __device__ __inline__ uint32_t GetSMID(void) {
   uint32_t to_return;
   asm volatile("mov.u32 %0, %%smid;" : "=r"(to_return));
   return to_return;
@@ -235,7 +235,7 @@ static __global__ void BasicMandelbrot(uint8_t *data, uint64_t iterations,
   if (kernel_times[0] > start_time) kernel_times[0] = start_time;
   if (threadIdx.x == 0) {
     block_times[blockIdx.x * 2] = start_time;
-    block_smids[blockIdx.x] = __smid();
+    block_smids[blockIdx.x] = GetSMID();
   }
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   int row = index / dimensions.w;
