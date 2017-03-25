@@ -62,6 +62,9 @@ typedef struct {
   // Holds a start and stop time for each block, as measured on the device.
   uint64_t *device_block_times;
   uint64_t *host_block_times;
+  // Holds the ID of the SM for each block, checked once the kernel executes.
+  uint32_t *device_block_smids;
+  uint32_t *host_block_smids;
   // The grid dimensions for the CUDA program, set during Initialize to a value
   // based on the thread_count specified by the caller. The caller-specified
   // block_count is ignored--instead the number of needed blocks is decided by
@@ -77,6 +80,8 @@ static void Cleanup(void *data) {
   if (info->device_points) cudaFree(info->device_points);
   if (info->device_block_times) cudaFree(info->device_block_times);
   if (info->host_block_times) free(info->host_block_times);
+  if (info->device_block_smids) cudaFree(info->device_block_smids);
+  if (info->host_block_smids) free(info->host_block_smids);
   if (info->device_kernel_times) cudaFree(info->device_kernel_times);
   if (info->stream_created) {
     // Call CheckCUDAError here to print a message, even though we won't check
@@ -91,6 +96,7 @@ static void Cleanup(void *data) {
 static int AllocateMemory(ThreadInformation *info) {
   uint64_t buffer_size = info->dimensions.w * info->dimensions.h;
   uint64_t block_times_size = info->block_count * sizeof(uint64_t) * 2;
+  uint64_t block_smids_size = info->block_count * sizeof(uint32_t);
   if (!CheckCUDAError(cudaMalloc(&(info->device_points), buffer_size))) {
     return 0;
   }
@@ -106,6 +112,12 @@ static int AllocateMemory(ThreadInformation *info) {
   }
   info->host_block_times = (uint64_t *) malloc(block_times_size);
   if (!info->host_block_times) return 0;
+  if (!CheckCUDAError(cudaMalloc(&(info->device_block_smids),
+    block_smids_size))) {
+    return 0;
+  }
+  info->host_block_smids = (uint32_t *) malloc(block_smids_size);
+  if (!info->host_block_smids) return 0;
   return 1;
 }
 
@@ -196,6 +208,13 @@ static int CopyIn(void *data) {
   return 1;
 }
 
+// Returns the ID of the SM this is executed on.
+static __device__ __inline__ uint32_t GetSMID(void) {
+  uint32_t to_return;
+  asm volatile("mov.u32 %0, %%smid;" : "=r"(to_return));
+  return to_return;
+}
+
 // Returns the value of CUDA's global nanosecond timer.
 static __device__ __inline__ uint64_t GlobalTimer64(void) {
   uint64_t to_return;
@@ -207,12 +226,13 @@ static __device__ __inline__ uint64_t GlobalTimer64(void) {
 // the point escapes within the given number of iterations.
 static __global__ void BasicMandelbrot(uint8_t *data, uint64_t iterations,
     FractalDimensions dimensions, uint64_t *kernel_times,
-    uint64_t *block_times) {
+    uint64_t *block_times, uint32_t *block_smids) {
   uint64_t start_time = GlobalTimer64();
   // Record kernel and block start times.
   if (kernel_times[0] > start_time) kernel_times[0] = start_time;
   if (threadIdx.x == 0) {
     block_times[blockIdx.x * 2] = start_time;
+    block_smids[blockIdx.x] = GetSMID();
   }
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   int row = index / dimensions.w;
@@ -257,7 +277,7 @@ static int Execute(void *data) {
   ThreadInformation *info = (ThreadInformation *) data;
   BasicMandelbrot<<<info->block_count, info->thread_count, 0, info->stream>>>(
     info->device_points, info->max_iterations, info->dimensions,
-    info->device_kernel_times, info->device_block_times);
+    info->device_kernel_times, info->device_block_times, info->device_block_smids);
   if (!CheckCUDAError(cudaStreamSynchronize(info->stream))) return 0;
   return 1;
 }
@@ -265,6 +285,7 @@ static int Execute(void *data) {
 static int CopyOut(void *data, TimingInformation *times) {
   ThreadInformation *info = (ThreadInformation *) data;
   uint64_t block_times_count = info->block_count * 2;
+  uint64_t block_smids_count = info->block_count;
   uint64_t points_size = info->dimensions.w * info->dimensions.h;
   memset(times, 0, sizeof(*times));
   if (!CheckCUDAError(cudaMemcpyAsync(info->host_kernel_times,
@@ -277,6 +298,11 @@ static int CopyOut(void *data, TimingInformation *times) {
     cudaMemcpyDeviceToHost, info->stream))) {
     return 0;
   }
+  if (!CheckCUDAError(cudaMemcpyAsync(info->host_block_smids,
+    info->device_block_smids, block_smids_count * sizeof(uint32_t),
+    cudaMemcpyDeviceToHost, info->stream))) {
+    return 0;
+  }
   if (!CheckCUDAError(cudaMemcpyAsync(info->host_points, info->device_points,
     points_size, cudaMemcpyDeviceToHost, info->stream))) {
     return 0;
@@ -286,6 +312,7 @@ static int CopyOut(void *data, TimingInformation *times) {
   times->kernel_times = info->host_kernel_times;
   times->block_times_count = block_times_count;
   times->block_times = info->host_block_times;
+  times->block_smids = info->host_block_smids;
   times->resulting_data_size = points_size;
   times->resulting_data = info->host_points;
   return 1;
