@@ -107,6 +107,9 @@ class BlockSMDisplay():
 
         self.benchmark = benchmark
 
+        if len(benchmark.kernels) > 0:
+            self.numSms = self.benchmark.kernels[0].maxResidentThreads / 2048
+
         print "Start time:", self.firstTime
         print "End time:", self.totalTime + self.firstTime
         print "total time:", self.totalTime
@@ -115,8 +118,7 @@ class BlockSMDisplay():
         if len(self.benchmark.kernels) == 0: return
         
         # Draw each kernel
-        numSms = self.benchmark.kernels[0].maxResidentThreads / 2048
-        smBase = [[] for j in range(numSms)]
+        smBase = [[] for j in range(self.numSms)]
         for i in range(len(self.benchmark.kernels)):
             color = idToColorMap[i]
             self.draw_kernel(self.benchmark.kernels[i], color, i, smBase)
@@ -126,15 +128,14 @@ class BlockSMDisplay():
 
     def draw_kernel(self, kernel, color, i, smBase):
         # Draw each block of the kernel
-        numSms = kernel.maxResidentThreads / 2048
         for block in kernel.blocks:
             # Calculate competing threadcount
             otherThreads = 0
             for interval in smBase[block.sm]:
                 if interval[0] < block.end and interval[1] > block.start:
-                    otherThreads += interval[2]
+                    otherThreads = max(otherThreads, interval[2])
 
-            br = BlockSMRect(block, self.firstTime, self.totalTime, numSms,
+            br = BlockSMRect(block, self.firstTime, self.totalTime, self.numSms,
                              self.width, self.height, color, otherThreads)
 
             br.draw(self.canvas)
