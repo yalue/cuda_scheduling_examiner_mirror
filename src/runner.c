@@ -81,94 +81,6 @@ static pid_t GetThreadID(void) {
   return to_return;
 }
 
-// Returns the current system time in seconds. Exits if an error occurs while
-// getting the time.
-static double CurrentSeconds(void) {
-  struct timespec ts;
-  if (clock_gettime(CLOCK_REALTIME, &ts) != 0) {
-    printf("Error getting time.\n");
-    exit(1);
-  }
-  return ((double) ts.tv_sec) + (((double) ts.tv_nsec) / 1e9);
-}
-
-// Takes a number of seconds to sleep. Returns 0 on error. Does nothing if the
-// given amount of time is 0 or negative. Returns 1 on success.
-static int SleepSeconds(double seconds) {
-  if (seconds <= 0) return 1;
-  if (usleep(seconds * 1e6) < 0) {
-    printf("Failed sleeping %f seconds: %s\n", seconds, strerror(errno));
-    return 0;
-  }
-  return 1;
-}
-
-// Sets the CPU affinity for the calling process or thread. Returns 0 on error
-// and nonzero on success. Requires a pointer to a ProcessConfig to determine
-// whether the caller is a process or a thread. Does nothing if the process'
-// cpu_core is set to USE_DEFAULT_CPU_CORE.
-static int SetCPUAffinity(ProcessConfig *config) {
-  cpu_set_t cpu_set;
-  int result;
-  int cpu_core = config->cpu_core;
-  if (config->cpu_core == USE_DEFAULT_CPU_CORE) return 1;
-  CPU_ZERO(&cpu_set);
-  CPU_SET(cpu_core, &cpu_set);
-  // Different functions are used for setting threads' and process' CPU
-  // affinities.
-  if (config->parent_state->global_config->use_processes) {
-    result = sched_setaffinity(0, sizeof(cpu_set), &cpu_set);
-  } else {
-    result = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set), &cpu_set);
-  }
-  return result == 0;
-}
-
-// Formats the given timing information as a JSON object and appends it to the
-// output file. Returns 0 on error and 1 on success. Times will be written in a
-// floatig-point number of *seconds*, even though they are recorded in ns. This
-// code should not be included in benchmark timing measurements.
-static int WriteTimesToOutput(FILE *output, TimingInformation *times,
-    uint64_t base_nanoseconds) {
-  // Times are printed relative to the program start time in order to make the
-  // times smaller in the logs, rather than very large numbers.
-  uint64_t since_start;
-  uint64_t i;
-  if (fprintf(output, ",\n{\"kernel_times\": [") < 0) {
-    return 0;
-  }
-  for (i = 0; i < times->kernel_times_count; i++) {
-    since_start = times->kernel_times[i] - base_nanoseconds;
-    if (fprintf(output, "%f%s", (double) since_start / 1e9,
-      (i != (times->kernel_times_count - 1)) ? "," : "") < 0) {
-      return 0;
-    }
-  }
-  if (fprintf(output, "], \"block_times\": [") < 0) {
-    return 0;
-  }
-  for (i = 0; i < times->block_times_count; i++) {
-    since_start = times->block_times[i] - base_nanoseconds;
-    if (fprintf(output, "%f%s", (double) since_start / 1e9,
-      (i != (times->block_times_count - 1)) ? "," : "") < 0) {
-      return 0;
-    }
-  }
-  // Finally, as a sanity check, output the CPU core on which we're running.
-  if (fprintf(output, "], \"cpu_core\": %d,\n", sched_getcpu()) < 0) return 0;
-  if (fprintf(output, "\"block_smids\": [") < 0) {
-    return 0;
-  }
-  for (i = 0; i < times->block_times_count / 2; i++) {
-    if (fprintf(output, "%d%s", times->block_smids[i],
-      (i != ((times->block_times_count / 2) - 1)) ? "," : "]}") < 0) {
-      return 0;
-    }
-  }
-  fflush(output);
-  return 1;
-}
-
 // Takes a standard string and fills the output buffer with a null-terminated
 // string with JSON-unsafe values properly escaped.
 static void SanitizeJSONString(const char *input, char *output,
@@ -231,6 +143,126 @@ static void SanitizeJSONString(const char *input, char *output,
     input++;
     output_index++;
   }
+}
+
+// Returns the current system time in seconds. Exits if an error occurs while
+// getting the time.
+static double CurrentSeconds(void) {
+  struct timespec ts;
+  if (clock_gettime(CLOCK_REALTIME, &ts) != 0) {
+    printf("Error getting time.\n");
+    exit(1);
+  }
+  return ((double) ts.tv_sec) + (((double) ts.tv_nsec) / 1e9);
+}
+
+// Takes a number of seconds to sleep. Returns 0 on error. Does nothing if the
+// given amount of time is 0 or negative. Returns 1 on success.
+static int SleepSeconds(double seconds) {
+  if (seconds <= 0) return 1;
+  if (usleep(seconds * 1e6) < 0) {
+    printf("Failed sleeping %f seconds: %s\n", seconds, strerror(errno));
+    return 0;
+  }
+  return 1;
+}
+
+// Sets the CPU affinity for the calling process or thread. Returns 0 on error
+// and nonzero on success. Requires a pointer to a ProcessConfig to determine
+// whether the caller is a process or a thread. Does nothing if the process'
+// cpu_core is set to USE_DEFAULT_CPU_CORE.
+static int SetCPUAffinity(ProcessConfig *config) {
+  cpu_set_t cpu_set;
+  int result;
+  int cpu_core = config->cpu_core;
+  if (config->cpu_core == USE_DEFAULT_CPU_CORE) return 1;
+  CPU_ZERO(&cpu_set);
+  CPU_SET(cpu_core, &cpu_set);
+  // Different functions are used for setting threads' and process' CPU
+  // affinities.
+  if (config->parent_state->global_config->use_processes) {
+    result = sched_setaffinity(0, sizeof(cpu_set), &cpu_set);
+  } else {
+    result = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set), &cpu_set);
+  }
+  return result == 0;
+}
+
+// Formats the given timing information as a JSON object and appends it to the
+// output file. Returns 0 on error and 1 on success. Times will be written in a
+// floatig-point number of *seconds*, even though they are recorded in ns. This
+// code should not be included in benchmark timing measurements.
+static int WriteTimesToOutput(FILE *output, TimingInformation *times,
+    uint64_t base_nanoseconds) {
+  // Times are printed relative to the program start time in order to make the
+  // times smaller in the logs, rather than very large numbers.
+  uint64_t since_start;
+  int i, j, block_time_count;
+  char sanitized_name[SANITIZE_JSON_BUFFER_SIZE];
+  KernelTimes *kernel_times = NULL;
+
+  // Iterate over each kernel invocation
+  for (i = 0; i < times->kernel_count; i++) {
+    kernel_times = times->kernel_info + i;
+    // Print the metadata for this kernel, starting with the kernel name. The
+    // name is user-defined and must be sanitized for JSON output.
+    sanitized_name[sizeof(sanitized_name) - 1] = 0;
+    SanitizeJSONString(kernel_times->kernel_name, sanitized_name,
+      sizeof(sanitized_name));
+    if (fprintf(output, ",\n{\"kernel_name\": \"%s\"", sanitized_name) < 0) {
+      return 0;
+    }
+    // Next, print this kernel's thread and block count.
+    if (fprintf(output, ", \"block_count\": %d, \"thread_count\": %d",
+      kernel_times->block_count, kernel_times->thread_count) < 0) {
+      return 0;
+    }
+    // Print the kernel times for this kernel.
+    if (fprintf(output, ", \"kernel_times\": [") < 0) {
+      return 0;
+    }
+    // The kernel start time
+    since_start = kernel_times->kernel_times[0] - base_nanoseconds;
+    if (fprintf(output, "%f, ", (double) since_start / 1e9) < 0) {
+      return 0;
+    }
+    // The kernel end time.
+    since_start = kernel_times->kernel_times[1] - base_nanoseconds;
+    if (fprintf(output, "%f]", (double) since_start / 1e9) < 0) {
+      return 0;
+    }
+    // Next, print all block times
+    if (fprintf(output, ", \"block_times\": [") < 0) {
+      return 0;
+    }
+    block_time_count = kernel_times->block_count * 2;
+    for (j = 0; j < block_time_count; j++) {
+      since_start = kernel_times->block_times[j] - base_nanoseconds;
+      // Print a comma after every block time except the last one.
+      if (fprintf(output, "%f%s", (double) since_start / 1e9,
+        j != (block_time_count - 1) ? "," : "") < 0) {
+        return 0;
+      }
+    }
+    // Next, print the SMID for each block.
+    if (fprintf(output, "], \"block_smids\": [") < 0) {
+      return 0;
+    }
+    for (j = 0; j < kernel_times->block_count; j++) {
+      // Once again, don't print a comma after the last block SMID.
+      if (fprintf(output, "%u%s", (unsigned) kernel_times->block_smids[j],
+        j != (kernel_times->block_count - 1) ? "," : "") < 0) {
+        return 0;
+      }
+    }
+    // We're done printing information about this kernel, print the CPU core as
+    // a sanity check.
+    if (fprintf(output, "], \"cpu_core\": %d}", sched_getcpu()) < 0) {
+      return 0;
+    }
+  }
+  fflush(output);
+  return 1;
 }
 
 // Writes a block of metadata entries to the output JSON file. Returns 0 on
@@ -355,7 +387,7 @@ static void* RunBenchmark(void *data) {
     printf("Failed writing footer to output file.\n");
     return NULL;
   }
-  return ((void *) 1);
+  return (void *) 1;
 }
 
 // Allocates and returns a string containing the path to the benchmark's log

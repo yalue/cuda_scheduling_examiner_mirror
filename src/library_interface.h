@@ -36,27 +36,36 @@ typedef struct {
   int cuda_device;
 } InitializationParameters;
 
-// Holds the measurements obtained during a single iteration of the benchmark,
-// such as timing information.
+// Holds times and metadata about a single kernel's execution in a benchmark
+// iteration.
 typedef struct {
-  // The number of elements in kernel_times. May be 0 if no kernel times were
-  // recorded. Must be even.
-  uint64_t kernel_times_count;
-  // A buffer containing the start and end times, in nanoseconds, for each
-  // kernel. Even-numbered positions contain start times, and odd positions
-  // contain corresponding end times.
-  uint64_t *kernel_times;
-  // The number of elements in block_times. May be 0 if no block times were
-  // recorded. Must be even. If this is nonzero, block_times and block_smids
-  // will be freed by the caller of CopyFromGPU.
-  uint64_t block_times_count;
-  // A buffer containing times for individual blocks. Even-numbered positions
-  // contain start times for each block, and odd-numbered positions contain the
-  // corresponding end times, in nanoseconds.
+  // The name of this kernel. May be NULL, in which case this field should be
+  // ignored.
+  const char *kernel_name;
+  // The total number of threads per block used by this kernel.
+  int thread_count;
+  // The number of blocks run by this kernel.
+  int block_count;
+  // The start and end time, in nanoseconds, of this kernel.
+  uint64_t kernel_times[2];
+  // The start and end times for each individual block. Even-numbered positions
+  // contain start times and odd positions end times, in nanoseconds. This will
+  // contain block_count * 2 entries.
   uint64_t *block_times;
-  // A buffer containing the ID of the SM each block was run on. There should
-  // be block_times_count/2 elements.
+  // This contains the SM ID on which each block was run. This contains
+  // block_count entries.
   uint32_t *block_smids;
+} KernelTimes;
+
+// Holds the measurements obtained during a single iteration of the benchmark,
+// such as timing information. Any pointers in this struct must not be freed by
+// the caller, and remain valid at least until another function in
+// BenchmarkLibraryFunctions is called.
+typedef struct {
+  // The number of kernels run by the benchmark.
+  int kernel_count;
+  // This will be an array containing one kernel_times entry per kernel.
+  KernelTimes *kernel_info;
   // This may be set to the host data buffer containing the results of GPU
   // processing (e.g. an output image). This should be set to NULL if the
   // benchmark doesn't use it. If non-NULL, the benchmark must ensure that this

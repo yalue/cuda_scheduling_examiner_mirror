@@ -58,31 +58,33 @@ typedef struct {
   // Holds 2 64-bit elements: the start and stop times of the kernel, as
   // measured on the device.
   uint64_t *device_kernel_times;
-  uint64_t host_kernel_times[2];
   // Holds a start and stop time for each block, as measured on the device.
   uint64_t *device_block_times;
-  uint64_t *host_block_times;
   // Holds the ID of the SM for each block, checked once the kernel executes.
   uint32_t *device_block_smids;
-  uint32_t *host_block_smids;
   // The grid dimensions for the CUDA program, set during Initialize to a value
   // based on the thread_count specified by the caller. The caller-specified
   // block_count is ignored--instead the number of needed blocks is decided by
   // the data_size field, which determines the size of the image.
   int block_count;
   int thread_count;
+  // Holds host-side times that are shared with the calling process.
+  KernelTimes mandelbrot_kernel_times;
 } ThreadInformation;
 
 // Implements the Cleanup() function required by the library interface.
 static void Cleanup(void *data) {
   ThreadInformation *info = (ThreadInformation *) data;
-  if (info->host_points) free(info->host_points);
+  KernelTimes *host_times = &info->mandelbrot_kernel_times;
+  // Device memory
   if (info->device_points) cudaFree(info->device_points);
   if (info->device_block_times) cudaFree(info->device_block_times);
-  if (info->host_block_times) free(info->host_block_times);
   if (info->device_block_smids) cudaFree(info->device_block_smids);
-  if (info->host_block_smids) free(info->host_block_smids);
   if (info->device_kernel_times) cudaFree(info->device_kernel_times);
+  // Host memory
+  if (info->host_points) cudaFreeHost(info->host_points);
+  if (host_times->block_times) cudaFreeHost(host_times->block_times);
+  if (host_times->block_smids) cudaFreeHost(host_times->block_smids);
   if (info->stream_created) {
     // Call CheckCUDAError here to print a message, even though we won't check
     // the return value.
@@ -97,27 +99,35 @@ static int AllocateMemory(ThreadInformation *info) {
   uint64_t buffer_size = info->dimensions.w * info->dimensions.h;
   uint64_t block_times_size = info->block_count * sizeof(uint64_t) * 2;
   uint64_t block_smids_size = info->block_count * sizeof(uint32_t);
-  if (!CheckCUDAError(cudaMalloc(&(info->device_points), buffer_size))) {
+  KernelTimes *mandelbrot_kernel_times = &info->mandelbrot_kernel_times;
+  // Allocate device memory
+  if (!CheckCUDAError(cudaMalloc(&info->device_points, buffer_size))) {
     return 0;
   }
-  info->host_points = (uint8_t *) malloc(buffer_size);
-  if (!info->host_points) return 0;
-  if (!CheckCUDAError(cudaMalloc(&(info->device_kernel_times),
-    sizeof(info->host_kernel_times)))) {
+  if (!CheckCUDAError(cudaMalloc(&info->device_kernel_times,
+    sizeof(info->mandelbrot_kernel_times.kernel_times)))) {
     return 0;
   }
-  if (!CheckCUDAError(cudaMalloc(&(info->device_block_times),
+  if (!CheckCUDAError(cudaMalloc(&info->device_block_times,
     block_times_size))) {
     return 0;
   }
-  info->host_block_times = (uint64_t *) malloc(block_times_size);
-  if (!info->host_block_times) return 0;
-  if (!CheckCUDAError(cudaMalloc(&(info->device_block_smids),
+  if (!CheckCUDAError(cudaMalloc(&info->device_block_smids,
     block_smids_size))) {
     return 0;
   }
-  info->host_block_smids = (uint32_t *) malloc(block_smids_size);
-  if (!info->host_block_smids) return 0;
+  // Allocate host memory
+  if (!CheckCUDAError(cudaMallocHost(&info->host_points, buffer_size))) {
+    return 0;
+  }
+  if (!CheckCUDAError(cudaMallocHost(&mandelbrot_kernel_times->block_times,
+    block_times_size))) {
+    return 0;
+  }
+  if (!CheckCUDAError(cudaMallocHost(&mandelbrot_kernel_times->block_smids,
+    block_smids_size))) {
+    return 0;
+  }
   return 1;
 }
 
@@ -190,21 +200,8 @@ static void* Initialize(InitializationParameters *params) {
   return info;
 }
 
-// This function only exists because the idiom for detecting the kernel start
-// time requires initializing the start kernel time value on the device to the
-// maximum possible 64-bit value.
+// Nothing needs to be copied in, so this function does nothing.
 static int CopyIn(void *data) {
-  ThreadInformation *info = (ThreadInformation *) data;
-  // Set the start kernel time to the maximum value and the end kernel time to
-  // 0.
-  memset(info->host_kernel_times, 0, sizeof(info->host_kernel_times));
-  info->host_kernel_times[0]--;
-  if (!CheckCUDAError(cudaMemcpyAsync(info->device_kernel_times,
-    info->host_kernel_times, sizeof(info->host_kernel_times),
-    cudaMemcpyHostToDevice, info->stream))) {
-    return 0;
-  }
-  if (!CheckCUDAError(cudaStreamSynchronize(info->stream))) return 0;
   return 1;
 }
 
@@ -228,9 +225,8 @@ static __global__ void BasicMandelbrot(uint8_t *data, uint64_t iterations,
     FractalDimensions dimensions, uint64_t *kernel_times,
     uint64_t *block_times, uint32_t *block_smids) {
   uint64_t start_time = GlobalTimer64();
-  // Record kernel and block start times.
-  if (kernel_times[0] > start_time) kernel_times[0] = start_time;
   if (threadIdx.x == 0) {
+    if (blockIdx.x == 0) kernel_times[0] = start_time;
     block_times[blockIdx.x * 2] = start_time;
     block_smids[blockIdx.x] = GetSMID();
   }
@@ -284,21 +280,25 @@ static int Execute(void *data) {
 
 static int CopyOut(void *data, TimingInformation *times) {
   ThreadInformation *info = (ThreadInformation *) data;
+  KernelTimes *host_times = &info->mandelbrot_kernel_times;
   uint64_t block_times_count = info->block_count * 2;
   uint64_t block_smids_count = info->block_count;
   uint64_t points_size = info->dimensions.w * info->dimensions.h;
   memset(times, 0, sizeof(*times));
-  if (!CheckCUDAError(cudaMemcpyAsync(info->host_kernel_times,
-    info->device_kernel_times, sizeof(info->host_kernel_times),
+  host_times->block_count = info->block_count;
+  host_times->thread_count = info->thread_count;
+  host_times->kernel_name = "BasicMandelbrot";
+  if (!CheckCUDAError(cudaMemcpyAsync(host_times->kernel_times,
+    info->device_kernel_times, sizeof(host_times->kernel_times),
     cudaMemcpyDeviceToHost, info->stream))) {
     return 0;
   }
-  if (!CheckCUDAError(cudaMemcpyAsync(info->host_block_times,
+  if (!CheckCUDAError(cudaMemcpyAsync(host_times->block_times,
     info->device_block_times, block_times_count * sizeof(uint64_t),
     cudaMemcpyDeviceToHost, info->stream))) {
     return 0;
   }
-  if (!CheckCUDAError(cudaMemcpyAsync(info->host_block_smids,
+  if (!CheckCUDAError(cudaMemcpyAsync(host_times->block_smids,
     info->device_block_smids, block_smids_count * sizeof(uint32_t),
     cudaMemcpyDeviceToHost, info->stream))) {
     return 0;
@@ -307,14 +307,11 @@ static int CopyOut(void *data, TimingInformation *times) {
     points_size, cudaMemcpyDeviceToHost, info->stream))) {
     return 0;
   }
-  if (!CheckCUDAError(cudaStreamSynchronize(info->stream))) return 0;
-  times->kernel_times_count = 2;
-  times->kernel_times = info->host_kernel_times;
-  times->block_times_count = block_times_count;
-  times->block_times = info->host_block_times;
-  times->block_smids = info->host_block_smids;
+  times->kernel_count = 1;
+  times->kernel_info = host_times;
   times->resulting_data_size = points_size;
   times->resulting_data = info->host_points;
+  if (!CheckCUDAError(cudaStreamSynchronize(info->stream))) return 0;
   return 1;
 }
 
