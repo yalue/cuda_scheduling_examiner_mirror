@@ -134,8 +134,12 @@ floating-point numbers of seconds. The format of the log file is:
   "times": [
     {},
     {
+      "kernel_name": <The name of this particular kernel. May be omitted.>,
+      "block_count": <The actual number of blocks in this kernel invocation.>,
+      "thread_count": <The number of threads per block in this invocation.>,
       "kernel_times": [<start time>, <end time>, ...],
       "block_times": [<start time>, <end time>, ...],
+      "block_smids": [<block 0 SMID>, <block 1 SMID>, ...],
       "cpu_core": <the current CPU core being used>,
     },
     ...
@@ -160,6 +164,16 @@ instance of each benchmark is run at a time, but this will never be a
 limitation of the default benchmarks included in this project. All benchmarks
 must use a user-created CUDA stream in order to avoid unnecessarily blocking
 each other.
+
+The most important piece of information that each benchmark provides is the
+`TimingInformation` struct, filled in during the `copy_out` function of each
+benchmark. This struct will contain a list of `KernelTimes` structs, one for
+each kernel invocation called during `execute`. Each `KernelTimes` struct will
+contain the kernel start and end times, individual block start and end times,
+and a list of the SM IDs to which blocks were assigned. The benchmark is
+responsible for ensuring that the buffers provided in the TimingInformation
+struct remain valid at least until another benchmark function is called. They
+will not be freed by the caller.
 
 In general, the comments in `library_interface.h` provide an explanation for
 the actions that every library-provided function is expected to carry out.

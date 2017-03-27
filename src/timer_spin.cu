@@ -35,34 +35,33 @@ typedef struct {
   // useful because it allows us to unconditionally call Cleanup on error
   // without needing to worry about calling cudaStreamDestroy twice.
   int stream_created;
-  // Holds host and device copies of the start and end times of the most recent
-  // kernel to have completed.
+  // Holds the device copy of the overall start and end time of the kernel.
   uint64_t *device_kernel_times;
-  uint64_t host_kernel_times[2];
-  // Holds host and device copies of the start and end times of each thread
-  // block from the most recent kernel to have completed.
+  // Holds the device copy of the start and end times of each block.
   uint64_t *device_block_times;
-  uint64_t *host_block_times;
-  // Holds host and device copies of the SM ID for each block from the most
-  // recent kernel to have completed.
+  // Holds the device copy of the SMID each block was assigned to.
   uint32_t *device_block_smids;
-  uint32_t *host_block_smids;
   // The number of nanoseconds for which each CUDA thread should spin.
   uint64_t spin_duration;
   // Holds the grid dimension to use, set during initialization.
   int block_count;
   int thread_count;
+  // Holds host-side times that are shared with the calling process.
+  KernelTimes spin_kernel_times;
 } BenchmarkState;
 
 // Implements the cleanup function required by the library interface, but is
 // also called internally (only during Initialize()) to clean up after errors.
 static void Cleanup(void *data) {
   BenchmarkState *state = (BenchmarkState *) data;
+  KernelTimes *host_times = &state->spin_kernel_times;
+  // Free device memory.
   if (state->device_kernel_times) cudaFree(state->device_kernel_times);
   if (state->device_block_times) cudaFree(state->device_block_times);
-  if (state->host_block_times) free(state->host_block_times);
   if (state->device_block_smids) cudaFree(state->device_block_smids);
-  if (state->host_block_smids) free(state->host_block_smids);
+  // Free host memory.
+  if (host_times->block_times) cudaFreeHost(host_times->block_times);
+  if (host_times->block_smids) cudaFreeHost(host_times->block_smids);
   if (state->stream_created) {
     // Call CheckCUDAError here to print a message, even though we won't check
     // the return value.
@@ -76,24 +75,27 @@ static void Cleanup(void *data) {
 static int AllocateMemory(BenchmarkState *state) {
   uint64_t block_times_size = state->block_count * sizeof(uint64_t) * 2;
   uint64_t block_smids_size = state->block_count * sizeof(uint32_t);
+  KernelTimes *host_times = &state->spin_kernel_times;
+  // Allocate device memory
   if (!CheckCUDAError(cudaMalloc(&(state->device_kernel_times),
-    sizeof(state->host_kernel_times)))) {
+    sizeof(host_times->kernel_times)))) {
     return 0;
   }
   if (!CheckCUDAError(cudaMalloc(&(state->device_block_times),
     block_times_size))) {
     return 0;
   }
-  state->host_block_times = (uint64_t *) malloc(block_times_size);
-  if (!state->host_block_times) {
-    return 0;
-  }
   if (!CheckCUDAError(cudaMalloc(&(state->device_block_smids),
     block_smids_size))) {
     return 0;
   }
-  state->host_block_smids = (uint32_t *) malloc(block_smids_size);
-  if (!state->host_block_smids) {
+  // Allocate host memory.
+  if (!CheckCUDAError(cudaMallocHost(&host_times->block_times,
+    block_times_size))) {
+    return 0;
+  }
+  if (!CheckCUDAError(cudaMallocHost(&host_times->block_smids,
+    block_smids_size))) {
     return 0;
   }
   return 1;
@@ -147,21 +149,8 @@ static void* Initialize(InitializationParameters *params) {
   return state;
 }
 
-// This sets up a simple mechanism for detecting overall kernel start time,
-// which requires initializing the device's copy of the kernel start time to
-// the maximum 64-bit integer.
+// Nothing needs to be copied in for this benchmark.
 static int CopyIn(void *data) {
-  BenchmarkState *state = (BenchmarkState *) data;
-  // Set the host's start kernel time to the highest-possible time by setting
-  // it to 0 and subtracting 1.
-  memset(state->host_kernel_times, 0, sizeof(state->host_kernel_times));
-  state->host_kernel_times[0]--;
-  if (!CheckCUDAError(cudaMemcpyAsync(state->device_kernel_times,
-    state->host_kernel_times, sizeof(state->host_kernel_times),
-    cudaMemcpyHostToDevice, state->stream))) {
-    return 0;
-  }
-  if (!CheckCUDAError(cudaStreamSynchronize(state->stream))) return 0;
   return 1;
 }
 
@@ -185,8 +174,8 @@ static __global__ void GPUSpin(uint64_t spin_duration, uint64_t *kernel_times,
     uint64_t *block_times, uint32_t *block_smids) {
   uint64_t start_time = GlobalTimer64();
   // First, record the kernel and block start times
-  if (kernel_times[0] > start_time) kernel_times[0] = start_time;
   if (threadIdx.x == 0) {
+    if (blockIdx.x == 0) kernel_times[0] = start_time;
     block_times[blockIdx.x * 2] = start_time;
     block_smids[blockIdx.x] = GetSMID();
   }
@@ -214,30 +203,31 @@ static int Execute(void *data) {
 
 static int CopyOut(void *data, TimingInformation *times) {
   BenchmarkState *state = (BenchmarkState *) data;
+  KernelTimes *host_times = &state->spin_kernel_times;
   uint64_t block_times_count = state->block_count * 2;
   uint64_t block_smids_count = state->block_count;
   memset(times, 0, sizeof(*times));
-  if (!CheckCUDAError(cudaMemcpyAsync(state->host_kernel_times,
-    state->device_kernel_times, sizeof(state->host_kernel_times),
+  if (!CheckCUDAError(cudaMemcpyAsync(host_times->kernel_times,
+    state->device_kernel_times, sizeof(host_times->kernel_times),
     cudaMemcpyDeviceToHost, state->stream))) {
     return 0;
   }
-  if (!CheckCUDAError(cudaMemcpyAsync(state->host_block_times,
+  if (!CheckCUDAError(cudaMemcpyAsync(host_times->block_times,
     state->device_block_times, block_times_count * sizeof(uint64_t),
     cudaMemcpyDeviceToHost, state->stream))) {
     return 0;
   }
-  if (!CheckCUDAError(cudaMemcpyAsync(state->host_block_smids,
+  if (!CheckCUDAError(cudaMemcpyAsync(host_times->block_smids,
     state->device_block_smids, block_smids_count * sizeof(uint32_t),
     cudaMemcpyDeviceToHost, state->stream))) {
     return 0;
   }
   if (!CheckCUDAError(cudaStreamSynchronize(state->stream))) return 0;
-  times->kernel_times_count = 2;
-  times->kernel_times = state->host_kernel_times;
-  times->block_times_count = block_times_count;
-  times->block_times = state->host_block_times;
-  times->block_smids = state->host_block_smids;
+  host_times->kernel_name = "GPUSpin";
+  host_times->block_count = state->block_count;
+  host_times->thread_count = state->thread_count;
+  times->kernel_count = 1;
+  times->kernel_info = host_times;
   return 1;
 }
 
