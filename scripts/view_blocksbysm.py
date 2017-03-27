@@ -29,11 +29,26 @@ BUFFER_BOTTOM = 100
 
 BUFFER_LEFT = 100
 
+class PlotRect(Rectangle):
+    def __init__(self, w, h):
+        # Bottom left
+        p1x = BUFFER_LEFT
+        p1y = h - BUFFER_BOTTOM
+
+        # Top right
+        p2x = w - BUFFER_LEFT
+        p2y = BUFFER_TOP
+
+        Rectangle.__init__(self, Point(p1x, p1y), Point(p2x, p2y))
+        self.setFill("white")
+
 class BlockSMRect(Rectangle):    
     def __init__(self, block, firstTime, totalTime, totalNumSms, w, h, color, otherThreads):
         # Height is fraction of an SM: 2048 threads/SM, with block.numThreads threads in block
-        smHeight = (h - BUFFER_TOP - BUFFER_BOTTOM) / totalNumSms
-        smBottom = h - int((block.sm) * smHeight + BUFFER_BOTTOM) # h is the bottom of the window
+        plotHeight = h - BUFFER_TOP - BUFFER_BOTTOM
+        plotBottom = h - BUFFER_BOTTOM
+        smHeight = plotHeight / totalNumSms
+        smBottom = plotBottom - int((block.sm) * smHeight)
         blockHeight = smHeight / 2048.0 * block.numThreads
 
         otherHeight = smHeight / 2048.0 * otherThreads
@@ -62,29 +77,85 @@ class KernelReleaseRect(Rectangle):
         Rectangle.__init__(self, Point(p1x, p1y), Point(p2x, p2y))
         self.setFill(color)
 
-class XAxis(Rectangle):
+class XAxis(object):
     def __init__(self, firstTime, totalTime, w, h):
+        self.build_axis(w, h)
+        self.build_tick_marks(totalTime, w, h)
+
+    def build_axis(self, w, h):
         # Draw a thin black horizontal line
         p1x = BUFFER_LEFT
-        p1y = h - BUFFER_BOTTOM
+        p2x = w - BUFFER_LEFT
 
-        p2x = w - BUFFER_LEFT + 20 # go a little past the right edge
-        p2y = p1y - 1
+        py = h - BUFFER_BOTTOM
 
-        Rectangle.__init__(self, Point(p1x, p1y), Point(p2x, p2y))
-        self.setFill("black")
+        self.axis = Line(Point(p1x, py), Point(p2x, py))
+        self.axis.setFill("black")
+
+    def build_tick_marks(self, totalTime, w, h):
+        # Put a tick every 0.1 seconds
+        plotWidth = w - BUFFER_LEFT * 2
+        numTicks = int(math.ceil(totalTime / 0.1))
+        self.ticks = []
+        for i in range(1, numTicks):
+            # Top of plot area
+            px = BUFFER_LEFT + (i * 0.1 / totalTime) * plotWidth
+            p1y = BUFFER_TOP + 1
+            p2y = BUFFER_TOP + 5
+
+            tick = Line(Point(px, p1y), Point(px, p2y))
+            tick.setFill("black")
+            self.ticks.append(tick)
+
+            # Bottom of plot area
+            px = BUFFER_LEFT + (i * 0.1 / totalTime) * plotWidth
+            p1y = h - BUFFER_BOTTOM - 0
+            p2y = h - BUFFER_BOTTOM - 4
+
+            tick = Line(Point(px, p1y), Point(px, p2y))
+            tick.setFill("black")
+            self.ticks.append(tick)
+
+    def draw(self, canvas):
+        self.axis.draw(canvas)
+        for tick in self.ticks:
+            tick.draw(canvas)
 
 class YAxis(Rectangle):
-    def __init__(self, firstTime, totalTime, w, h):
+    def __init__(self, totalNumSms, firstTime, totalTime, w, h):
+        self.build_axis(w, h)
+        self.build_grid_lines(totalNumSms, w, h)
+
+    def build_axis(self, w, h):
         # Draw a thin black vertical line
-        p1x = BUFFER_LEFT
+        px = BUFFER_LEFT
+
         p1y = h - BUFFER_BOTTOM
+        p2y = BUFFER_TOP
 
-        p2x = p1x - 1
-        p2y = BUFFER_TOP - 20 # go a little above the top edge
+        self.axis = Line(Point(px, p1y), Point(px, p2y))
+        self.axis.setFill("black")
 
-        Rectangle.__init__(self, Point(p1x, p1y), Point(p2x, p2y))
-        self.setFill("black")
+    def build_grid_lines(self, totalNumSms, w, h):
+        # Put a horizontal line between each SM
+        plotHeight = h - BUFFER_TOP - BUFFER_BOTTOM
+        plotBottom = h - BUFFER_BOTTOM
+        smHeight = plotHeight / totalNumSms
+        self.gridlines = []
+        for i in range(1, totalNumSms):
+            py = plotBottom - i * smHeight
+
+            p1x = BUFFER_LEFT
+            p2x = w - BUFFER_LEFT
+
+            line = Line(Point(p1x, py), Point(p2x, py))
+            line.setFill("black")
+            self.gridlines.append(line)
+
+    def draw(self, canvas):
+        self.axis.draw(canvas)
+        for line in self.gridlines:
+            line.draw(canvas)
 
 class BlockSMDisplay():
     
@@ -117,6 +188,9 @@ class BlockSMDisplay():
     def draw_benchmark(self):
         if len(self.benchmark.kernels) == 0: return
         
+        # Draw the plot area
+        self.draw_plot_area()
+
         # Draw each kernel
         smBase = [[] for j in range(self.numSms)]
         for i in range(len(self.benchmark.kernels)):
@@ -125,6 +199,10 @@ class BlockSMDisplay():
 
         # Draw the axes
         self.draw_axes()
+
+    def draw_plot_area(self):
+        pr = PlotRect(self.width, self.height)
+        pr.draw(self.canvas)
 
     def draw_kernel(self, kernel, color, i, smBase):
         # Draw each block of the kernel
@@ -144,14 +222,14 @@ class BlockSMDisplay():
 
         # Draw a line for the kernel start
         krr = KernelReleaseRect(kernel, self.firstTime, self.totalTime,
-                                numSms, self.width, self.height, color, i)
+                                self.numSms, self.width, self.height, color, i)
         krr.draw(self.canvas)
 
     def draw_axes(self):
         xaxis = XAxis(self.firstTime, self.totalTime, self.width, self.height)
         xaxis.draw(self.canvas)
 
-        yaxis = YAxis(self.firstTime, self.totalTime, self.width, self.height)
+        yaxis = YAxis(self.numSms, self.firstTime, self.totalTime, self.width, self.height)
         yaxis.draw(self.canvas)
 
 ###################################################
