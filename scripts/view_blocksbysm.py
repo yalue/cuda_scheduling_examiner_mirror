@@ -77,10 +77,24 @@ class KernelReleaseRect(Rectangle):
         Rectangle.__init__(self, Point(p1x, p1y), Point(p2x, p2y))
         self.setFill(color)
 
+class Title(object):
+    def __init__(self, w, h, name):
+        self.build_title(w, h, name)
+
+    def build_title(self, w, h, name):
+        px = w / 2
+        py = int(BUFFER_TOP * 0.75)
+
+        self.title = Text(Point(px, py), name)
+
+    def draw(self, canvas):
+        self.title.draw(canvas)
+
 class XAxis(object):
     def __init__(self, firstTime, totalTime, w, h):
         self.build_axis(w, h)
         self.build_tick_marks(totalTime, w, h)
+        self.build_labels(totalTime, w, h)
 
     def build_axis(self, w, h):
         # Draw a thin black horizontal line
@@ -116,15 +130,31 @@ class XAxis(object):
             tick.setFill("black")
             self.ticks.append(tick)
 
+    def build_labels(self, totalTime, w, h):
+        # Put a label every tick mark
+        plotWidth = w - BUFFER_LEFT * 2
+        numTicks = int(math.ceil(totalTime / 0.1))
+        self.labels = []
+        for i in range(1, numTicks):
+            px = BUFFER_LEFT + (i * 0.1 / totalTime) * plotWidth
+            py = h - int(BUFFER_BOTTOM * 0.9)
+
+            label = Text(Point(px, py), "%.1f" % (i * 0.1))
+            label.setSize(10)
+            self.labels.append(label)
+
     def draw(self, canvas):
         self.axis.draw(canvas)
         for tick in self.ticks:
             tick.draw(canvas)
+        for label in self.labels:
+            label.draw(canvas)
 
 class YAxis(Rectangle):
     def __init__(self, totalNumSms, firstTime, totalTime, w, h):
         self.build_axis(w, h)
         self.build_grid_lines(totalNumSms, w, h)
+        self.build_labels(totalNumSms, w, h)
 
     def build_axis(self, w, h):
         # Draw a thin black vertical line
@@ -152,10 +182,25 @@ class YAxis(Rectangle):
             line.setFill("black")
             self.gridlines.append(line)
 
+    def build_labels(self, totalNumSms, w, h):
+        plotHeight = h - BUFFER_TOP - BUFFER_BOTTOM
+        plotBottom = h - BUFFER_BOTTOM
+        smHeight = plotHeight / totalNumSms
+        self.labels = []
+        for i in range(totalNumSms):
+            px = int(BUFFER_LEFT * 0.75)
+            py = plotBottom - i * smHeight - int(0.5 * smHeight)
+
+            label = Text(Point(px, py), "SM %d" % i)
+            label.setSize(10)
+            self.labels.append(label)
+
     def draw(self, canvas):
         self.axis.draw(canvas)
         for line in self.gridlines:
             line.draw(canvas)
+        for label in self.labels:
+            label.draw(canvas)
 
 class BlockSMDisplay():
     
@@ -180,6 +225,7 @@ class BlockSMDisplay():
 
         if len(benchmark.kernels) > 0:
             self.numSms = self.benchmark.kernels[0].maxResidentThreads / 2048
+            self.name = self.benchmark.kernels[0].scenarioName
 
         print "Start time:", self.firstTime
         print "End time:", self.totalTime + self.firstTime
@@ -197,7 +243,8 @@ class BlockSMDisplay():
             color = idToColorMap[i]
             self.draw_kernel(self.benchmark.kernels[i], color, i, smBase)
 
-        # Draw the axes
+        # Draw the title and axes
+        self.draw_title()
         self.draw_axes()
 
     def draw_plot_area(self):
@@ -225,6 +272,10 @@ class BlockSMDisplay():
                                 self.numSms, self.width, self.height, color, i)
         krr.draw(self.canvas)
 
+    def draw_title(self):
+        title = Title(self.width, self.height, self.name)
+        title.draw(self.canvas)
+
     def draw_axes(self):
         xaxis = XAxis(self.firstTime, self.totalTime, self.width, self.height)
         xaxis.draw(self.canvas)
@@ -251,6 +302,7 @@ class Kernel(object):
     def parse_benchmark(self, benchmark):        
         self.blocks = []
 
+        self.scenarioName = benchmark["scenario_name"]
         self.label = benchmark["label"] # string
         self.releaseTime = benchmark["release_time"] # float
         self.blockCount = benchmark["block_count"] # int
