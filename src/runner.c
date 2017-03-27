@@ -204,21 +204,25 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
   // Iterate over each kernel invocation
   for (i = 0; i < times->kernel_count; i++) {
     kernel_times = times->kernel_info + i;
-    // Print the metadata for this kernel, starting with the kernel name. The
-    // name is user-defined and must be sanitized for JSON output.
-    sanitized_name[sizeof(sanitized_name) - 1] = 0;
-    SanitizeJSONString(kernel_times->kernel_name, sanitized_name,
-      sizeof(sanitized_name));
-    if (fprintf(output, ",\n{\"kernel_name\": \"%s\"", sanitized_name) < 0) {
+    if (fprintf(output, ",\n{") < 0) {
       return 0;
     }
+    // The kernel name may be NULL, but print it if it's provided.
+    if (kernel_times->kernel_name) {
+      sanitized_name[sizeof(sanitized_name) - 1] = 0;
+      SanitizeJSONString(kernel_times->kernel_name, sanitized_name,
+        sizeof(sanitized_name));
+      if (fprintf(output, "\"kernel_name\": \"%s\", ", sanitized_name) < 0) {
+        return 0;
+      }
+    }
     // Next, print this kernel's thread and block count.
-    if (fprintf(output, ", \"block_count\": %d, \"thread_count\": %d",
+    if (fprintf(output, "\"block_count\": %d, \"thread_count\": %d, ",
       kernel_times->block_count, kernel_times->thread_count) < 0) {
       return 0;
     }
     // Print the kernel times for this kernel.
-    if (fprintf(output, ", \"kernel_times\": [") < 0) {
+    if (fprintf(output, "\"kernel_times\": [") < 0) {
       return 0;
     }
     // The kernel start time
@@ -228,11 +232,11 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
     }
     // The kernel end time.
     since_start = kernel_times->kernel_times[1] - base_nanoseconds;
-    if (fprintf(output, "%f]", (double) since_start / 1e9) < 0) {
+    if (fprintf(output, "%f], ", (double) since_start / 1e9) < 0) {
       return 0;
     }
     // Next, print all block times
-    if (fprintf(output, ", \"block_times\": [") < 0) {
+    if (fprintf(output, "\"block_times\": [") < 0) {
       return 0;
     }
     block_time_count = kernel_times->block_count * 2;
