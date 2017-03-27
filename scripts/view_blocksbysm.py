@@ -93,6 +93,8 @@ class Title(object):
 class XAxis(object):
     def __init__(self, firstTime, totalTime, w, h):
         self.build_axis(w, h)
+
+        self.calculate_tick_time(totalTime)
         self.build_tick_marks(totalTime, w, h)
         self.build_labels(totalTime, w, h)
 
@@ -106,14 +108,22 @@ class XAxis(object):
         self.axis = Line(Point(p1x, py), Point(p2x, py))
         self.axis.setFill("black")
 
+    def calculate_tick_time(self, totalTime):
+        if totalTime <= 2.0:
+            self.tick_time = 0.1
+        elif totalTime <= 4.0:
+            self.tick_time = 0.2
+        else:
+            self.tick_time = 0.5
+
     def build_tick_marks(self, totalTime, w, h):
         # Put a tick every 0.1 seconds
         plotWidth = w - BUFFER_LEFT * 2
-        numTicks = int(math.ceil(totalTime / 0.1))
+        numTicks = int(math.ceil(totalTime / self.tick_time))
         self.ticks = []
         for i in range(1, numTicks):
             # Top of plot area
-            px = BUFFER_LEFT + (i * 0.1 / totalTime) * plotWidth
+            px = BUFFER_LEFT + (i * self.tick_time / totalTime) * plotWidth
             p1y = BUFFER_TOP + 1
             p2y = BUFFER_TOP + 5
 
@@ -122,7 +132,7 @@ class XAxis(object):
             self.ticks.append(tick)
 
             # Bottom of plot area
-            px = BUFFER_LEFT + (i * 0.1 / totalTime) * plotWidth
+            px = BUFFER_LEFT + (i * self.tick_time / totalTime) * plotWidth
             p1y = h - BUFFER_BOTTOM - 0
             p2y = h - BUFFER_BOTTOM - 4
 
@@ -133,13 +143,13 @@ class XAxis(object):
     def build_labels(self, totalTime, w, h):
         # Put a label every tick mark
         plotWidth = w - BUFFER_LEFT * 2
-        numTicks = int(math.ceil(totalTime / 0.1))
+        numTicks = int(math.ceil(totalTime / self.tick_time))
         self.labels = []
         for i in range(1, numTicks):
-            px = BUFFER_LEFT + (i * 0.1 / totalTime) * plotWidth
+            px = BUFFER_LEFT + (i * self.tick_time / totalTime) * plotWidth
             py = h - int(BUFFER_BOTTOM * 0.9)
 
-            label = Text(Point(px, py), "%.1f" % (i * 0.1))
+            label = Text(Point(px, py), "%.1f" % (i * self.tick_time))
             label.setSize(10)
             self.labels.append(label)
 
