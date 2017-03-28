@@ -212,24 +212,40 @@ class YAxis(Rectangle):
         for label in self.labels:
             label.draw(canvas)
 
+class ResizingCanvasFrame(CanvasFrame):
+    def __init__(self, parent, width, height, redraw_callback):
+        CanvasFrame.__init__(self, parent, width, height)
+        self.parent = parent
+        self.parent.resizable(True, True)
+
+        self.canvas.pack(fill="both", expand=True)
+        self.canvas.bind("<Configure>", self.on_resize)
+        self.canvas.config(highlightthickness=0)
+        self.redrawCallback = redraw_callback
+
+    def on_resize(self, event):
+        self.redrawCallback(event.width, event.height)
+
+    def clear_canvas(self):
+        self.canvas.delete("all")
+
 class BlockSMDisplay():
-    
-    WIDTH = 800
-    HEIGHT = 600
+    INIT_WIDTH = 800
+    INIT_HEIGHT = 600
     
     def __init__(self, win, benchmark):
-        self.setup(win, self.WIDTH, self.HEIGHT, benchmark)
+        self.setup(win, self.INIT_WIDTH, self.INIT_HEIGHT, benchmark)
         self.draw_benchmark()
 
     def setup(self, win, width, height, benchmark):
         self.width = width
         self.height = height
         self.firstTime = 0.0
-        self.totalTime = benchmark.get_end() - self.firstTime
+        self.totalTime = (benchmark.get_end() - self.firstTime) * 1.1
 
         # Create a canvas
-        self.canvas = CanvasFrame(win, self.width, self.height)
-        self.canvas.setBackground('light gray')
+        self.canvas = ResizingCanvasFrame(win, self.width, self.height, self.redraw)
+        self.canvas.setBackground("light gray")
 
         self.benchmark = benchmark
 
@@ -237,9 +253,12 @@ class BlockSMDisplay():
             self.numSms = self.benchmark.kernels[0].maxResidentThreads / 2048
             self.name = self.benchmark.kernels[0].scenarioName
 
-        print "Start time:", self.firstTime
-        print "End time:", self.totalTime + self.firstTime
-        print "total time:", self.totalTime
+    def redraw(self, width, height):
+        self.canvas.clear_canvas()
+
+        self.width = width
+        self.height = height
+        self.draw_benchmark()
 
     def draw_benchmark(self):
         if len(self.benchmark.kernels) == 0: return
@@ -333,8 +352,6 @@ class Kernel(object):
             block = Block(self.blockStarts[-1], self.blockEnds[-1], self.threadCount,
                           self.blockSms[-1], benchmark["TID"])
             self.blocks.append(block)
-
-        print "Parsed %d blocks" % len(self.blocks)
         
     def get_start(self):
         start = None
@@ -401,7 +418,6 @@ def show_plots(filenames):
         plot_scenario(scenarios[scenario], scenario)
 
 if __name__ == "__main__":
-    
     base_directory = "./results"
     if len(sys.argv) > 2:
         print "Usage: python %s [directory containing results (./results)]" % (
