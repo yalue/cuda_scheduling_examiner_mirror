@@ -416,10 +416,8 @@ static int CopyOut(void *data, TimingInformation *times) {
     if (!CopyKernelMemoryOut(state->kernel_configs + i, state->stream)) {
       return 0;
     }
-    state->kernel_times[i].kernel_times[0] =
-      state->kernel_configs[i].host_kernel_times[0];
-    state->kernel_times[i].kernel_times[1] =
-      state->kernel_configs[i].host_kernel_times[1];
+    state->kernel_times[i].kernel_times =
+      state->kernel_configs[i].host_kernel_times;
     state->kernel_times[i].block_times =
       state->kernel_configs[i].host_block_times;
     state->kernel_times[i].block_smids = state->kernel_configs[i].host_smids;
