@@ -1,0 +1,27 @@
+{
+  "name": "Multiple kernels per stream example",
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "pin_cpus": true,
+  "benchmarks": [
+    {
+      "filename": "./bin/multikernel.so",
+      "log_name": "multikernel_example_1.json",
+      "label": "Stream 1",
+      "thread_count": 0,
+      "block_count": 0,
+      "data_size": 0,
+      "additional_info": "K1,500000000,1,512,K2,500000000,1,512"
+    },
+    {
+      "filename": "./bin/multikernel.so",
+      "log_name": "multikernel_example_2.json",
+      "label": "Stream 2",
+      "thread_count": 0,
+      "block_count": 0,
+      "data_size": 0,
+      "additional_info": "K3,500000000,2,1024,K4,500000000,2,1024"
+    }
+  ]
+}
