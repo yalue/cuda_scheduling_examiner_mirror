@@ -15,13 +15,14 @@ from graphics import *
 # Drawing                                         #
 ###################################################
 
-idToColorMap = {0: 'blue',
-                1: 'dark green',
-                2: 'red',
-                3: 'cyan',
-                4: 'magenta',
+# Colors: http://www.tcl.tk/man/tcl8.4/TkCmd/colors.htm
+idToColorMap = {0: 'red3',
+                1: 'olive drab',
+                2: 'coral',
+                3: 'royal blue',
+                4: 'orchid',
                 5: 'yellow',
-                6: 'orange',
+                6: 'dark slate blue',
                 7: 'black'}
 
 BUFFER_TOP = 60
@@ -64,17 +65,17 @@ class BlockSMRect(Rectangle):
         Rectangle.__init__(self, Point(p1x, p1y), Point(p2x, p2y))
         self.setFill(color)
 
-class KernelReleaseRect(Rectangle):    
+class KernelReleaseMarker(Line):
     def __init__(self, kernel, firstTime, totalTime, totalNumSms, w, h, color, idx):
         releaseTime = kernel.releaseTime
 
-        p1x = int(float(releaseTime - firstTime) / totalTime * (w-2*BUFFER_LEFT)) + BUFFER_LEFT
-        p1y = h - BUFFER_BOTTOM + 1 + idx * 15
+        px = int(float(releaseTime - firstTime) / totalTime * (w-2*BUFFER_LEFT)) + BUFFER_LEFT
+        p1y = h - BUFFER_BOTTOM + 20 + idx * 20
+        p2y = p1y + 20
 
-        p2x = p1x + 4
-        p2y = p1y + 15
-
-        Rectangle.__init__(self, Point(p1x, p1y), Point(p2x, p2y))
+        Line.__init__(self, Point(px, p1y), Point(px, p2y))
+        self.setArrow("first")
+        self.setWidth(2)
         self.setFill(color)
 
 class Title(object):
@@ -268,9 +269,10 @@ class BlockSMDisplay():
 
         # Draw each kernel
         smBase = [[] for j in range(self.numSms)]
+        releaseDict = {}
         for i in range(len(self.benchmark.kernels)):
             color = idToColorMap[i]
-            self.draw_kernel(self.benchmark.kernels[i], color, i, smBase)
+            self.draw_kernel(self.benchmark.kernels[i], color, i, smBase, releaseDict)
 
         # Draw the title and axes
         self.draw_title()
@@ -280,7 +282,7 @@ class BlockSMDisplay():
         pr = PlotRect(self.width, self.height)
         pr.draw(self.canvas)
 
-    def draw_kernel(self, kernel, color, i, smBase):
+    def draw_kernel(self, kernel, color, i, smBase, releaseDict):
         # Draw each block of the kernel
         for block in kernel.blocks:
             # Calculate competing threadcount
@@ -296,10 +298,12 @@ class BlockSMDisplay():
 
             smBase[block.sm].append((block.start, block.end, block.numThreads))
 
-        # Draw a line for the kernel start
-        krr = KernelReleaseRect(kernel, self.firstTime, self.totalTime,
-                                self.numSms, self.width, self.height, color, i)
-        krr.draw(self.canvas)
+        # Draw a marker for the kernel release time
+        releaseIdx = releaseDict.get(kernel.releaseTime, 0)
+        releaseDict[kernel.releaseTime] = releaseIdx + 1
+        krm = KernelReleaseMarker(kernel, self.firstTime, self.totalTime,
+                                  self.numSms, self.width, self.height, color, releaseIdx)
+        krm.draw(self.canvas)
 
     def draw_title(self):
         title = Title(self.width, self.height, self.name)
