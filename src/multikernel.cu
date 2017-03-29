@@ -88,6 +88,7 @@ static void CleanupKernelConfig(SingleKernelData *kernel_config) {
   if (tmp64) cudaFree(tmp64);
   tmp32 = kernel_config->device_smids;
   if (tmp32) cudaFree(tmp32);
+  memset(kernel_config, 0, sizeof(*kernel_config));
 }
 
 // Implements the cleanup function required by the library interface, but is
@@ -283,7 +284,8 @@ static int InitializeKernelConfigs(BenchmarkState *state, char *info) {
   if (!kernel_configs) goto ErrorCleanup;
   for (i = 0; i < kernel_count; i++) {
     j = i * 4;
-    kernel_configs[i].name = tokens[j];
+    kernel_configs[i].name = strdup(tokens[j]);
+    if (!kernel_configs[i].name) goto ErrorCleanup;
     if (!StringToUint64(tokens[j + 1], &parsed_number)) goto ErrorCleanup;
     kernel_configs[i].spin_duration = parsed_number;
     if (!StringToUint64(tokens[j + 2], &parsed_number)) goto ErrorCleanup;
@@ -299,21 +301,20 @@ static int InitializeKernelConfigs(BenchmarkState *state, char *info) {
   }
   state->kernel_configs = kernel_configs;
   state->kernel_count = kernel_count;
-  // The individual token parameters have been copied into the kernel_configs
-  // arrays already, so we can free this list of pointers.
+  for (i = 0; i < token_count; i++) {
+    free(tokens[i]);
+  }
   free(tokens);
   return 1;
 ErrorCleanup:
-  printf("here err.\n");
-  fflush(stdout);
   if (tokens) {
     for (i = 0; i < token_count; i++) {
-      if (tokens[i]) free(tokens[i]);
+      free(tokens[i]);
     }
     free(tokens);
   }
   if (kernel_configs) {
-    for (i = 0; i < token_count; i++) {
+    for (i = 0; i < kernel_count; i++) {
       CleanupKernelConfig(kernel_configs + i);
     }
     free(kernel_configs);
