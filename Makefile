@@ -10,7 +10,7 @@ NVCCFLAGS := -g --ptxas-options=-v --compiler-options="$(CFLAGS)" \
 
 all: directories benchmarks bin/runner
 
-benchmarks: bin/mandelbrot.so bin/timer_spin.so
+benchmarks: bin/mandelbrot.so bin/timer_spin.so bin/multikernel.so
 
 directories:
 	mkdir -p bin/
@@ -21,6 +21,9 @@ bin/mandelbrot.so: src/mandelbrot.cu src/library_interface.h
 
 bin/timer_spin.so: src/timer_spin.cu src/library_interface.h
 	nvcc --shared $(NVCCFLAGS) -o bin/timer_spin.so src/timer_spin.cu
+
+bin/multikernel.so: src/multikernel.cu src/library_interface.h
+	nvcc --shared $(NVCCFLAGS) -o bin/multikernel.so src/multikernel.cu
 
 obj/cjson.o: src/third_party/cJSON.c src/third_party/cJSON.h
 	gcc -c $(CFLAGS) -o obj/cjson.o src/third_party/cJSON.c
