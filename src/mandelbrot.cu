@@ -83,6 +83,7 @@ static void Cleanup(void *data) {
   if (info->device_kernel_times) cudaFree(info->device_kernel_times);
   // Host memory
   if (info->host_points) cudaFreeHost(info->host_points);
+  if (host_times->kernel_times) cudaFreeHost(host_times->kernel_times);
   if (host_times->block_times) cudaFreeHost(host_times->block_times);
   if (host_times->block_smids) cudaFreeHost(host_times->block_smids);
   if (info->stream_created) {
@@ -118,6 +119,10 @@ static int AllocateMemory(ThreadInformation *info) {
   }
   // Allocate host memory
   if (!CheckCUDAError(cudaMallocHost(&info->host_points, buffer_size))) {
+    return 0;
+  }
+  if (!CheckCUDAError(cudaMallocHost(&mandelbrot_kernel_times->kernel_times,
+    2 * sizeof(uint64_t)))) {
     return 0;
   }
   if (!CheckCUDAError(cudaMallocHost(&mandelbrot_kernel_times->block_times,

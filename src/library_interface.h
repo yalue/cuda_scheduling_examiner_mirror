@@ -46,8 +46,10 @@ typedef struct {
   int thread_count;
   // The number of blocks run by this kernel.
   int block_count;
-  // The start and end time, in nanoseconds, of this kernel.
-  uint64_t kernel_times[2];
+  // The start and end time, in nanoseconds, of this kernel. This array will
+  // contain exactly 2 entries. This must be a pointer so that it can be
+  // allocated in pinned memory.
+  uint64_t *kernel_times;
   // The start and end times for each individual block. Even-numbered positions
   // contain start times and odd positions end times, in nanoseconds. This will
   // contain block_count * 2 entries.

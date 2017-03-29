@@ -60,6 +60,7 @@ static void Cleanup(void *data) {
   if (state->device_block_times) cudaFree(state->device_block_times);
   if (state->device_block_smids) cudaFree(state->device_block_smids);
   // Free host memory.
+  if (host_times->kernel_times) cudaFreeHost(host_times->kernel_times);
   if (host_times->block_times) cudaFreeHost(host_times->block_times);
   if (host_times->block_smids) cudaFreeHost(host_times->block_smids);
   if (state->stream_created) {
@@ -90,6 +91,10 @@ static int AllocateMemory(BenchmarkState *state) {
     return 0;
   }
   // Allocate host memory.
+  if (!CheckCUDAError(cudaMallocHost(&host_times->kernel_times, 2 *
+    sizeof(uint64_t)))) {
+    return 0;
+  }
   if (!CheckCUDAError(cudaMallocHost(&host_times->block_times,
     block_times_size))) {
     return 0;
