@@ -17,11 +17,11 @@ from graphics import *
 
 # Colors: http://www.tcl.tk/man/tcl8.4/TkCmd/colors.htm
 idToColorMap = {0: 'red3',
-                1: 'olive drab',
-                2: 'coral',
-                3: 'royal blue',
+                1: 'royal blue',
+                2: 'yellow',
+                3: 'olive drab',
                 4: 'orchid',
-                5: 'yellow',
+                5: 'coral',
                 6: 'dark slate blue',
                 7: 'black'}
 
@@ -153,6 +153,12 @@ class XAxis(object):
             label = Text(Point(px, py), "%.1f" % (i * self.tick_time))
             label.setSize(10)
             self.labels.append(label)
+
+        # Give the axis a label
+        px = w / 2
+        py = h - (BUFFER_BOTTOM * 0.6)
+        label = Text(Point(px, py), "Time (seconds)")
+        self.labels.append(label)
 
     def draw(self, canvas):
         self.axis.draw(canvas)
