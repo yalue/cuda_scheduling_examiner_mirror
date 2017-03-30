@@ -9,39 +9,33 @@ import math
 import matplotlib.pyplot as plot
 import sys
 
-def get_thread_timeline(benchmark):
-    """"Takes a parsed benchmark dict and returns timeline data consisting of
-    a list of two lists. The first list will contain times, and the second list
-    will contain the corresponding number of threads running at each time."""
+def get_kernel_timeline(kernel_times):
+    """Takes a single kernel invocation's information from the benchmark struct
+    and returns two lists. The first list contains times, and the second list
+    contains the number of threads running at each time."""
+    block_times = kernel_times["block_times"]
     start_times = []
     end_times = []
-    # Remember, the first entry in the times array is an empty object.
-    all_times = benchmark["times"][1:]
-    # Get only the block times.
-    for i in range(len(all_times)):
-        all_times[i] = all_times[i]["block_times"]
-    # Separate each list of times into start and stop times.
-    for invocation in all_times:
-        for i in range(len(invocation)):
-            if (i % 2) == 0:
-                start_times.append(invocation[i])
-            else:
-                end_times.append(invocation[i])
-    # Sort in reverse order, so the earliest times will be popped first.
+    # Split block times into start and end times.
+    for i in range(len(block_times)):
+        if (i % 2) == 0:
+            start_times.append(block_times[i])
+        else:
+            end_times.append(block_times[i])
+    # Sort times in reverse order, so the earliest times will be popped first.
     start_times.sort(reverse = True)
     end_times.sort(reverse = True)
-    # Now, iterate over start and end times, keeping a count of how many blocks
-    # are running.
+    # Initialize the timeline to return so that 0 threads are running at time 0
     timeline_times = []
     timeline_values = []
-    # All benchmarks must start with nothing running.
     timeline_times.append(0.0)
     timeline_values.append(0)
-    current_block_count = 0
+    # Next, iterate over start and end times and keep a running count of how
+    # many threads are running.
+    current_thread_count = 0
     while True:
-        if len(start_times) == 0:
-            if len(end_times) == 0:
-                break
+        if (len(start_times) == 0) and (len(end_times) == 0):
+            break
         if len(end_times) == 0:
             print "Error! The last block end time was before a start time."
             exit(1)
@@ -62,24 +56,83 @@ def get_thread_timeline(benchmark):
             # Only end times are left, so keep decrementing the block count.
             current_time = end_times.pop()
             is_start_time = False
-        # Make sure that changes between numbers of running blocks look abrupt.
+        # Make sure that changes between numbers of running threads are abrupt.
         # Do this by only changing the number of blocks at the instant they
         # actually change rather than interpolating between two values.
         timeline_times.append(current_time)
-        timeline_values.append(current_block_count)
+        timeline_values.append(current_thread_count)
         # Update the current running number of blocks
         if is_start_time:
-            current_block_count += 1
+            current_thread_count += kernel_times["thread_count"]
         else:
-            current_block_count -= 1
+            current_thread_count -= kernel_times["thread_count"]
         timeline_times.append(current_time)
-        timeline_values.append(current_block_count)
-    # Convert the block count to a thread count
-    # TODO: When multiple kernels are supported, this will probably need to be
-    # updated.
-    for i in range(len(timeline_values)):
-        timeline_values[i] *= benchmark["thread_count"]
+        timeline_values.append(current_thread_count)
     return [timeline_times, timeline_values]
+
+def merge_timelines(timeline_a, timeline_b):
+    """Takes two timelines, both of which must contain a list of times and a
+    list of values, and combines them into a single timeline containing a list
+    of times and added values, so that if an interval in both timelines
+    overlap, then the returned timeline will show the sum of the two values
+    during that interval."""
+    combined_times = []
+    combined_values = []
+    # Reverse the timelines so that we pop the earliest values first.
+    times_a = timeline_a[0]
+    values_a = timeline_a[1]
+    times_b = timeline_b[0]
+    values_b = timeline_b[1]
+    times_a.reverse()
+    values_a.reverse()
+    times_b.reverse()
+    values_b.reverse()
+    curent_threads = 0
+    # Track the a and b values independently
+    current_a_value = 0
+    current_b_value = 0
+
+    # Returns the next time from either timeline to appended to the output.
+    def get_next_smallest_time():
+        if (len(times_a) == 0) and (len(times_b) == 0):
+            raise Exception("Internal error combining timelines.")
+        if (len(times_a) == 0):
+            return times_b[-1]
+        if (len(times_b) == 0):
+            return times_a[-1]
+        if times_a[-1] <= times_b[-1]:
+            return times_a[-1]
+        return times_b[-1]
+
+    # Run the update_output() closure until all of the original timeline values
+    # have been combined into the output.
+    while (len(times_a) > 0) or (len(times_b) > 0):
+        t = get_next_smallest_time()
+        # It's possible that both timelines have a change in value at the same
+        # time.
+        if (len(times_a) != 0) and (times_a[-1] == t):
+            times_a.pop()
+            current_a_value = values_a.pop()
+        if (len(times_b) != 0) and (times_b[-1] == t):
+            times_b.pop()
+            current_b_value = values_b.pop()
+        combined_times.append(t)
+        combined_values.append(current_a_value + current_b_value)
+
+    return [combined_times, combined_values]
+
+def get_thread_timeline(benchmark):
+    """"Takes a parsed benchmark dict and returns timeline data consisting of
+    a list of two lists. The first list will contain times, and the second list
+    will contain the corresponding number of threads running at each time."""
+    # Remember, the first entry in the times array is an empty object.
+    all_kernels = benchmark["times"][1:]
+    to_return = [[], []]
+    # Combine all kernels' timelines into a single timeline.
+    for k in all_kernels:
+        kernel_timeline = get_kernel_timeline(k)
+        to_return = merge_timelines(to_return, kernel_timeline)
+    return to_return
 
 def get_stackplot_values(benchmarks):
     """Takes a list of benchmark results and returns a list of lists of data
@@ -149,18 +202,6 @@ def get_stackplot_values(benchmarks):
     for v in new_values:
         to_return.append(v)
     return to_return
-
-def get_total_timeline(benchmarks):
-    """Similar to get_stackplot_values, but only returns a single list of
-    values, containing the total number of threads from all benchmarks."""
-    data = get_stackplot_values(benchmarks)
-    total_counts = []
-    for i in range(len(data[0])):
-        total_counts.append(0)
-    for i in range(len(data) - 1):
-        for j in range(len(data[i + 1])):
-            total_counts[j] += data[i + 1][j]
-    return [data[0], total_counts]
 
 def plot_scenario(benchmarks, name, ymax):
     """Takes a list of parsed benchmark results and a scenario name and

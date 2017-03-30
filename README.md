@@ -134,8 +134,6 @@ floating-point numbers of seconds. The format of the log file is:
   "scenario_name": "<Scenario name>",
   "benchmark_name": "<benchmark name>",
   "label": "<this benchmark's label, if given in the config>",
-  "thread_count": <thread count>,
-  "block_count": <block count>,
   "max_resident_threads": <The maximum number of threads that can be assigned
     to the GPU at a time (from all benchmarks in the scenario)>,
   "data_size": <data size>,
@@ -146,7 +144,7 @@ floating-point numbers of seconds. The format of the log file is:
     {},
     {
       "kernel_name": <The name of this particular kernel. May be omitted.>,
-      "block_count": <The actual number of blocks in this kernel invocation.>,
+      "block_count": <The number of blocks in this kernel invocation.>,
       "thread_count": <The number of threads per block in this invocation.>,
       "kernel_times": [<start time>, <end time>, ...],
       "block_times": [<start time>, <end time>, ...],
