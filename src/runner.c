@@ -292,14 +292,6 @@ static int WriteOutputHeader(ProcessConfig *config) {
       return 0;
     }
   }
-  if (fprintf(output, "\"thread_count\": %d,\n",
-    config->parameters.thread_count) < 0) {
-    return 0;
-  }
-  if (fprintf(output, "\"block_count\": %d,\n", config->parameters.block_count)
-    < 0) {
-    return 0;
-  }
   if (fprintf(output, "\"max_resident_threads\": %d,\n",
     config->parent_state->max_resident_threads) < 0) {
     return 0;
