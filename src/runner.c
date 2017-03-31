@@ -661,7 +661,7 @@ int main(int argc, char **argv) {
   // First, load the configuration file
   global_config = ParseConfiguration(argv[1]);
   if (!global_config) return 1;
-  printf("Config parsed.\n");
+  printf("Config parsed: %s\n", argv[1]);
   parent_state.global_config = global_config;
   // Next, get information about the GPU being used.
   parent_state.max_resident_threads = GetMaxResidentThreads(
