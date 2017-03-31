@@ -87,7 +87,6 @@ def merge_timelines(timeline_a, timeline_b):
     values_a.reverse()
     times_b.reverse()
     values_b.reverse()
-    curent_threads = 0
     # Track the a and b values independently
     current_a_value = 0
     current_b_value = 0
