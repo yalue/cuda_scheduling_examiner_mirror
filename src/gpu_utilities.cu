@@ -8,8 +8,13 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 #include "gpu_utilities.h"
+
+// The number of GPU nanoseconds to spin for GetGPUTimerScale. Increasing this
+// will both increase the accuracy and the time the function takes to return.
+#define TIMER_SPIN_DURATION (2 * 1000 * 1000 * 1000)
 
 // This macro takes a cudaError_t value. It prints an error message and returns
 // 0 if the cudaError_t isn't cudaSuccess. Otherwise, it returns nonzero.
@@ -61,6 +66,10 @@ static uint64_t InternalReadGPUNanoseconds(int cuda_device) {
   if (!CheckCUDAError(cudaMalloc(&device_time, sizeof(*device_time)))) {
     return 0;
   }
+  // Run the kernel a first time to warm up the GPU.
+  GetTime<<<1, 1>>>(device_time);
+  if (!CheckCUDAError(cudaDeviceSynchronize())) return 0;
+  // Now run the actual time-checking kernel.
   GetTime<<<1, 1>>>(device_time);
   if (!CheckCUDAError(cudaMemcpy(&host_time, device_time, sizeof(host_time),
     cudaMemcpyDeviceToHost))) {
@@ -152,6 +161,72 @@ int GetMaxResidentThreads(int cuda_device) {
   if (!WIFEXITED(status)) {
     printf("The child process didn't exit normally.\n");
     return 0;
+  }
+  return to_return;
+}
+
+static __global__ void TimerSpin(uint64_t ns_to_spin) {
+  uint64_t start_time = GlobalTimer64();
+  while ((GlobalTimer64() - start_time) < ns_to_spin) {
+    continue;
+  }
+}
+
+// This function is intended to be run in a child process. Returns -1 on error.
+static double InternalGetGPUTimerScale(int cuda_device) {
+  struct timespec start, end;
+  uint64_t nanoseconds_elapsed;
+  if (!CheckCUDAError(cudaSetDevice(cuda_device))) return -1;
+  // Run the kernel once to warm up the GPU.
+  TimerSpin<<<1, 1>>>(1000);
+  if (!CheckCUDAError(cudaDeviceSynchronize())) return -1;
+  // After warming up, do the actual timing.
+  if (clock_gettime(CLOCK_MONOTONIC_RAW, &start) != 0) {
+    printf("Failed getting start time.\n");
+    return -1;
+  }
+  TimerSpin<<<1, 1>>>(TIMER_SPIN_DURATION);
+  if (!CheckCUDAError(cudaDeviceSynchronize())) return -1;
+  if (clock_gettime(CLOCK_MONOTONIC_RAW, &end) != 0) {
+    printf("Failed getting end time.\n");
+    return -1;
+  }
+  nanoseconds_elapsed = end.tv_sec * 1e9 + end.tv_nsec;
+  nanoseconds_elapsed -= start.tv_sec * 1e9 + start.tv_nsec;
+  return ((double) nanoseconds_elapsed) / ((double) TIMER_SPIN_DURATION);
+}
+
+double GetGPUTimerScale(int cuda_device) {
+  double to_return;
+  double *scale = NULL;
+  int status;
+  pid_t pid;
+  scale = (double *) AllocateSharedBuffer(sizeof(*scale));
+  if (!scale) {
+    printf("Failed allocating space to hold the GPU time scale.\n");
+    return -1;
+  }
+  pid = fork();
+  if (pid < 0) {
+    printf("Failed creating a child process.\n");
+    FreeSharedBuffer(scale, sizeof(*scale));
+    return -1;
+  }
+  if (pid == 0) {
+    // Access the GPU with the child process only.
+    *scale = InternalGetGPUTimerScale(cuda_device);
+    exit(0);
+  }
+  if (wait(&status) < 0) {
+    printf("Failed waiting on the child process.\n");
+    FreeSharedBuffer(scale, sizeof(*scale));
+    return -1;
+  }
+  to_return = *scale;
+  FreeSharedBuffer(scale, sizeof(*scale));
+  if (!WIFEXITED(status)) {
+    printf("The child process didn't exit normally.\n");
+    return -1;
   }
   return to_return;
 }

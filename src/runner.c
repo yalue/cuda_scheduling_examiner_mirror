@@ -46,6 +46,8 @@ typedef struct {
   GlobalConfiguration *global_config;
   // The approximate GPU global timer at the start of the program.
   uint64_t starting_gpu_clock;
+  // The approximate number of GPU seconds in a real second.
+  double gpu_time_scale;
   // The time at the start of the program, as measured by the host, in seconds.
   double starting_seconds;
   // The maximum number of threads resident on the GPU at a time.
@@ -79,6 +81,13 @@ typedef struct {
 static pid_t GetThreadID(void) {
   pid_t to_return = syscall(SYS_gettid);
   return to_return;
+}
+
+// Converts the given GPU globaltimer value t to a number of seconds on the
+// CPU.
+static double GPUTimerToCPUTime(uint64_t t, ParentState *parent_state) {
+  uint64_t since_start = t - parent_state->starting_gpu_clock;
+  return (((double) since_start) / 1e9) * parent_state->gpu_time_scale;
 }
 
 // Takes a standard string and fills the output buffer with a null-terminated
@@ -149,7 +158,7 @@ static void SanitizeJSONString(const char *input, char *output,
 // getting the time.
 static double CurrentSeconds(void) {
   struct timespec ts;
-  if (clock_gettime(CLOCK_REALTIME, &ts) != 0) {
+  if (clock_gettime(CLOCK_MONOTONIC_RAW, &ts) != 0) {
     printf("Error getting time.\n");
     exit(1);
   }
@@ -193,12 +202,12 @@ static int SetCPUAffinity(ProcessConfig *config) {
 // floatig-point number of *seconds*, even though they are recorded in ns. This
 // code should not be included in benchmark timing measurements.
 static int WriteTimesToOutput(FILE *output, TimingInformation *times,
-    uint64_t base_nanoseconds) {
+    ParentState *parent_state) {
   // Times are printed relative to the program start time in order to make the
   // times smaller in the logs, rather than very large numbers.
-  uint64_t since_start;
   int i, j, block_time_count;
   char sanitized_name[SANITIZE_JSON_BUFFER_SIZE];
+  double tmp;
   KernelTimes *kernel_times = NULL;
 
   // Iterate over each kernel invocation
@@ -226,13 +235,13 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
       return 0;
     }
     // The kernel start time
-    since_start = kernel_times->kernel_times[0] - base_nanoseconds;
-    if (fprintf(output, "%f, ", (double) since_start / 1e9) < 0) {
+    tmp = GPUTimerToCPUTime(kernel_times->kernel_times[0], parent_state);
+    if (fprintf(output, "%f, ", tmp) < 0) {
       return 0;
     }
     // The kernel end time.
-    since_start = kernel_times->kernel_times[1] - base_nanoseconds;
-    if (fprintf(output, "%f], ", (double) since_start / 1e9) < 0) {
+    tmp = GPUTimerToCPUTime(kernel_times->kernel_times[1], parent_state);
+    if (fprintf(output, "%f], ", tmp) < 0) {
       return 0;
     }
     // Next, print all block times
@@ -241,9 +250,9 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
     }
     block_time_count = kernel_times->block_count * 2;
     for (j = 0; j < block_time_count; j++) {
-      since_start = kernel_times->block_times[j] - base_nanoseconds;
+      tmp = GPUTimerToCPUTime(kernel_times->block_times[j], parent_state);
       // Print a comma after every block time except the last one.
-      if (fprintf(output, "%f%s", (double) since_start / 1e9,
+      if (fprintf(output, "%f%s", tmp,
         j != (block_time_count - 1) ? "," : "") < 0) {
         return 0;
       }
@@ -373,7 +382,7 @@ static void* RunBenchmark(void *data) {
       return NULL;
     }
     if (!WriteTimesToOutput(config->output_file, &timing_info,
-      config->parent_state->starting_gpu_clock)) {
+      config->parent_state)) {
       printf("Benchmark %s failed writing to output file.\n", name);
       return NULL;
     }
@@ -673,8 +682,21 @@ int main(int argc, char **argv) {
   }
   // Next, create the structures that will be passed to each thread or process.
   process_configs = CreateProcessConfigs(&parent_state);
-  if (!process_configs) return 1;
+  if (!process_configs) {
+    FreeGlobalConfiguration(global_config);
+    return 1;
+  }
   printf("Process configs created.\n");
+  // Next, calculate the difference in rates between the CPU clock and GPU
+  // globaltimer.
+  parent_state.gpu_time_scale = GetGPUTimerScale(global_config->cuda_device);
+  if (parent_state.gpu_time_scale <= 0) {
+    printf("Failed getting the GPU timer scale.\n");
+    CleanupProcessConfigs(process_configs, global_config->benchmark_count);
+    FreeGlobalConfiguration(global_config);
+  }
+  printf("1 GPU second is approximately %f CPU seconds.\n",
+    parent_state.gpu_time_scale);
   // After the heavy initialization work has been done, record an approximate
   // GPU time and system time.
   parent_state.starting_gpu_clock = GetCurrentGPUNanoseconds(
