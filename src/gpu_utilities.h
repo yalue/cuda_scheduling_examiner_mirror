@@ -17,6 +17,12 @@ uint64_t GetCurrentGPUNanoseconds(int cuda_device);
 // size. Returns 0 on error.
 int GetMaxResidentThreads(int cuda_device);
 
+// Returns the number by which GPU time durations must be multiplied to get
+// correct (CPU) time durations. On proper GPUs this should return something
+// close to 1. Unfortunately, that's not the case on the TX1... Returns a
+// negative value on error. This will block while the GPU is being timed.
+double GetGPUTimerScale(int cuda_device);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif
