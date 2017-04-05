@@ -79,7 +79,7 @@ static int AllocateMemory(BenchmarkState *state) {
   KernelTimes *host_times = &state->spin_kernel_times;
   // Allocate device memory
   if (!CheckCUDAError(cudaMalloc(&(state->device_kernel_times),
-    sizeof(host_times->kernel_times)))) {
+    2 * sizeof(uint64_t)))) {
     return 0;
   }
   if (!CheckCUDAError(cudaMalloc(&(state->device_block_times),
@@ -213,7 +213,7 @@ static int CopyOut(void *data, TimingInformation *times) {
   uint64_t block_smids_count = state->block_count;
   memset(times, 0, sizeof(*times));
   if (!CheckCUDAError(cudaMemcpyAsync(host_times->kernel_times,
-    state->device_kernel_times, sizeof(host_times->kernel_times),
+    state->device_kernel_times, 2 * sizeof(uint64_t),
     cudaMemcpyDeviceToHost, state->stream))) {
     return 0;
   }

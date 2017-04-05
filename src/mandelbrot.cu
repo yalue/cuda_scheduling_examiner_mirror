@@ -106,7 +106,7 @@ static int AllocateMemory(ThreadInformation *info) {
     return 0;
   }
   if (!CheckCUDAError(cudaMalloc(&info->device_kernel_times,
-    sizeof(info->mandelbrot_kernel_times.kernel_times)))) {
+    2 * sizeof(uint64_t)))) {
     return 0;
   }
   if (!CheckCUDAError(cudaMalloc(&info->device_block_times,
@@ -294,7 +294,7 @@ static int CopyOut(void *data, TimingInformation *times) {
   host_times->thread_count = info->thread_count;
   host_times->kernel_name = "BasicMandelbrot";
   if (!CheckCUDAError(cudaMemcpyAsync(host_times->kernel_times,
-    info->device_kernel_times, sizeof(host_times->kernel_times),
+    info->device_kernel_times, 2 * sizeof(uint64_t),
     cudaMemcpyDeviceToHost, info->stream))) {
     return 0;
   }
