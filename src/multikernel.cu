@@ -405,6 +405,8 @@ static int Execute(void *data) {
 
 static int CopyOut(void *data, TimingInformation *times) {
   BenchmarkState *state = (BenchmarkState *) data;
+  SingleKernelData *config = NULL;
+  KernelTimes *time_to_return = NULL;
   int i;
   // As a reminder (my naming scheme sucks, but I don't know what would be
   // better): kernel_*times* is the array of structures shared with the caller
@@ -413,18 +415,22 @@ static int CopyOut(void *data, TimingInformation *times) {
   // bookkeeping for memory management, but kernel_times needs copies of the
   // pointers to host memory.
   for (i = 0; i < state->kernel_count; i++) {
-    if (!CopyKernelMemoryOut(state->kernel_configs + i, state->stream)) {
+    // Do all the copy outs in one shot before calling synchronize.
+    config = state->kernel_configs + i;
+    if (!CopyKernelMemoryOut(config, state->stream)) {
       return 0;
     }
-    state->kernel_times[i].kernel_times =
-      state->kernel_configs[i].host_kernel_times;
-    state->kernel_times[i].block_times =
-      state->kernel_configs[i].host_block_times;
-    state->kernel_times[i].block_smids = state->kernel_configs[i].host_smids;
-    state->kernel_times[i].block_count = state->kernel_configs[i].block_count;
-    state->kernel_times[i].thread_count =
-      state->kernel_configs[i].thread_count;
-    state->kernel_times[i].kernel_name = state->kernel_configs[i].name;
+  }
+  if (!CheckCUDAError(cudaStreamSynchronize(state->stream))) return 0;
+  for (i = 0; i < state->kernel_count; i++) {
+    config = state->kernel_configs + i;
+    time_to_return = state->kernel_times + i;
+    time_to_return->kernel_times = config->host_kernel_times;
+    time_to_return->block_times = config->host_block_times;
+    time_to_return->block_smids = config->host_smids;
+    time_to_return->block_count = config->block_count;
+    time_to_return->thread_count = config->thread_count;
+    time_to_return->kernel_name = config->name;
   }
   times->kernel_info = state->kernel_times;
   times->kernel_count = state->kernel_count;
