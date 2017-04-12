@@ -40,32 +40,35 @@ def get_kernel_timeline(kernel_times):
             print "Error! The last block end time was before a start time."
             exit(1)
         current_time = 0.0
-        is_start_time = False
+        previous_thread_count = current_thread_count
         if len(start_times) != 0:
             # Get the next closest time, be it a start or an end time. The <=
             # is important, since we always want increment the block count
             # before decrementing in the case when a block starts at the same
             # time another ends.
-            if start_times[-1] <= end_times[-1]:
+            if start_times[-1] == end_times[-1]:
+                # A block started and ended at the same time, don't change the
+                # current thread count.
                 current_time = start_times.pop()
-                is_start_time = True
+                end_times.pop()
+            if start_times[-1] <= end_times[-1]:
+                # A block started, so increase the thread count
+                current_time = start_times.pop()
+                current_thread_count += kernel_times["thread_count"]
             else:
+                # A block ended, so decrease the thread count
                 current_time = end_times.pop()
-                is_start_time = False
+                current_thread_count -= kernel_times["thread_count"]
         else:
             # Only end times are left, so keep decrementing the block count.
             current_time = end_times.pop()
-            is_start_time = False
+            current_thread_count -= kernel_times["thread_count"]
         # Make sure that changes between numbers of running threads are abrupt.
         # Do this by only changing the number of blocks at the instant they
         # actually change rather than interpolating between two values.
         timeline_times.append(current_time)
-        timeline_values.append(current_thread_count)
-        # Update the current running number of blocks
-        if is_start_time:
-            current_thread_count += kernel_times["thread_count"]
-        else:
-            current_thread_count -= kernel_times["thread_count"]
+        timeline_values.append(previous_thread_count)
+        # Finally, append the new thread count.
         timeline_times.append(current_time)
         timeline_values.append(current_thread_count)
     return [timeline_times, timeline_values]
