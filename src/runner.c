@@ -236,12 +236,12 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
     }
     // The kernel start time
     tmp = GPUTimerToCPUTime(kernel_times->kernel_times[0], parent_state);
-    if (fprintf(output, "%f, ", tmp) < 0) {
+    if (fprintf(output, "%.9f, ", tmp) < 0) {
       return 0;
     }
     // The kernel end time.
     tmp = GPUTimerToCPUTime(kernel_times->kernel_times[1], parent_state);
-    if (fprintf(output, "%f], ", tmp) < 0) {
+    if (fprintf(output, "%.9f], ", tmp) < 0) {
       return 0;
     }
     // Next, print all block times
@@ -252,7 +252,7 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
     for (j = 0; j < block_time_count; j++) {
       tmp = GPUTimerToCPUTime(kernel_times->block_times[j], parent_state);
       // Print a comma after every block time except the last one.
-      if (fprintf(output, "%f%s", tmp,
+      if (fprintf(output, "%.9f%s", tmp,
         j != (block_time_count - 1) ? "," : "") < 0) {
         return 0;
       }
