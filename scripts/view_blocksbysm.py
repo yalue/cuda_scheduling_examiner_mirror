@@ -606,20 +606,59 @@ class BlockSMDisplay():
             self.draw_kernel(kernel, color, patternType, i, smBase, releaseDict)
 
     def draw_kernel(self, kernel, color, patternType, i, smBase, releaseDict):
+        kernelBlocks = kernel.blocks # allows for easy reordering, if necessary
+
         # Draw each block of the kernel
         for block in kernel.blocks:
             # Calculate competing threadcount
             otherThreads = 0
+            myOverlap = [(0, self.totalTime, 0, block.sm, "", -1)]
             for interval in smBase[block.sm]:
                 if interval[0] < block.end and interval[1] > block.start:
-                    otherThreads = max(otherThreads, interval[2])
+                    # Find the sub-interval of my own that this overlaps for
+                    intervalStart = max(interval[0], block.start)
+                    intervalEnd = min(interval[1], block.end)
+
+                    # Find any interval I've already built up overlap for
+                    myoverlappingintervals = []
+                    for myinterval in myOverlap:
+                        if myinterval[0] < intervalEnd and myinterval[1] > intervalStart:
+                            myoverlappingintervals.append(myinterval)
+
+                    # For each interval I already know about that I overlap with,
+                    # consider a few cases
+                    for myinterval in myoverlappingintervals:
+                        # Check if my interval completely encloses this new one (in that case,
+                        # split at the beginning and end of this new one)
+                        if myinterval[0] <= intervalStart and myinterval[1] >= intervalEnd:
+                            myOverlap.remove(myinterval)
+                            myOverlap.append((myinterval[0], intervalStart, myinterval[2], myinterval[3], myinterval[4], myinterval[5]))
+                            myOverlap.append((intervalStart, intervalEnd, myinterval[2] + interval[2], myinterval[3], myinterval[4], myinterval[5]))
+                            myOverlap.append((intervalEnd, myinterval[1], myinterval[2], myinterval[3], myinterval[4], myinterval[5]))
+
+                        # Otherwise, check if my interval starts before this new one
+                        # (in that case, split on the start time)
+                        elif myinterval[0] <= intervalStart:
+                            myOverlap.remove(myinterval)
+                            myOverlap.append((myinterval[0], intervalStart, myinterval[2], myinterval[3], myinterval[4], myinterval[5]))
+                            myOverlap.append((intervalStart, myinterval[1], myinterval[2] + interval[2], myinterval[3], myinterval[4], myinterval[5]))
+
+                        # Otherwise, check if my interval ends after this new one
+                        # (then, split on the end time)
+                        elif myinterval[1] >= intervalEnd:
+                            myOverlap.remove(myinterval)
+                            myOverlap.append((myinterval[0], intervalEnd, myinterval[2] + interval[2], myinterval[3], myinterval[4], myinterval[5]))
+                            myOverlap.append((intervalEnd, myinterval[1], myinterval[2], myinterval[3], myinterval[4], myinterval[5]))
+
+            for interval in myOverlap:
+                otherThreads = max(otherThreads, interval[2])
 
             br = BlockSMRect(block, self.firstTime, self.totalTime, self.numSms,
                              self.width, self.height, color, patternType, otherThreads)
 
             br.draw(self.canvas)
 
-            smBase[block.sm].append((block.start, block.end, block.numThreads))
+            smBase[block.sm].append((block.start, block.end, block.numThreads, block.sm, block.kernelName, block.id))
 
         # Draw a marker for the kernel release time
         releaseIdx = releaseDict.get(kernel.releaseTime, 0)
