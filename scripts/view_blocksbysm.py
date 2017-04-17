@@ -29,6 +29,10 @@ BUFFER_TOP = 60
 BUFFER_BOTTOM = 100
 
 BUFFER_LEFT = 100
+BUFFER_RIGHT = 20
+
+LEGEND_HEIGHT = 70
+BUFFER_LEGEND = 4
 
 class PlotRect(Rectangle):
     def __init__(self, w, h):
@@ -37,8 +41,8 @@ class PlotRect(Rectangle):
         p1y = h - BUFFER_BOTTOM
 
         # Top right
-        p2x = w - BUFFER_LEFT
-        p2y = BUFFER_TOP
+        p2x = w - BUFFER_RIGHT
+        p2y = BUFFER_TOP + LEGEND_HEIGHT + BUFFER_LEGEND
 
         Rectangle.__init__(self, Point(p1x, p1y), Point(p2x, p2y))
         self.setFill("white")
@@ -46,7 +50,7 @@ class PlotRect(Rectangle):
 class BlockSMRect(Rectangle):    
     def __init__(self, block, firstTime, totalTime, totalNumSms, w, h, color, otherThreads):
         # Height is fraction of an SM: 2048 threads/SM, with block.numThreads threads in block
-        plotHeight = h - BUFFER_TOP - BUFFER_BOTTOM
+        plotHeight = h - BUFFER_TOP - LEGEND_HEIGHT - BUFFER_LEGEND - BUFFER_BOTTOM
         plotBottom = h - BUFFER_BOTTOM
         smHeight = plotHeight / totalNumSms
         smBottom = plotBottom - int((block.sm) * smHeight)
@@ -56,10 +60,10 @@ class BlockSMRect(Rectangle):
         blockBottom = smBottom - otherHeight
         blockTop = blockBottom - blockHeight
         
-        p1x = int(float(block.start - firstTime) / totalTime * (w-2*BUFFER_LEFT)) + BUFFER_LEFT
+        p1x = int(float(block.start - firstTime) / totalTime * (w-BUFFER_LEFT-BUFFER_RIGHT)) + BUFFER_LEFT
         p1y = blockBottom
 
-        p2x = int(float(block.end - firstTime) / totalTime * (w-2*BUFFER_LEFT)) + BUFFER_LEFT
+        p2x = int(float(block.end - firstTime) / totalTime * (w-BUFFER_LEFT-BUFFER_RIGHT)) + BUFFER_LEFT
         p2y = blockTop
 
         Rectangle.__init__(self, Point(p1x, p1y), Point(p2x, p2y))
@@ -69,7 +73,7 @@ class KernelReleaseMarker(Line):
     def __init__(self, kernel, firstTime, totalTime, totalNumSms, w, h, color, idx):
         releaseTime = kernel.releaseTime
 
-        px = int(float(releaseTime - firstTime) / totalTime * (w-2*BUFFER_LEFT)) + BUFFER_LEFT
+        px = int(float(releaseTime - firstTime) / totalTime * (w-BUFFER_LEFT-BUFFER_RIGHT)) + BUFFER_LEFT
         p1y = h - BUFFER_BOTTOM + 20 + idx * 20
         p2y = p1y + 20
 
@@ -91,6 +95,79 @@ class Title(object):
     def draw(self, canvas):
         self.title.draw(canvas)
 
+class LegendBox(object):
+    def __init__(self, posx, posy, w, h, i, color):
+        self.rect = Rectangle(Point(posx - w/2, posy - h/2), Point(posx + w/2, posy + h/2))
+        self.rect.setFill(color)
+
+    def draw(self, canvas):
+        self.rect.draw(canvas)
+
+class Legend(object):
+    def __init__(self, w, h, benchmark):
+        self.build_rectangle(w, h)
+        self.build_labels(w, h, benchmark)
+
+    def build_rectangle(self, w, h):
+        # Top left
+        p1x = BUFFER_LEFT
+        p1y = BUFFER_TOP
+
+        # Bottom right
+        p2x = w - BUFFER_RIGHT
+        p2y = p1y + LEGEND_HEIGHT
+
+        self.outline = Rectangle(Point(p1x, p1y), Point(p2x, p2y))
+        self.outline.setFill("white")
+        self.outline.setOutline("black")
+
+    def build_labels(self, w, h, benchmark):
+        self.boxes = []
+        self.labels = []
+        for i in range(len(benchmark.kernels)):
+            kernel = benchmark.kernels[i]
+            self.build_label(w, h, kernel, i, len(benchmark.kernels))
+
+    def build_label(self, w, h, kernel, i, n):
+        color = idToColorMap[i]
+        boxSize = 12
+        numPerCol = math.ceil(n / 2.0)
+
+        if i < numPerCol:
+            # Left half
+            row = i
+
+            left = BUFFER_LEFT
+            right = left + (w - BUFFER_LEFT - BUFFER_RIGHT) / 2
+            midx = (left + right) / 2
+        else:
+            # Right half
+            row = i - numPerCol
+
+            left = BUFFER_LEFT + (w - BUFFER_LEFT - BUFFER_RIGHT) / 2
+            right = w - BUFFER_RIGHT
+            midx = (left + right) / 2
+
+        top = BUFFER_TOP + (LEGEND_HEIGHT / numPerCol) * row
+        bottom = top + (LEGEND_HEIGHT / numPerCol)
+        midy = (top + bottom) / 2
+
+        # Build the box
+        box = LegendBox(left + 20, midy, boxSize, boxSize, i, color)
+        self.boxes.append(box)
+
+        # Build the label
+        s = kernel.label
+        label = Text(Point(left + 100, midy), "Stream %d (%s)" % (i+1, s)) # TODO: generalize
+        self.labels.append(label)
+
+    def draw(self, canvas):
+        self.outline.draw(canvas)
+        for box in self.boxes:
+            box.draw(canvas)
+        for label in self.labels:
+            label.draw(canvas)
+
 class XAxis(object):
     def __init__(self, firstTime, totalTime, w, h):
         self.build_axis(w, h)
@@ -102,7 +179,7 @@ class XAxis(object):
     def build_axis(self, w, h):
         # Draw a thin black horizontal line
         p1x = BUFFER_LEFT
-        p2x = w - BUFFER_LEFT
+        p2x = w - BUFFER_RIGHT
 
         py = h - BUFFER_BOTTOM
 
@@ -119,14 +196,14 @@ class XAxis(object):
 
     def build_tick_marks(self, totalTime, w, h):
         # Put a tick every 0.1 seconds
-        plotWidth = w - BUFFER_LEFT * 2
+        plotWidth = w - BUFFER_LEFT - BUFFER_RIGHT
         numTicks = int(math.ceil(totalTime / self.tick_time))
         self.ticks = []
         for i in range(1, numTicks):
             # Top of plot area
             px = BUFFER_LEFT + (i * self.tick_time / totalTime) * plotWidth
-            p1y = BUFFER_TOP + 1
-            p2y = BUFFER_TOP + 5
+            p1y = BUFFER_TOP + LEGEND_HEIGHT + BUFFER_LEGEND + 1
+            p2y = BUFFER_TOP + LEGEND_HEIGHT + BUFFER_LEGEND + 5
 
             tick = Line(Point(px, p1y), Point(px, p2y))
             tick.setFill("black")
@@ -143,7 +220,7 @@ class XAxis(object):
 
     def build_labels(self, totalTime, w, h):
         # Put a label every tick mark
-        plotWidth = w - BUFFER_LEFT * 2
+        plotWidth = w - BUFFER_LEFT - BUFFER_RIGHT
         numTicks = int(math.ceil(totalTime / self.tick_time))
         self.labels = []
         for i in range(1, numTicks):
@@ -178,14 +255,14 @@ class YAxis(Rectangle):
         px = BUFFER_LEFT
 
         p1y = h - BUFFER_BOTTOM
-        p2y = BUFFER_TOP
+        p2y = BUFFER_TOP + LEGEND_HEIGHT + BUFFER_LEGEND
 
         self.axis = Line(Point(px, p1y), Point(px, p2y))
         self.axis.setFill("black")
 
     def build_grid_lines(self, totalNumSms, w, h):
         # Put a horizontal line between each SM
-        plotHeight = h - BUFFER_TOP - BUFFER_BOTTOM
+        plotHeight = h - BUFFER_TOP - LEGEND_HEIGHT - BUFFER_LEGEND - BUFFER_BOTTOM
         plotBottom = h - BUFFER_BOTTOM
         smHeight = plotHeight / totalNumSms
         self.gridlines = []
@@ -193,14 +270,14 @@ class YAxis(Rectangle):
             py = plotBottom - i * smHeight
 
             p1x = BUFFER_LEFT
-            p2x = w - BUFFER_LEFT
+            p2x = w - BUFFER_RIGHT
 
             line = Line(Point(p1x, py), Point(p2x, py))
             line.setFill("black")
             self.gridlines.append(line)
 
     def build_labels(self, totalNumSms, w, h):
-        plotHeight = h - BUFFER_TOP - BUFFER_BOTTOM
+        plotHeight = h - BUFFER_TOP - LEGEND_HEIGHT - BUFFER_LEGEND - BUFFER_BOTTOM
         plotBottom = h - BUFFER_BOTTOM
         smHeight = plotHeight / totalNumSms
         self.labels = []
@@ -280,8 +357,9 @@ class BlockSMDisplay():
             color = idToColorMap[i]
             self.draw_kernel(self.benchmark.kernels[i], color, i, smBase, releaseDict)
 
-        # Draw the title and axes
+        # Draw the title, legend, and axes
         self.draw_title()
+        self.draw_legend()
         self.draw_axes()
 
     def draw_plot_area(self):
@@ -314,6 +392,10 @@ class BlockSMDisplay():
     def draw_title(self):
         title = Title(self.width, self.height, self.name)
         title.draw(self.canvas)
+
+    def draw_legend(self):
+        legend = Legend(self.width, self.height, self.benchmark)
+        legend.draw(self.canvas)
 
     def draw_axes(self):
         xaxis = XAxis(self.firstTime, self.totalTime, self.width, self.height)
