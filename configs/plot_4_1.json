@@ -1,0 +1,28 @@
+{
+  "name": "Block distribution test",
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "pin_cpus": true,
+  "benchmarks": [
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "distribution_1_1.json",
+      "label": "Small job",
+      "thread_count": 512,
+      "block_count": 6,
+      "data_size": 0,
+      "additional_info": "1000000000"
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "distribution_1_2.json",
+      "label": "Larger job",
+      "thread_count": 1024,
+      "block_count": 1,
+      "data_size": 0,
+      "additional_info": "1000000000",
+      "release_time": 0.25
+    }
+  ]
+}
