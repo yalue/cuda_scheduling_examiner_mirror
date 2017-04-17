@@ -358,11 +358,11 @@ class Legend(object):
     def build_labels(self, w, h, benchmark):
         self.boxes = []
         self.labels = []
-        for i in range(len(benchmark.kernels)):
-            kernel = benchmark.kernels[i]
-            self.build_label(w, h, kernel, i, len(benchmark.kernels))
+        for i in range(len(benchmark.streams)):
+            stream = benchmark.streams[i]
+            self.build_label(w, h, stream, i, len(benchmark.streams))
 
-    def build_label(self, w, h, kernel, i, n):
+    def build_label(self, w, h, stream, i, n):
         boxSize = 12
         numPerCol = math.ceil(n / 2.0)
 
@@ -390,7 +390,7 @@ class Legend(object):
         self.boxes.append(box)
 
         # Build the label
-        s = kernel.label
+        s = stream.label
         label = Text(Point(left + 100, midy), "Stream %d (%s)" % (i+1, s)) # TODO: generalize
         self.labels.append(label)
 
@@ -566,9 +566,9 @@ class BlockSMDisplay():
 
         self.benchmark = benchmark
 
-        if len(benchmark.kernels) > 0:
-            self.numSms = self.benchmark.kernels[0].maxResidentThreads / 2048
-            self.name = self.benchmark.kernels[0].scenarioName
+        if len(benchmark.streams) > 0:
+            self.numSms = self.benchmark.streams[0].maxResidentThreads / 2048
+            self.name = self.benchmark.streams[0].scenarioName
 
     def redraw(self, width, height):
         self.canvas.clear_canvas()
@@ -578,7 +578,7 @@ class BlockSMDisplay():
         self.draw_benchmark()
 
     def draw_benchmark(self):
-        if len(self.benchmark.kernels) == 0: return
+        if len(self.benchmark.streams) == 0: return
         
         # Draw the plot area
         self.draw_plot_area()
@@ -586,10 +586,10 @@ class BlockSMDisplay():
         # Draw each kernel
         smBase = [[] for j in range(self.numSms)]
         releaseDict = {}
-        for i in range(len(self.benchmark.kernels)):
+        for i in range(len(self.benchmark.streams)):
             color = idToColorMap[i] if USE_PATTERNS else patternColorToArrowColorMap[idToColorMap[i]]
             patternType = idToPatternMap[i] if USE_PATTERNS else None
-            self.draw_kernel(self.benchmark.kernels[i], color, patternType, i, smBase, releaseDict)
+            self.draw_stream(self.benchmark.streams[i], color, patternType, i, smBase, releaseDict)
 
         # Draw the title, legend, and axes
         self.draw_title()
@@ -599,6 +599,11 @@ class BlockSMDisplay():
     def draw_plot_area(self):
         pr = PlotRect(self.width, self.height)
         pr.draw(self.canvas)
+
+    def draw_stream(self, stream, color, patternType, i, smBase, releaseDict):
+        # Draw each kernel in the stream
+        for kernel in stream.kernels:
+            self.draw_kernel(kernel, color, patternType, i, smBase, releaseDict)
 
     def draw_kernel(self, kernel, color, patternType, i, smBase, releaseDict):
         # Draw each block of the kernel
@@ -654,36 +659,36 @@ class Block(object):
         self.kernel = kernel
 
 class Kernel(object):
-    def __init__(self, benchmark):
-        self.parse_benchmark(benchmark)
+    def __init__(self, stream, kernelInfoDict):
+        self.parse_kernel(stream, kernelInfoDict)
 
-    def parse_benchmark(self, benchmark):        
+    def parse_kernel(self, stream, kernelInfoDict):
         self.blocks = []
 
-        self.scenarioName = benchmark["scenario_name"]
-        self.label = benchmark["label"] # string
-        self.releaseTime = benchmark["release_time"] # float
-        self.blockCount = benchmark["block_count"] # int
-        self.threadCount = benchmark["thread_count"] # int
-        self.maxResidentThreads = benchmark["max_resident_threads"] # int
+        self.scenarioName = stream.scenarioName
+        self.label = stream.label
+        self.tid = stream.tid
+        self.releaseTime = stream.releaseTime
+        self.maxResidentThreads = stream.maxResidentThreads
 
-        self.kernelName = self.label
+        self.kernelName = kernelInfoDict["kernel_name"]
+        self.kernelStart = kernelInfoDict["kernel_times"][0]
+        self.kernelEnd = kernelInfoDict["kernel_times"][1]
 
-        times = benchmark["times"][1]
-        self.kernelStart = times["kernel_times"][0]
-        self.kernelEnd = times["kernel_times"][1]
+        self.blockCount = kernelInfoDict["block_count"]
+        self.threadCount = kernelInfoDict["thread_count"]
 
         self.blockStarts = []
         self.blockEnds = []
         self.blockSms = []
         for i in range(self.blockCount):
-            self.blockStarts.append(times["block_times"][i*2])
-            self.blockEnds.append(times["block_times"][i*2+1])
-            self.blockSms.append(times["block_smids"][i])
+            self.blockStarts.append(kernelInfoDict["block_times"][i*2])
+            self.blockEnds.append(kernelInfoDict["block_times"][i*2+1])
+            self.blockSms.append(kernelInfoDict["block_smids"][i])
             block = Block(self.blockStarts[-1], self.blockEnds[-1], self.threadCount,
-                          self.blockSms[-1], benchmark["TID"], i, self)
+                          self.blockSms[-1], self.tid, i, self)
             self.blocks.append(block)
-        
+
     def get_start(self):
         start = None
         for block in self.blocks:
@@ -700,21 +705,55 @@ class Kernel(object):
 
         return end
 
+class Stream(object):
+    def __init__(self, benchmark):
+        self.parse_benchmark(benchmark)
+
+    def parse_benchmark(self, benchmark):
+        self.blocks = []
+
+        self.scenarioName = benchmark["scenario_name"]
+        self.label = benchmark["label"] # string
+        self.tid = benchmark["TID"] # string
+        self.releaseTime = benchmark["release_time"] # float
+        self.maxResidentThreads = benchmark["max_resident_threads"] # int
+
+        times = benchmark["times"][1:]
+        self.kernels = []
+        for time in times:
+            self.kernels.append(Kernel(self, time))
+
+    def get_start(self):
+        start = None
+        for kernel in self.kernels:
+            if start == None or kernel.get_start() < start:
+                start = kernel.get_start()
+
+        return start
+
+    def get_end(self):
+        end = None
+        for kernel in self.kernels:
+            if end == None or kernel.get_end() > end:
+                end = kernel.get_end()
+
+        return end
+
 class Benchmark(object):
     def __init__(self, name, benchmarks):
         self.name = name
         self.parse_benchmark(benchmarks)
 
     def parse_benchmark(self, benchmarks):
-        self.kernels = []
+        self.streams = []
         for benchmark in benchmarks:
-            self.kernels.append(Kernel(benchmark))
+            self.streams.append(Stream(benchmark))
 
     def get_start(self):
-        return min([k.get_start() for k in self.kernels])
+        return min([s.get_start() for s in self.streams])
 
     def get_end(self):
-        return max([k.get_end() for k in self.kernels])
+        return max([s.get_end() for s in self.streams])
 
 def get_block_intervals(name, benchmarks):
     return Benchmark(name, benchmarks)
