@@ -47,8 +47,12 @@ class PlotRect(Rectangle):
         Rectangle.__init__(self, Point(p1x, p1y), Point(p2x, p2y))
         self.setFill("white")
 
-class BlockSMRect(Rectangle):    
+class BlockSMRect(object):
     def __init__(self, block, firstTime, totalTime, totalNumSms, w, h, color, otherThreads):
+        self.build_rectangle(block, firstTime, totalTime, totalNumSms, w, h, color, otherThreads)
+        self.build_label(block, firstTime, totalTime, totalNumSms, w, h, color, otherThreads)
+
+    def build_rectangle(self, block, firstTime, totalTime, totalNumSms, w, h, color, otherThreads):
         # Height is fraction of an SM: 2048 threads/SM, with block.numThreads threads in block
         plotHeight = h - BUFFER_TOP - LEGEND_HEIGHT - BUFFER_LEGEND - BUFFER_BOTTOM
         plotBottom = h - BUFFER_BOTTOM
@@ -66,8 +70,33 @@ class BlockSMRect(Rectangle):
         p2x = int(float(block.end - firstTime) / totalTime * (w-BUFFER_LEFT-BUFFER_RIGHT)) + BUFFER_LEFT
         p2y = blockTop
 
-        Rectangle.__init__(self, Point(p1x, p1y), Point(p2x, p2y))
-        self.setFill(color)
+        self.block = Rectangle(Point(p1x, p1y), Point(p2x, p2y))
+        self.block.setFill(color)
+
+    def build_label(self, block, firstTime, totalTime, totalNumSms, w, h, color, otherThreads):
+        # Height is fraction of an SM: 2048 threads/SM, with block.numThreads threads in block
+        plotHeight = h - BUFFER_TOP - LEGEND_HEIGHT - BUFFER_LEGEND - BUFFER_BOTTOM
+        plotBottom = h - BUFFER_BOTTOM
+        smHeight = plotHeight / totalNumSms
+        smBottom = plotBottom - int((block.sm) * smHeight)
+        blockHeight = smHeight / 2048.0 * block.numThreads
+
+        otherHeight = smHeight / 2048.0 * otherThreads
+        blockBottom = smBottom - otherHeight
+        blockTop = blockBottom - blockHeight
+
+        blockLeft = int(float(block.start - firstTime) / totalTime * (w-BUFFER_LEFT-BUFFER_RIGHT)) + BUFFER_LEFT
+        blockRight = int(float(block.end - firstTime) / totalTime * (w-BUFFER_LEFT-BUFFER_RIGHT)) + BUFFER_LEFT
+
+        px = (blockLeft + blockRight) / 2
+        py = (blockTop + blockBottom) / 2
+
+        kernelName = block.kernelName
+        self.label = Text(Point(px, py), "%s: %s" % (kernelName, block.id))
+
+    def draw(self, canvas):
+        self.block.draw(canvas)
+        self.label.draw(canvas)
 
 class KernelReleaseMarker(Line):
     def __init__(self, kernel, firstTime, totalTime, totalNumSms, w, h, color, idx):
@@ -409,12 +438,15 @@ class BlockSMDisplay():
 ###################################################
 
 class Block(object):
-    def __init__(self, startTime, endTime, numThreads, smId, threadId):
+    def __init__(self, startTime, endTime, numThreads, smId, threadId, blockId, kernel):
         self.start = startTime
         self.end = endTime
         self.numThreads = numThreads
         self.sm = smId
         self.thread = threadId
+        self.id = blockId
+        self.kernelName = kernel.kernelName
+        self.kernel = kernel
 
 class Kernel(object):
     def __init__(self, benchmark):
@@ -430,6 +462,8 @@ class Kernel(object):
         self.threadCount = benchmark["thread_count"] # int
         self.maxResidentThreads = benchmark["max_resident_threads"] # int
 
+        self.kernelName = self.label
+
         times = benchmark["times"][1]
         self.kernelStart = times["kernel_times"][0]
         self.kernelEnd = times["kernel_times"][1]
@@ -442,7 +476,7 @@ class Kernel(object):
             self.blockEnds.append(times["block_times"][i*2+1])
             self.blockSms.append(times["block_smids"][i])
             block = Block(self.blockStarts[-1], self.blockEnds[-1], self.threadCount,
-                          self.blockSms[-1], benchmark["TID"])
+                          self.blockSms[-1], benchmark["TID"], i, self)
             self.blocks.append(block)
         
     def get_start(self):
