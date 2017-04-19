@@ -1,0 +1,14 @@
+{
+  "name": "Memory test",
+  "max_iterations": 10,
+  "max_time": 0,
+  "cuda_device": 0,
+  "benchmarks": [
+    {
+      "filename": "./bin/cpu_inorder_walk.so",
+      "thread_count": 0,
+      "block_count": 0,
+      "data_size": 268435456
+    }
+  ]
+}

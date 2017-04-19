@@ -146,7 +146,7 @@ floating-point numbers of seconds. The format of the log file is:
       "kernel_name": <The name of this particular kernel. May be omitted.>,
       "block_count": <The number of blocks in this kernel invocation.>,
       "thread_count": <The number of threads per block in this invocation.>,
-      "kernel_times": [<start time>, <end time>, ...],
+      "kernel_times": [<start time>, <end time>],
       "block_times": [<start time>, <end time>, ...],
       "block_smids": [<block 0 SMID>, <block 1 SMID>, ...],
       "cpu_core": <the current CPU core being used>,
