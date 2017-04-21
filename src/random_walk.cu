@@ -1,19 +1,17 @@
-// This file defines a bare-bones CUDA benchmark which spins waiting for a
-// user-specified amount of time to complete. While the benchmark itself is
-// simpler than the mandelbrot-set benchmark, the boilerplate is relatively
-// similar.
+// This file defines a CUDA benchmark in which a kernel will perform a sequence
+// of memory reads in a random cycle over a buffer in GPU memory.
 //
-// While this benchmark will spin for an arbitrary default number of
-// nanoseconds, the specific amount of time to spin may be given as a number
-// of nanoseconds provided as a string "additional_info" configuration field.
+// By default, this benchmark performs an arbitrary constant number of memory
+// references, but a specific number of references can be provided as an
+// "additional_info" string.
 #include <cuda_runtime.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "library_interface.h"
 
-// If no number is provided, spin for this number of nanoseconds.
-#define DEFAULT_SPIN_DURATION (10 * 1000 * 1000)
+// The default number of memory reads to perform in each iteration.
+#define DEFAULT_MEMORY_ACCESS_COUNT (1000 * 1000)
 
 // This macro takes a cudaError_t value. It prints an error message and returns
 // 0 if the cudaError_t isn't cudaSuccess. Otherwise, it returns nonzero.
@@ -41,24 +39,34 @@ typedef struct {
   uint64_t *device_block_times;
   // Holds the device copy of the SMID each block was assigned to.
   uint32_t *device_block_smids;
-  // The number of nanoseconds for which each CUDA thread should spin.
-  uint64_t spin_duration;
+  // Holds the buffer of GPU memory traversed during the walk.
+  uint32_t *device_walk_buffer;
+  // Use an accumulator that the host reads in order to prevent CUDA from
+  // optimizing out our loop.
+  uint64_t *device_accumulator;
+  uint64_t host_accumulator;
   // Holds the grid dimension to use, set during initialization.
   int block_count;
   int thread_count;
+  // The number of steps to make in the walk.
+  uint64_t memory_access_count;
+  // The number of 32-bit elements in the walk buffer.
+  uint64_t walk_buffer_length;
   // Holds host-side times that are shared with the calling process.
-  KernelTimes spin_kernel_times;
+  KernelTimes walk_kernel_times;
 } BenchmarkState;
 
 // Implements the cleanup function required by the library interface, but is
 // also called internally (only during Initialize()) to clean up after errors.
 static void Cleanup(void *data) {
   BenchmarkState *state = (BenchmarkState *) data;
-  KernelTimes *host_times = &state->spin_kernel_times;
+  KernelTimes *host_times = &state->walk_kernel_times;
   // Free device memory.
   if (state->device_kernel_times) cudaFree(state->device_kernel_times);
   if (state->device_block_times) cudaFree(state->device_block_times);
   if (state->device_block_smids) cudaFree(state->device_block_smids);
+  if (state->device_walk_buffer) cudaFree(state->device_walk_buffer);
+  if (state->device_accumulator) cudaFree(state->device_accumulator);
   // Free host memory.
   if (host_times->kernel_times) cudaFreeHost(host_times->kernel_times);
   if (host_times->block_times) cudaFreeHost(host_times->block_times);
@@ -76,7 +84,7 @@ static void Cleanup(void *data) {
 static int AllocateMemory(BenchmarkState *state) {
   uint64_t block_times_size = state->block_count * sizeof(uint64_t) * 2;
   uint64_t block_smids_size = state->block_count * sizeof(uint32_t);
-  KernelTimes *host_times = &state->spin_kernel_times;
+  KernelTimes *host_times = &state->walk_kernel_times;
   // Allocate device memory
   if (!CheckCUDAError(cudaMalloc(&(state->device_kernel_times),
     2 * sizeof(uint64_t)))) {
@@ -88,6 +96,14 @@ static int AllocateMemory(BenchmarkState *state) {
   }
   if (!CheckCUDAError(cudaMalloc(&(state->device_block_smids),
     block_smids_size))) {
+    return 0;
+  }
+  if (!CheckCUDAError(cudaMalloc(&(state->device_walk_buffer),
+    state->walk_buffer_length * sizeof(uint32_t)))) {
+    return 0;
+  }
+  if (!CheckCUDAError(cudaMalloc(&(state->device_accumulator),
+    sizeof(uint64_t)))) {
     return 0;
   }
   // Allocate host memory.
@@ -106,28 +122,59 @@ static int AllocateMemory(BenchmarkState *state) {
   return 1;
 }
 
-// If the given argument is a non-NULL, non-empty string, attempts to set the
-// spin_duration by parsing it as a number of nanoseconds. Otherwise, this
-// function will set spin_duration to a default value. Returns 0 if the
-// argument has been set to an invalid number, or nonzero on success.
-static int SetSpinDuration(const char *arg, BenchmarkState *state) {
+// If the given argument is a non-NULL, non-empty string, attempts to set
+// memory_access_count by parsing it. Otherwise, this function will set the
+// count to a default value. Returns 0 on error.
+static int SetMemoryAccessCount(const char *arg, BenchmarkState *state) {
   int64_t parsed_value;
   if (!arg || (strlen(arg) == 0)) {
-    state->spin_duration = DEFAULT_SPIN_DURATION;
+    state->memory_access_count = DEFAULT_MEMORY_ACCESS_COUNT;
     return 1;
   }
   char *end = NULL;
   parsed_value = strtoll(arg, &end, 10);
   if ((*end != 0) || (parsed_value < 0)) {
-    printf("Invalid spin duration: %s\n", arg);
+    printf("Invalid memory access count: %s\n", arg);
     return 0;
   }
-  state->spin_duration = (uint64_t) parsed_value;
+  state->memory_access_count = (uint64_t) parsed_value;
   return 1;
+}
+
+// Returns a single random 64-bit value.
+static uint64_t Random64(void) {
+  int i;
+  uint64_t to_return = 0;
+  // Get a random number in 16-bit chunks
+  for (i = 0; i < 4; i++) {
+    to_return = to_return << 16;
+    to_return |= rand() & 0xffff;
+  }
+  return to_return;
+}
+
+// Returns a random 64-bit integer in the range [base, limit)
+static uint64_t RandomRange(uint64_t base, uint64_t limit) {
+  if (limit <= base) return base;
+  return (Random64() % (limit - base)) + base;
+}
+
+// Shuffles an array of 32-bit values.
+static void ShuffleArray(uint32_t *buffer, uint64_t element_count) {
+  uint32_t tmp;
+  uint64_t i, dst;
+  for (i = 0; i < element_count; i++) {
+    dst = RandomRange(i, element_count);
+    tmp = buffer[i];
+    buffer[i] = buffer[dst];
+    buffer[dst] = tmp;
+  }
 }
 
 static void* Initialize(InitializationParameters *params) {
   BenchmarkState *state = NULL;
+  uint64_t i;
+  uint32_t *host_initial_buffer = NULL;
   // First allocate space for local data.
   state = (BenchmarkState *) malloc(sizeof(*state));
   if (!state) return NULL;
@@ -139,14 +186,46 @@ static void* Initialize(InitializationParameters *params) {
   }
   state->thread_count = params->thread_count;
   state->block_count = params->block_count;
+  state->walk_buffer_length = params->data_size / 4;
+  if (state->walk_buffer_length <= 0) {
+    printf("Memory walks require a data_size of at least 4.\n");
+    Cleanup(state);
+    return NULL;
+  }
   if (!AllocateMemory(state)) {
     Cleanup(state);
     return NULL;
   }
-  if (!SetSpinDuration(params->additional_info, state)) {
+  // Now that the device buffer is allocated, initialize it for a random walk.
+  // This is the only change over the in-order walk.
+  host_initial_buffer = (uint32_t *) malloc(state->walk_buffer_length *
+    sizeof(uint32_t));
+  if (!host_initial_buffer) {
+    printf("Failed allocating host buffer for initializing GPU memory.\n");
     Cleanup(state);
     return NULL;
   }
+  // Initialize a random cycle by shuffling array indices.
+  for (i = 0; i < state->walk_buffer_length; i++) {
+    host_initial_buffer[i] = i;
+  }
+  ShuffleArray(host_initial_buffer, state->walk_buffer_length);
+  if (!CheckCUDAError(cudaMemcpy(state->device_walk_buffer,
+    host_initial_buffer, state->walk_buffer_length * sizeof(uint32_t),
+    cudaMemcpyHostToDevice))) {
+    free(host_initial_buffer);
+    Cleanup(state);
+    return NULL;
+  }
+  free(host_initial_buffer);
+  host_initial_buffer = NULL;
+  // Check additional_info to see if a custom walk count has been provided.
+  if (!SetMemoryAccessCount(params->additional_info, state)) {
+    Cleanup(state);
+    return NULL;
+  }
+  printf("Doing %lu memory accesses.\n", (unsigned long) (state->memory_access_count));
+  fflush(stdout);
   if (!CheckCUDAError(cudaStreamCreate(&(state->stream)))) {
     Cleanup(state);
     return NULL;
@@ -175,9 +254,12 @@ static __device__ __inline__ uint64_t GlobalTimer64(void) {
 }
 
 // Spins in a loop until at least spin_duration nanoseconds have elapsed.
-static __global__ void GPUSpin(uint64_t spin_duration, uint64_t *kernel_times,
+static __global__ void WalkKernel(uint64_t access_count,
+    uint64_t *accumulator, uint32_t *walk_buffer, uint64_t *kernel_times,
     uint64_t *block_times, uint32_t *block_smids) {
   uint64_t start_time = GlobalTimer64();
+  uint64_t i = 0;
+  uint64_t walk_index = 0;
   // First, record the kernel and block start times
   if (threadIdx.x == 0) {
     if (blockIdx.x == 0) kernel_times[0] = start_time;
@@ -185,10 +267,10 @@ static __global__ void GPUSpin(uint64_t spin_duration, uint64_t *kernel_times,
     block_smids[blockIdx.x] = GetSMID();
   }
   __syncthreads();
-  // The actual spin loop--most of this kernel code is for recording block and
-  // kernel times.
-  while ((GlobalTimer64() - start_time) < spin_duration) {
-    continue;
+  // The actual walk loop.
+  for (i = 0; i < access_count; i++) {
+    walk_index = walk_buffer[walk_index];
+    *accumulator = *accumulator + walk_index;
   }
   // Record the kernel and block end times.
   if (threadIdx.x == 0) {
@@ -199,8 +281,9 @@ static __global__ void GPUSpin(uint64_t spin_duration, uint64_t *kernel_times,
 
 static int Execute(void *data) {
   BenchmarkState *state = (BenchmarkState *) data;
-  GPUSpin<<<state->block_count, state->thread_count, 0, state->stream>>>(
-    state->spin_duration, state->device_kernel_times,
+  WalkKernel<<<state->block_count, state->thread_count, 0, state->stream>>>(
+    state->memory_access_count, state->device_accumulator,
+    state->device_walk_buffer, state->device_kernel_times,
     state->device_block_times, state->device_block_smids);
   if (!CheckCUDAError(cudaStreamSynchronize(state->stream))) return 0;
   return 1;
@@ -208,10 +291,15 @@ static int Execute(void *data) {
 
 static int CopyOut(void *data, TimingInformation *times) {
   BenchmarkState *state = (BenchmarkState *) data;
-  KernelTimes *host_times = &state->spin_kernel_times;
+  KernelTimes *host_times = &state->walk_kernel_times;
   uint64_t block_times_count = state->block_count * 2;
   uint64_t block_smids_count = state->block_count;
   memset(times, 0, sizeof(*times));
+  if (!CheckCUDAError(cudaMemcpyAsync(&(state->host_accumulator),
+    state->device_accumulator, sizeof(uint64_t), cudaMemcpyDeviceToHost,
+    state->stream))) {
+    return 0;
+  }
   if (!CheckCUDAError(cudaMemcpyAsync(host_times->kernel_times,
     state->device_kernel_times, 2 * sizeof(uint64_t),
     cudaMemcpyDeviceToHost, state->stream))) {
@@ -228,16 +316,18 @@ static int CopyOut(void *data, TimingInformation *times) {
     return 0;
   }
   if (!CheckCUDAError(cudaStreamSynchronize(state->stream))) return 0;
-  host_times->kernel_name = "GPUSpin";
+  host_times->kernel_name = "WalkKernel";
   host_times->block_count = state->block_count;
   host_times->thread_count = state->thread_count;
   times->kernel_count = 1;
   times->kernel_info = host_times;
+  times->resulting_data = &(state->host_accumulator);
+  times->resulting_data_size = sizeof(state->host_accumulator);
   return 1;
 }
 
 static const char* GetName(void) {
-  return "Timer Spin";
+  return "Random Walk";
 }
 
 // This should be the only function we export from the library, to provide

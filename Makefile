@@ -11,7 +11,8 @@ NVCCFLAGS := -g --ptxas-options=-v --compiler-options="$(CFLAGS)" \
 all: directories benchmarks bin/runner
 
 benchmarks: bin/mandelbrot.so bin/timer_spin.so bin/multikernel.so \
-	bin/cpu_inorder_walk.so bin/cpu_random_walk.so
+	bin/cpu_inorder_walk.so bin/cpu_random_walk.so bin/inorder_walk.so \
+	bin/random_walk.so
 
 directories:
 	mkdir -p bin/
@@ -25,6 +26,12 @@ bin/timer_spin.so: src/timer_spin.cu src/library_interface.h
 
 bin/multikernel.so: src/multikernel.cu src/library_interface.h
 	nvcc --shared $(NVCCFLAGS) -o bin/multikernel.so src/multikernel.cu
+
+bin/inorder_walk.so: src/inorder_walk.cu src/library_interface.h
+	nvcc --shared $(NVCCFLAGS) -o bin/inorder_walk.so src/inorder_walk.cu
+
+bin/random_walk.so: src/random_walk.cu src/library_interface.h
+	nvcc --shared $(NVCCFLAGS) -o bin/random_walk.so src/random_walk.cu
 
 bin/cpu_inorder_walk.so: src/cpu_inorder_walk.c src/library_interface.h
 	gcc $(CFLAGS) -shared -o bin/cpu_inorder_walk.so src/cpu_inorder_walk.c

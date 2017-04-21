@@ -362,12 +362,15 @@ static void* RunBenchmark(void *data) {
     printf("Failed pinning benchmark %s to CPU core.\n", name);
     return NULL;
   }
+  start_time = CurrentSeconds();
   user_data = benchmark->initialize(&(config->parameters));
   if (!user_data) {
     printf("Benchmark %s initialization failed.\n", name);
     return NULL;
   }
-  printf("Benchmark %s initialized OK.\n", name);
+  printf("Benchmark %s initialized in %f seconds.\n", name, CurrentSeconds() -
+    start_time);
+  fflush(stdout);
   if (!WaitForInitializationCompletion(config->parent_state)) {
     printf("Failed waiting for post-initialization synchronization.\n");
     return NULL;
