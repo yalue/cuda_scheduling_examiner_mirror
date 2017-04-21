@@ -1,0 +1,20 @@
+{
+  "name": "CPU Memory Benchmark Test",
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "benchmarks": [
+    {
+      "filename": "./bin/cpu_inorder_walk.so",
+      "thread_count": 0,
+      "block_count": 0,
+      "data_size": 268435456
+    },
+    {
+      "filename": "./bin/cpu_random_walk.so",
+      "thread_count": 0,
+      "block_count": 0,
+      "data_size": 268435456
+    }
+  ]
+}

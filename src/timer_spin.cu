@@ -130,6 +130,7 @@ static void* Initialize(InitializationParameters *params) {
   BenchmarkState *state = NULL;
   // First allocate space for local data.
   state = (BenchmarkState *) malloc(sizeof(*state));
+  if (!state) return NULL;
   memset(state, 0, sizeof(*state));
   if (!CheckCUDAError(cudaSetDevice(params->cuda_device))) return NULL;
   // Round the thread count up to a value evenly divisible by 32.

@@ -52,6 +52,8 @@ typedef struct {
   double starting_seconds;
   // The maximum number of threads resident on the GPU at a time.
   int max_resident_threads;
+  // This is used to force all threads to wait until they have all initialized.
+  pthread_barrier_t thread_initialize_barrier;
 } ParentState;
 
 // Holds data about a given benchmark, in addition to configuration parameters.
@@ -195,6 +197,21 @@ static int SetCPUAffinity(ProcessConfig *config) {
     result = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set), &cpu_set);
   }
   return result == 0;
+}
+
+// This function will provide a barrier synchronization point, which will block
+// until all threads are passed their initialization phase. Caution: this isn't
+// implemented for processes yet. Returns 0 on error, nonzero on success.
+static int WaitForInitializationCompletion(ParentState *parent_state) {
+  int result;
+  if (parent_state->global_config->use_processes) {
+    // TODO: Figure out a good way to do barrier sync for processes.
+    return 1;
+  }
+  result = pthread_barrier_wait(&(parent_state->thread_initialize_barrier));
+  if (result == 0) return 1;
+  if (result == PTHREAD_BARRIER_SERIAL_THREAD) return 1;
+  return 0;
 }
 
 // Formats the given timing information as a JSON object and appends it to the
@@ -345,10 +362,14 @@ static void* RunBenchmark(void *data) {
     printf("Failed pinning benchmark %s to CPU core.\n", name);
     return NULL;
   }
-  printf("Benchmark %s started.\n", name);
   user_data = benchmark->initialize(&(config->parameters));
   if (!user_data) {
     printf("Benchmark %s initialization failed.\n", name);
+    return NULL;
+  }
+  printf("Benchmark %s initialized OK.\n", name);
+  if (!WaitForInitializationCompletion(config->parent_state)) {
+    printf("Failed waiting for post-initialization synchronization.\n");
     return NULL;
   }
   if (!WriteOutputHeader(config)) {
@@ -579,9 +600,15 @@ static int RunAsThreads(ParentState *parent_state,
   int i, result, to_return;
   void *thread_result;
   int process_config_count = parent_state->global_config->benchmark_count;
+  if (pthread_barrier_init(&(parent_state->thread_initialize_barrier), NULL,
+    process_config_count) != 0) {
+    printf("Failed initializing thread initialization barrier.\n");
+    return 0;
+  }
   threads = (pthread_t *) malloc(process_config_count * sizeof(pthread_t));
   if (!threads) {
     printf("Failed allocating space to hold thread IDs.\n");
+    pthread_barrier_destroy(&(parent_state->thread_initialize_barrier));
     return 0;
   }
   to_return = 1;
@@ -610,6 +637,7 @@ static int RunAsThreads(ParentState *parent_state,
     }
   }
   free(threads);
+  pthread_barrier_destroy(&(parent_state->thread_initialize_barrier));
   return to_return;
 }
 
