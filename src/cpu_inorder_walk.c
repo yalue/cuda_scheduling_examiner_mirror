@@ -9,7 +9,7 @@
 #include "library_interface.h"
 
 // The default number of memory reads to perform in each iteration
-#define DEFAULT_MEMORY_ACCESS_COUNT (100 * 1000 * 1000)
+#define DEFAULT_MEMORY_ACCESS_COUNT (1000 * 1000)
 
 // Holds local state for one instances of this benchmark.
 typedef struct {
@@ -49,10 +49,11 @@ static void* Initialize(InitializationParameters *params) {
     free(state);
     return NULL;
   }
-  // Initialize the buffer with each entry containing its own index.
-  for (i = 0; i < buffer_length; i++) {
-    state->buffer[i] = i;
+  // Initialize the buffer with each entry containing the next entry's index.
+  for (i = 0; i < (buffer_length - 1); i++) {
+    state->buffer[i] = i + 1;
   }
+  state->buffer[buffer_length - 1] = 0;
   state->buffer_length = buffer_length;
   state->memory_access_count = DEFAULT_MEMORY_ACCESS_COUNT;
   return state;
@@ -68,8 +69,8 @@ static int Execute(void *data) {
   walk_index = 0;
   accumulator = 0;
   for (i = 0; i < state->memory_access_count; i++) {
-    accumulator += state->buffer[walk_index];
-    walk_index = (walk_index + 1) % state->buffer_length;
+    walk_index = state->buffer[walk_index];
+    accumulator += walk_index;
   }
   state->accumulator = accumulator;
   return 1;

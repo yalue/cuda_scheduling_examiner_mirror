@@ -1,0 +1,24 @@
+{
+  "name": "GPU In-order walk, CPU interference",
+  "max_iterations": 5,
+  "max_time": 0,
+  "cuda_device": 0,
+  "pin_cpus": true,
+  "benchmarks": [
+    {
+      "label": "In-order walk kernel",
+      "log_name": "inorder_walk_with_cpu_thrashing.json",
+      "filename": "./bin/inorder_walk.so",
+      "thread_count": 32,
+      "block_count": 1,
+      "data_size": 268435456
+    },
+    {
+      "label": "CPU random walk",
+      "filename": "./bin/cpu_random_walk.so",
+      "thread_count": 0,
+      "block_count": 0,
+      "data_size": 268435456
+    }
+  ]
+}
