@@ -6,13 +6,15 @@ NVCCFLAGS := -g --ptxas-options=-v --compiler-options="$(CFLAGS)" \
 	--cudart=shared --generate-code arch=compute_30,code=[compute_30,sm_30] \
 	--generate-code arch=compute_35,code=[compute_35,sm_35] \
 	--generate-code arch=compute_50,code=[compute_50,sm_50] \
-	--generate-code arch=compute_53,code=[compute_53,sm_53]
+	--generate-code arch=compute_53,code=[compute_53,sm_53] \
+	--generate-code arch=compute_60,code=[compute_60,sm_60] \
+	--generate-code arch=compute_62,code=[compute_62,sm_62]
 
 all: directories benchmarks bin/runner
 
 benchmarks: bin/mandelbrot.so bin/timer_spin.so bin/multikernel.so \
 	bin/cpu_inorder_walk.so bin/cpu_random_walk.so bin/inorder_walk.so \
-	bin/random_walk.so
+	bin/random_walk.so bin/sharedmem_timer_spin.so
 
 directories:
 	mkdir -p bin/
@@ -38,6 +40,9 @@ bin/cpu_inorder_walk.so: src/cpu_inorder_walk.c src/library_interface.h
 
 bin/cpu_random_walk.so: src/cpu_random_walk.c src/library_interface.h
 	gcc $(CFLAGS) -shared -o bin/cpu_random_walk.so src/cpu_random_walk.c
+
+bin/sharedmem_timer_spin.so: src/sharedmem_timer_spin.cu src/library_interface.h
+	nvcc --shared $(NVCCFLAGS) -o bin/sharedmem_timer_spin.so src/sharedmem_timer_spin.cu
 
 obj/cjson.o: src/third_party/cJSON.c src/third_party/cJSON.h
 	gcc -c $(CFLAGS) -o obj/cjson.o src/third_party/cJSON.c

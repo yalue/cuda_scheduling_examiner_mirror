@@ -11,6 +11,18 @@ import sys
 
 from graphics import *
 
+# Using threads vs shared memory
+SM_THREADS = 2048
+SM_SHARED_MEM = 65536
+Y_VAL_SOURCE = "sharedmem"
+if Y_VAL_SOURCE == "threads":
+    MAX_YVAL = float(SM_THREADS)
+elif Y_VAL_SOURCE == "sharedmem":
+    MAX_YVAL = float(SM_SHARED_MEM)
+else:
+    # invalid!
+    MAX_YVAL = 0
+
 ###################################################
 # Drawing                                         #
 ###################################################
@@ -234,9 +246,12 @@ class BlockSMRect(object):
         plotBottom = h - BUFFER_BOTTOM
         smHeight = plotHeight / totalNumSms
         smBottom = plotBottom - int((block.sm) * smHeight)
-        blockHeight = smHeight / 2048.0 * block.numThreads
+        if Y_VAL_SOURCE == "threads":
+            blockHeight = smHeight / MAX_YVAL * block.numThreads
+        else:
+            blockHeight = smHeight / MAX_YVAL * block.sharedMemCount
 
-        otherHeight = smHeight / 2048.0 * otherThreads
+        otherHeight = smHeight / MAX_YVAL * otherThreads
         blockBottom = smBottom - otherHeight
         blockTop = blockBottom - blockHeight
         
@@ -260,9 +275,12 @@ class BlockSMRect(object):
         plotBottom = h - BUFFER_BOTTOM
         smHeight = plotHeight / totalNumSms
         smBottom = plotBottom - int((block.sm) * smHeight)
-        blockHeight = smHeight / 2048.0 * block.numThreads
+        if Y_VAL_SOURCE == "threads":
+            blockHeight = smHeight / MAX_YVAL * block.numThreads
+        else:
+            blockHeight = smHeight / MAX_YVAL * block.sharedMemCount
 
-        otherHeight = smHeight / 2048.0 * otherThreads
+        otherHeight = smHeight / MAX_YVAL * otherThreads
         blockBottom = smBottom - otherHeight
         blockTop = blockBottom - blockHeight
 
@@ -606,10 +624,11 @@ class BlockSMDisplay():
             self.draw_kernel(kernel, color, patternType, i, smBase, releaseDict)
 
     def draw_kernel(self, kernel, color, patternType, i, smBase, releaseDict):
-        kernelBlocks = kernel.blocks # allows for easy reordering, if necessary
+        kernelBlocksIdxs = range(len(kernel.blocks)) # allows for easy reordering, if necessary
 
         # Draw each block of the kernel
-        for block in kernel.blocks:
+        for blockIdx in kernelBlocksIdxs:
+            block = kernel.blocks[blockIdx]
             # Calculate competing threadcount
             otherThreads = 0
             myOverlap = [(0, self.totalTime, 0, block.sm, "", -1)]
@@ -658,7 +677,14 @@ class BlockSMDisplay():
 
             br.draw(self.canvas)
 
-            smBase[block.sm].append((block.start, block.end, block.numThreads, block.sm, block.kernelName, block.id))
+            if Y_VAL_SOURCE == "threads":
+                smBase[block.sm].append((block.start, block.end, block.numThreads, block.sm,
+                                         block.kernelName, block.id))
+            elif Y_VAL_SOURCE == "sharedmem":
+                smBase[block.sm].append((block.start, block.end, block.sharedMemCount, block.sm,
+                                         block.kernelName, block.id))
+            else:
+                pass # invalid!
 
         # Draw a marker for the kernel release time
         releaseIdx = releaseDict.get(kernel.releaseTime, 0)
@@ -695,6 +721,7 @@ class Block(object):
         self.thread = threadId
         self.id = blockId
         self.kernelName = kernel.kernelName
+        self.sharedMemCount = kernel.sharedMemCount
         self.kernel = kernel
 
 class Kernel(object):
@@ -716,6 +743,7 @@ class Kernel(object):
 
         self.blockCount = kernelInfoDict["block_count"]
         self.threadCount = kernelInfoDict["thread_count"]
+        self.sharedMemCount = kernelInfoDict["sharedmem"] # int, in bytes
 
         self.blockStarts = []
         self.blockEnds = []

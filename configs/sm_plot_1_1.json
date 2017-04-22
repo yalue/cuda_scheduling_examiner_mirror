@@ -1,0 +1,47 @@
+{
+  "name": "Basic shared-memory coscheduling test",
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "pin_cpus": true,
+  "benchmarks": [
+    {
+      "filename": "./bin/sharedmem_timer_spin.so",
+      "log_name": "sharedmem_coschedule_1.json",
+      "label": "Kernel 1",
+      "thread_count": 128,
+      "block_count": 2,
+      "data_size": 0,
+      "additional_info": "500000000,8192"
+    },
+    {
+      "filename": "./bin/sharedmem_timer_spin.so",
+      "log_name": "sharedmem_coschedule_2.json",
+      "label": "Kernel 2",
+      "thread_count": 128,
+      "block_count": 2,
+      "data_size": 0,
+      "additional_info": "500000000,8192"
+    },
+    {
+      "filename": "./bin/sharedmem_timer_spin.so",
+      "log_name": "sharedmem_coschedule_3.json",
+      "label": "Kernel 3",
+      "thread_count": 128,
+      "block_count": 2,
+      "data_size": 0,
+      "additional_info": "500000000,8192",
+      "release_time": 0.25
+    },
+    {
+      "filename": "./bin/sharedmem_timer_spin.so",
+      "log_name": "sharedmem_coschedule_4.json",
+      "label": "Kernel 4",
+      "thread_count": 128,
+      "block_count": 2,
+      "data_size": 0,
+      "additional_info": "500000000,8192",
+      "release_time": 0.25
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "name": "Static Shared-Memory Greedy scheduling test",
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "pin_cpus": true,
+  "benchmarks": [
+    {
+      "filename": "./bin/sharedmem_timer_spin.so",
+      "log_name": "sharedmem_greedy_1.json",
+      "label": "Small job (released first)",
+      "thread_count": 128,
+      "block_count": 1,
+      "data_size": 0,
+      "additional_info": "1000000000,4096"
+    },
+    {
+      "filename": "./bin/sharedmem_timer_spin.so",
+      "log_name": "sharedmem_greedy_2.json",
+      "label": "Larger job (released second)",
+      "thread_count": 128,
+      "block_count": 16,
+      "data_size": 0,
+      "additional_info": "1000000000,4096",
+      "release_time": 0.25
+    },
+    {
+      "filename": "./bin/sharedmem_timer_spin.so",
+      "log_name": "sharedmem_greedy_3.json",
+      "label": "Small job (released third)",
+      "thread_count": 128,
+      "block_count": 1,
+      "data_size": 0,
+      "additional_info": "500000000,4096",
+      "release_time": 0.5
+    }
+  ]
+}
