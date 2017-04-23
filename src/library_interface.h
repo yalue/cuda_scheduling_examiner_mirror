@@ -46,6 +46,8 @@ typedef struct {
   int thread_count;
   // The number of blocks run by this kernel.
   int block_count;
+  // The amount of shared memory (in bytes) used by this kernel.
+  int sharedmem;
   // The start and end time, in nanoseconds, of this kernel. This array will
   // contain exactly 2 entries. This must be a pointer so that it can be
   // allocated in pinned memory.

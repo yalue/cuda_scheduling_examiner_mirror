@@ -247,6 +247,11 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
       kernel_times->block_count, kernel_times->thread_count) < 0) {
       return 0;
     }
+    // Print the shared memory used by the kernel.
+    if (fprintf(output, "\"sharedmem\": %d, ",
+      kernel_times->sharedmem) < 0) {
+      return 0;
+    }
     // Print the kernel times for this kernel.
     if (fprintf(output, "\"kernel_times\": [") < 0) {
       return 0;
