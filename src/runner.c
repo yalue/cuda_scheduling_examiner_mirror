@@ -248,8 +248,8 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
       return 0;
     }
     // Print the shared memory used by the kernel.
-    if (fprintf(output, "\"sharedmem\": %d, ",
-      kernel_times->sharedmem) < 0) {
+    if (fprintf(output, "\"shared_memory\": %d, ",
+      kernel_times->shared_memory) < 0) {
       return 0;
     }
     // Print the kernel times for this kernel.
@@ -297,6 +297,14 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
     }
   }
   fflush(output);
+  return 1;
+}
+
+// Writes the start and end CPU times for this iteration to the output file.
+static int WriteCPUTimesToOutput(FILE *output, double start, double end) {
+  if (fprintf(output, ",\n{\"cpu_times\": [%.9f,%.9f]}", start, end) < 0) {
+    return 0;
+  }
   return 1;
 }
 
@@ -362,7 +370,7 @@ static void* RunBenchmark(void *data) {
   void *user_data = NULL;
   const char *name = benchmark->get_name();
   uint64_t i = 0;
-  double start_time;
+  double start_time, iteration_start_time, iteration_end_time;
   if (!SetCPUAffinity(config)) {
     printf("Failed pinning benchmark %s to CPU core.\n", name);
     return NULL;
@@ -396,6 +404,8 @@ static void* RunBenchmark(void *data) {
     if (config->max_seconds > 0) {
       if ((CurrentSeconds() - start_time) >= config->max_seconds) break;
     }
+    iteration_start_time = CurrentSeconds() -
+      config->parent_state->starting_seconds;
     // The copy_in, execute, and cleanup functions can be NULL. If so, ignore
     // them.
     if (benchmark->copy_in && !benchmark->copy_in(user_data)) {
@@ -408,6 +418,13 @@ static void* RunBenchmark(void *data) {
     }
     if (!benchmark->copy_out(user_data, &timing_info)) {
       printf("Benchmark %s failed copying out.\n", name);
+      return NULL;
+    }
+    iteration_end_time = CurrentSeconds() -
+      config->parent_state->starting_seconds;
+    if (!WriteCPUTimesToOutput(config->output_file, iteration_start_time,
+      iteration_end_time)) {
+      printf("Benchmark %s failed writing CPU times to output file.\n", name);
       return NULL;
     }
     if (!WriteTimesToOutput(config->output_file, &timing_info,

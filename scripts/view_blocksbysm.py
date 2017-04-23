@@ -743,7 +743,7 @@ class Kernel(object):
 
         self.blockCount = kernelInfoDict["block_count"]
         self.threadCount = kernelInfoDict["thread_count"]
-        self.sharedMemCount = kernelInfoDict["sharedmem"] # int, in bytes
+        self.sharedMemCount = kernelInfoDict["shared_memory"] # int, in bytes
 
         self.blockStarts = []
         self.blockEnds = []
@@ -788,6 +788,8 @@ class Stream(object):
         times = benchmark["times"][1:]
         self.kernels = []
         for time in times:
+            if "cpu_times" in time:
+                continue
             self.kernels.append(Kernel(self, time))
 
     def get_start(self):
