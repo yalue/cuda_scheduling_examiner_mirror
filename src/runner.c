@@ -79,6 +79,17 @@ typedef struct {
   ParentState *parent_state;
 } ProcessConfig;
 
+// Holds data about the CPU time taken to complete various phases of a
+// benchmark's iteration.
+typedef struct {
+  double copy_in_start;
+  double copy_in_end;
+  double execute_start;
+  double execute_end;
+  double copy_out_start;
+  double copy_out_end;
+} CPUTimes;
+
 // Returns the TID of the calling thread.
 static pid_t GetThreadID(void) {
   pid_t to_return = syscall(SYS_gettid);
@@ -301,8 +312,22 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
 }
 
 // Writes the start and end CPU times for this iteration to the output file.
-static int WriteCPUTimesToOutput(FILE *output, double start, double end) {
-  if (fprintf(output, ",\n{\"cpu_times\": [%.9f,%.9f]}", start, end) < 0) {
+static int WriteCPUTimesToOutput(FILE *output, CPUTimes *t) {
+  if (fprintf(output, ",\n{\"copy_in_times\": [%.9f,%.9f], ", t->copy_in_start,
+    t->copy_in_end) < 0) {
+    return 0;
+  }
+  if (fprintf(output, "\"execute_times\": [%.9f,%.9f], ", t->execute_start,
+    t->execute_end) < 0) {
+    return 0;
+  }
+  if (fprintf(output, "\"copy_out_times\": [%.9f,%.9f], ", t->copy_out_start,
+    t->copy_out_end) < 0) {
+    return 0;
+  }
+  // The total CPU time.
+  if (fprintf(output, "\"cpu_times\": [%.9f,%.9f]}", t->copy_in_start,
+    t->copy_out_end) < 0) {
     return 0;
   }
   return 1;
@@ -370,7 +395,8 @@ static void* RunBenchmark(void *data) {
   void *user_data = NULL;
   const char *name = benchmark->get_name();
   uint64_t i = 0;
-  double start_time, iteration_start_time, iteration_end_time;
+  CPUTimes cpu_times;
+  double start_time;
   if (!SetCPUAffinity(config)) {
     printf("Failed pinning benchmark %s to CPU core.\n", name);
     return NULL;
@@ -404,7 +430,8 @@ static void* RunBenchmark(void *data) {
     if (config->max_seconds > 0) {
       if ((CurrentSeconds() - start_time) >= config->max_seconds) break;
     }
-    iteration_start_time = CurrentSeconds() -
+    // Perform the copy_in phase of the benchmark.
+    cpu_times.copy_in_start = CurrentSeconds() -
       config->parent_state->starting_seconds;
     // The copy_in, execute, and cleanup functions can be NULL. If so, ignore
     // them.
@@ -412,18 +439,32 @@ static void* RunBenchmark(void *data) {
       printf("Benchmark %s copy in failed.\n", name);
       return NULL;
     }
+    // There is some redundancy here, but I'm going to leave it in case we
+    // ever want to put something between copy_in and execute. Same goes for
+    // the point between execute and copy_out.
+    cpu_times.copy_in_end = CurrentSeconds() -
+      config->parent_state->starting_seconds;
+    // Perform the execute phase of the iteration.
+    cpu_times.execute_start = CurrentSeconds() -
+      config->parent_state->starting_seconds;
     if (benchmark->execute && !benchmark->execute(user_data)) {
       printf("Benchmark %s execute failed.\n", name);
       return NULL;
     }
+    cpu_times.execute_end = CurrentSeconds() -
+      config->parent_state->starting_seconds;
+    // Perform the copy_out phase of the iteration.
+    cpu_times.copy_out_start = CurrentSeconds() -
+      config->parent_state->starting_seconds;
     if (!benchmark->copy_out(user_data, &timing_info)) {
       printf("Benchmark %s failed copying out.\n", name);
       return NULL;
     }
-    iteration_end_time = CurrentSeconds() -
+    cpu_times.copy_out_end = CurrentSeconds() -
       config->parent_state->starting_seconds;
-    if (!WriteCPUTimesToOutput(config->output_file, iteration_start_time,
-      iteration_end_time)) {
+    // Now, write the timing data we obtained the output file for this
+    // instance.
+    if (!WriteCPUTimesToOutput(config->output_file, &cpu_times)) {
       printf("Benchmark %s failed writing CPU times to output file.\n", name);
       return NULL;
     }
