@@ -132,6 +132,8 @@ def get_thread_timeline(benchmark):
     to_return = [[], []]
     # Combine all kernels' timelines into a single timeline.
     for k in all_kernels:
+        if "cpu_times" in k:
+            continue
         kernel_timeline = get_kernel_timeline(k)
         to_return = merge_timelines(to_return, kernel_timeline)
     return to_return

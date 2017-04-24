@@ -1,19 +1,17 @@
-// This file defines a bare-bones CUDA benchmark which spins accesses shared
-// memory and then waits for a user-specified amount of time to complete.
-// While the benchmark itself is simpler than the mandelbrot-set benchmark,
-// the boilerplate is relatively similar.
+// This file defines a benchmark similar to timer_spin.cu, but with a
+// somewhat-configurable way to specify shared memory usage: the
+// additional_info now has the following format:
 //
-// While this benchmark will spin for an arbitrary default number of
-// nanoseconds, the specific amount of time to spin may be given as a number
-// of nanoseconds provided as a string "additional_info" configuration field.
+// additional_info: "<ns to spin>,<# of shared 32-bit integers>"
+//
+// The number of 32-bit integers to place in shared memory must be one of 4096,
+// 8192, or 10240. The shared memory usage in bytes will therefore be one of
+// those values multiplied by 4.
 #include <cuda_runtime.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "library_interface.h"
-
-// If no number is provided, spin for this number of nanoseconds.
-#define DEFAULT_SPIN_DURATION (10 * 1000 * 1000)
 
 // This macro takes a cudaError_t value. It prints an error message and returns
 // 0 if the cudaError_t isn't cudaSuccess. Otherwise, it returns nonzero.
@@ -218,8 +216,16 @@ static int InitializeKernelConfigs(BenchmarkState *state, char *info) {
   state->spin_duration = parsed_number;
   // Shared memory
   if (!StringToUint64(tokens[1], &parsed_number)) goto ErrorCleanup;
-  if ((parsed_number != 4096) && (parsed_number != 8192) &&
-      (parsed_number != 10240)) goto ErrorCleanup; 
+  switch (parsed_number) {
+    case 4096:
+    case 8192:
+    case 10240:
+      break;
+    default:
+      printf("Unsupported shared memory size: %llu\n",
+        (unsigned long long) parsed_number);
+      goto ErrorCleanup;
+  }
   state->sharedmem_count = parsed_number;
   for (i = 0; i < token_count; i++) {
     free(tokens[i]);
@@ -402,16 +408,16 @@ static __global__ void SharedMem_GPUSpin10240(uint64_t spin_duration,
 static int Execute(void *data) {
   BenchmarkState *state = (BenchmarkState *) data;
   if (state->sharedmem_count == 4096) {
-    SharedMem_GPUSpin4096<<<state->block_count, state->thread_count, 0, state->stream>>>(
-      state->spin_duration, state->device_kernel_times,
+    SharedMem_GPUSpin4096<<<state->block_count, state->thread_count, 0,
+      state->stream>>>(state->spin_duration, state->device_kernel_times,
       state->device_block_times, state->device_block_smids);
   } else if (state->sharedmem_count == 8192) {
-    SharedMem_GPUSpin8192<<<state->block_count, state->thread_count, 0, state->stream>>>(
-      state->spin_duration, state->device_kernel_times,
+    SharedMem_GPUSpin8192<<<state->block_count, state->thread_count, 0,
+      state->stream>>>(state->spin_duration, state->device_kernel_times,
       state->device_block_times, state->device_block_smids);
   } else if (state->sharedmem_count == 10240) {
-    SharedMem_GPUSpin10240<<<state->block_count, state->thread_count, 0, state->stream>>>(
-      state->spin_duration, state->device_kernel_times,
+    SharedMem_GPUSpin10240<<<state->block_count, state->thread_count, 0,
+      state->stream>>>(state->spin_duration, state->device_kernel_times,
       state->device_block_times, state->device_block_smids);
   }
   if (!CheckCUDAError(cudaStreamSynchronize(state->stream))) return 0;
@@ -443,7 +449,7 @@ static int CopyOut(void *data, TimingInformation *times) {
   host_times->kernel_name = "SharedMem_GPUSpin";
   host_times->block_count = state->block_count;
   host_times->thread_count = state->thread_count;
-  host_times->sharedmem = state->sharedmem_count * sizeof(uint32_t);
+  host_times->shared_memory = state->sharedmem_count * sizeof(uint32_t);
   times->kernel_count = 1;
   times->kernel_info = host_times;
   return 1;

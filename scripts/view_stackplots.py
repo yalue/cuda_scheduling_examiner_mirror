@@ -51,7 +51,7 @@ def get_kernel_timeline(kernel_times):
                 # current thread count.
                 current_time = start_times.pop()
                 end_times.pop()
-            if start_times[-1] <= end_times[-1]:
+            elif start_times[-1] <= end_times[-1]:
                 # A block started, so increase the thread count
                 current_time = start_times.pop()
                 current_thread_count += kernel_times["thread_count"]
@@ -132,6 +132,8 @@ def get_thread_timeline(benchmark):
     to_return = [[], []]
     # Combine all kernels' timelines into a single timeline.
     for k in all_kernels:
+        if "cpu_times" in k:
+            continue
         kernel_timeline = get_kernel_timeline(k)
         to_return = merge_timelines(to_return, kernel_timeline)
     return to_return

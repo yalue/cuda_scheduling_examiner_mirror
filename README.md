@@ -143,9 +143,16 @@ floating-point numbers of seconds. The format of the log file is:
   "times": [
     {},
     {
+      "cpu_times": [
+        <The CPU time before copy_in was called>,
+        <The CPU time when copy_out returned>
+      ]
+    },
+    {
       "kernel_name": <The name of this particular kernel. May be omitted.>,
       "block_count": <The number of blocks in this kernel invocation.>,
       "thread_count": <The number of threads per block in this invocation.>,
+      "shared_memory": <The amount of shared memory used by this kernel.>,
       "kernel_times": [<start time>, <end time>],
       "block_times": [<start time>, <end time>, ...],
       "block_smids": [<block 0 SMID>, <block 1 SMID>, ...],
@@ -158,7 +165,10 @@ floating-point numbers of seconds. The format of the log file is:
 ```
 
 Notice that the first entry in the "times" array will be blank and should be
-ignored.
+ignored. The times array will contain two types of objects: one will contain
+CPU times and one type will apply to kernel times. An object containing CPU
+times will contain a `"cpu_times"` key. A single CPU times object will
+encompass all kernel times following it, up until another CPU times object.
 
 Creating New Benchmarks
 -----------------------
