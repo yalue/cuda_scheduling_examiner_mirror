@@ -780,7 +780,7 @@ class Stream(object):
         self.blocks = []
 
         self.scenarioName = benchmark["scenario_name"]
-        self.label = benchmark["label"] # string
+        self.label = benchmark.get("label", "") # string
         self.tid = benchmark["TID"] # string
         self.releaseTime = benchmark["release_time"] # float
         self.maxResidentThreads = benchmark["max_resident_threads"] # int
