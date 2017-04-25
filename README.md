@@ -144,8 +144,20 @@ floating-point numbers of seconds. The format of the log file is:
     {},
     {
       "cpu_times": [
-        <The CPU time before copy_in was called>,
-        <The CPU time when copy_out returned>
+        <The CPU time before the copy_in function was called>,
+        <The CPU time after the copy_out function returned>
+      ],
+      "copy_in_times": [
+        <The CPU time before the copy_in function was called>,
+        <The CPU time after the copy_in function returned>
+      ],
+      "execute_times": [
+        <The CPU time when the execute function was called>,
+        <The CPU time after the execute function returned>
+      ],
+      "copy_out_times": [
+        <The CPU time when the copy_out function was called>,
+        <The CPU time after the copy_out function returned>
       ]
     },
     {

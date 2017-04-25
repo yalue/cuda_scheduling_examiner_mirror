@@ -14,7 +14,8 @@ all: directories benchmarks bin/runner
 
 benchmarks: bin/mandelbrot.so bin/timer_spin.so bin/multikernel.so \
 	bin/cpu_inorder_walk.so bin/cpu_random_walk.so bin/inorder_walk.so \
-	bin/random_walk.so bin/sharedmem_timer_spin.so
+	bin/random_walk.so bin/sharedmem_timer_spin.so \
+	bin/timer_spin_default_stream.so
 
 directories:
 	mkdir -p bin/
@@ -25,6 +26,11 @@ bin/mandelbrot.so: src/mandelbrot.cu src/library_interface.h
 
 bin/timer_spin.so: src/timer_spin.cu src/library_interface.h
 	nvcc --shared $(NVCCFLAGS) -o bin/timer_spin.so src/timer_spin.cu
+
+bin/timer_spin_default_stream.so: src/timer_spin_default_stream.cu \
+		src/library_interface.h
+	nvcc --shared $(NVCCFLAGS) -o bin/timer_spin_default_stream.so \
+		src/timer_spin_default_stream.cu
 
 bin/multikernel.so: src/multikernel.cu src/library_interface.h
 	nvcc --shared $(NVCCFLAGS) -o bin/multikernel.so src/multikernel.cu
@@ -41,8 +47,10 @@ bin/cpu_inorder_walk.so: src/cpu_inorder_walk.c src/library_interface.h
 bin/cpu_random_walk.so: src/cpu_random_walk.c src/library_interface.h
 	gcc $(CFLAGS) -shared -o bin/cpu_random_walk.so src/cpu_random_walk.c
 
-bin/sharedmem_timer_spin.so: src/sharedmem_timer_spin.cu src/library_interface.h
-	nvcc --shared $(NVCCFLAGS) -o bin/sharedmem_timer_spin.so src/sharedmem_timer_spin.cu
+bin/sharedmem_timer_spin.so: src/sharedmem_timer_spin.cu \
+		src/library_interface.h
+	nvcc --shared $(NVCCFLAGS) -o bin/sharedmem_timer_spin.so \
+		src/sharedmem_timer_spin.cu
 
 obj/cjson.o: src/third_party/cJSON.c src/third_party/cJSON.h
 	gcc -c $(CFLAGS) -o obj/cjson.o src/third_party/cJSON.c

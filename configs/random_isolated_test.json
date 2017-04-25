@@ -1,6 +1,6 @@
 {
   "name": "GPU random walk, in isolation",
-  "max_iterations": 5,
+  "max_iterations": 50,
   "max_time": 0,
   "cuda_device": 0,
   "pin_cpus": true,
