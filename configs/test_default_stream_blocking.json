@@ -8,7 +8,7 @@
     {
       "filename": "./bin/timer_spin_default_stream.so",
       "log_name": "blocking_default_stream_1x256.json",
-      "label": "Kernel A",
+      "label": "Kernel A (default stream)",
       "thread_count": 256,
       "block_count": 1,
       "data_size": 0,
@@ -17,16 +17,17 @@
     {
       "filename": "./bin/timer_spin_default_stream.so",
       "log_name": "blocking_default_stream_1x512.json",
-      "label": "Kernel B",
+      "label": "Kernel B (default stream)",
       "thread_count": 512,
       "block_count": 1,
       "data_size": 0,
-      "additional_info": "500000000"
+      "additional_info": "500000000",
+      "release_time": 0.1
     },
     {
       "filename": "./bin/timer_spin.so",
       "log_name": "blocked_by_default_stream_timerspin.json",
-      "label": "Kernel C",
+      "label": "Kernel C (user-defined stream)",
       "thread_count": 1024,
       "block_count": 1,
       "data_size": 0,
