@@ -456,7 +456,7 @@ static int CopyOut(void *data, TimingInformation *times) {
 }
 
 static const char* GetName(void) {
-  return "Timer Spin";
+  return "Timer Spin (shared memory)";
 }
 
 // This should be the only function we export from the library, to provide
