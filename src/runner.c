@@ -20,6 +20,7 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+#include "barrier_wait.h"
 #include "library_interface.h"
 #include "gpu_utilities.h"
 #include "parse_config.h"
@@ -52,8 +53,9 @@ typedef struct {
   double starting_seconds;
   // The maximum number of threads resident on the GPU at a time.
   int max_resident_threads;
-  // This is used to force all threads to wait until they have all initialized.
-  pthread_barrier_t thread_initialize_barrier;
+  // This is used to force all threads or processes to wait until they have all
+  // completed their initialization.
+  ProcessBarrier initialize_barrier;
 } ParentState;
 
 // Holds data about a given benchmark, in addition to configuration parameters.
@@ -214,15 +216,9 @@ static int SetCPUAffinity(ProcessConfig *config) {
 // until all threads are passed their initialization phase. Caution: this isn't
 // implemented for processes yet. Returns 0 on error, nonzero on success.
 static int WaitForInitializationCompletion(ParentState *parent_state) {
-  int result;
-  if (parent_state->global_config->use_processes) {
-    // TODO: Figure out a good way to do barrier sync for processes.
-    return 1;
-  }
-  result = pthread_barrier_wait(&(parent_state->thread_initialize_barrier));
-  if (result == 0) return 1;
-  if (result == PTHREAD_BARRIER_SERIAL_THREAD) return 1;
-  return 0;
+  int result = BarrierWait(&(parent_state->initialize_barrier));
+  if (!result) return 0;
+  return 1;
 }
 
 // Formats the given timing information as a JSON object and appends it to the
@@ -666,15 +662,9 @@ static int RunAsThreads(ParentState *parent_state,
   int i, result, to_return;
   void *thread_result;
   int process_config_count = parent_state->global_config->benchmark_count;
-  if (pthread_barrier_init(&(parent_state->thread_initialize_barrier), NULL,
-    process_config_count) != 0) {
-    printf("Failed initializing thread initialization barrier.\n");
-    return 0;
-  }
   threads = (pthread_t *) malloc(process_config_count * sizeof(pthread_t));
   if (!threads) {
     printf("Failed allocating space to hold thread IDs.\n");
-    pthread_barrier_destroy(&(parent_state->thread_initialize_barrier));
     return 0;
   }
   to_return = 1;
@@ -703,7 +693,6 @@ static int RunAsThreads(ParentState *parent_state,
     }
   }
   free(threads);
-  pthread_barrier_destroy(&(parent_state->thread_initialize_barrier));
   return to_return;
 }
 
@@ -729,6 +718,7 @@ static int RunAsProcesses(ParentState *parent_state,
       pids[i] = child_pid;
       continue;
     }
+    printf("Running benchmark %d as PID %d.\n", i, (int) child_pid);
     // The child process will run its benchmark and exit with a success if
     // everything went OK.
     if (!RunBenchmark(process_configs + i)) {
@@ -801,6 +791,13 @@ int main(int argc, char **argv) {
     FreeGlobalConfiguration(global_config);
     return 1;
   }
+  if (!BarrierCreate(&(parent_state.initialize_barrier),
+    global_config->benchmark_count)) {
+    printf("Failed initializing initialization barrier.\n");
+    CleanupProcessConfigs(process_configs, global_config->benchmark_count);
+    FreeGlobalConfiguration(global_config);
+    return 1;
+  }
   parent_state.starting_seconds = CurrentSeconds();
   // Finally, run the benchmarks in threads or processes
   if (global_config->use_processes) {
@@ -809,6 +806,7 @@ int main(int argc, char **argv) {
     result = RunAsThreads(&parent_state, process_configs);
   }
   // Last, clean up allocated state.
+  BarrierDestroy(&(parent_state.initialize_barrier));
   CleanupProcessConfigs(process_configs, global_config->benchmark_count);
   FreeGlobalConfiguration(global_config);
   if (!result) {

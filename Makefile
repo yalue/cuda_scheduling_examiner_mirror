@@ -66,9 +66,13 @@ obj/gpu_utilities.o: src/gpu_utilities.cu src/gpu_utilities.h \
 		src/library_interface.h
 	nvcc -c $(NVCCFLAGS) -o obj/gpu_utilities.o src/gpu_utilities.cu
 
-bin/runner: obj/runner.o obj/cjson.o obj/parse_config.o obj/gpu_utilities.o
+obj/barrier_wait.o: src/barrier_wait.c src/barrier_wait.h
+	gcc -c $(CFLAGS) -o obj/barrier_wait.o src/barrier_wait.c
+
+bin/runner: obj/runner.o obj/cjson.o obj/parse_config.o obj/gpu_utilities.o \
+		obj/barrier_wait.o
 	nvcc $(NVCCFLAGS) -o bin/runner obj/runner.o obj/parse_config.o \
-		obj/cjson.o obj/gpu_utilities.o -lpthread -ldl -lm
+		obj/cjson.o obj/gpu_utilities.o obj/barrier_wait.o -lpthread -ldl -lm
 
 clean:
 	rm -f bin/*
