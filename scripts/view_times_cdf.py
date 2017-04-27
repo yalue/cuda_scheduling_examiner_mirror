@@ -24,40 +24,66 @@ def convert_values_to_cdf(values):
     ratio_list.append(100)
     return [data_list, ratio_list]
 
-def get_benchmark_cdf(benchmark):
+def get_benchmark_cdf(benchmark, times_key):
     """Takes a parsed benchmark result JSON file and returns a CDF (in seconds
-    and percentages) of the CPU (total) times for the benchmark."""
+    and percentages) of the CPU (total) times for the benchmark. The times_key
+    argument can be used to specify which range of times (in the times array)
+    should be used to calculate the durations to include in the CDF."""
     raw_values = []
     for t in benchmark["times"]:
-        if not "cpu_times" in t:
+        if not times_key in t:
             continue
-        times = t["cpu_times"]
-        raw_values.append(times[1] - times[0])
+        times = t[times_key]
+        for i in range(len(times) / 2):
+            start_index = i * 2
+            end_index = i * 2 + 1
+            raw_values.append(times[end_index] - times[start_index])
     return convert_values_to_cdf(raw_values)
 
-def plot_scenario(benchmarks, name):
+def plot_scenario(benchmarks, name, times_key):
     """Takes a list of parsed benchmark results and a scenario name and
-    generates a CDF plot of CPU times for the scenario."""
-    figure = plot.figure()
-    figure.suptitle(name)
-    axes = figure.add_subplot(1, 1, 1)
+    generates a CDF plot of CPU times for the scenario. See get_benchmark_cdf
+    for an explanation of the times_key argument."""
+    cdfs = []
+    labels = []
+    min_x = 1.0e99
+    max_x = -1.0
     c = 0
     for b in benchmarks:
         c += 1
         label = "%d: %s" % (c, b["benchmark_name"])
         if "label" in b:
             label = b["label"]
-        data = get_benchmark_cdf(b)
-        axes.plot(data[0], data[1], label=label, lw=3)
+        labels.append(label)
+        cdf_data = get_benchmark_cdf(b, times_key)
+        min_value = min(cdf_data[0])
+        max_value = max(cdf_data[0])
+        if min_value < min_x:
+            min_x = min_value
+        if max_value > max_x:
+            max_x = max_value
+        cdfs.append(cdf_data)
+    x_range = max_x - min_x
+    x_pad = 0.05 * x_range
+    figure = plot.figure()
+    figure.suptitle(name)
+    plot.axis([min_x - x_pad, max_x + x_pad, -5.0, 105.0])
+    plot.xticks(numpy.arange(min_x, max_x + x_pad, x_range / 5.0))
+    plot.yticks(numpy.arange(0, 105, 100 / 5.0))
+    axes = figure.add_subplot(1, 1, 1)
+    for i in range(len(cdfs)):
+        axes.plot(cdfs[i][0], cdfs[i][1], label=labels[i], lw=3)
     axes.set_xlabel("Time (seconds)")
     axes.set_ylabel("% <= X")
     legend = plot.legend()
     legend.draggable()
     return figure
+    return figure
 
-def show_plots(filenames):
+def show_plots(filenames, times_key="kernel_times"):
     """Takes a list of filenames, and generates one plot per scenario found in
-    the files."""
+    the files. See get_benchmark_cdf for an explanation of the times_key
+    argument."""
     parsed_files = []
     for name in filenames:
         with open(name) as f:
@@ -71,7 +97,7 @@ def show_plots(filenames):
         scenarios[scenario].append(benchmark)
     figures = []
     for scenario in scenarios:
-        figures.append(plot_scenario(scenarios[scenario], scenario))
+        figures.append(plot_scenario(scenarios[scenario], scenario, times_key))
     plot.show()
 
 if __name__ == "__main__":

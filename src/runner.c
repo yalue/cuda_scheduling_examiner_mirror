@@ -718,7 +718,6 @@ static int RunAsProcesses(ParentState *parent_state,
       pids[i] = child_pid;
       continue;
     }
-    printf("Running benchmark %d as PID %d.\n", i, (int) child_pid);
     // The child process will run its benchmark and exit with a success if
     // everything went OK.
     if (!RunBenchmark(process_configs + i)) {

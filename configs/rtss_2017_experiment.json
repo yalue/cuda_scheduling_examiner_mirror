@@ -1,0 +1,68 @@
+{
+  "name": "RTAS 2017 experiment",
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "pin_cpus": true,
+  "benchmarks": [
+    {
+      "filename": "./bin/multikernel.so",
+      "log_name": "rtss_multikernels.json",
+      "label": "K1 through K3",
+      "thread_count": 0,
+      "block_count": 0,
+      "data_size": 0,
+      "additional_info": "K1,500000000,6,1024,K2,500000000,2,512,K3,500000000,2,256"
+    },
+    {
+      "filename": "./bin/sharedmem_timer_spin.so",
+      "log_name": "rtss_sharedmem_1.json",
+      "label": "K4",
+      "thread_count": 256,
+      "block_count": 4,
+      "data_size": 0,
+      "additional_info": "500000000,8192",
+      "release_time": 0.1
+    },
+    {
+      "filename": "./bin/sharedmem_timer_spin.so",
+      "log_name": "rtss_sharedmem_2.json",
+      "label": "K5",
+      "thread_count": 256,
+      "block_count": 2,
+      "data_size": 0,
+      "additional_info": "500000000,8192",
+      "release_time": 0.2
+    },
+    {
+      "filename": "./bin/timer_spin_default_stream.so",
+      "log_name": "rtss_default_stream_1.json",
+      "label": "K6",
+      "thread_count": 512,
+      "block_count": 1,
+      "data_size": 0,
+      "additional_info": "500000000",
+      "release_time": 0.7
+    },
+    {
+      "filename": "./bin/timer_spin_default_stream.so",
+      "log_name": "rtss_default_stream_2.json",
+      "label": "K7",
+      "thread_count": 512,
+      "block_count": 1,
+      "data_size": 0,
+      "additional_info": "500000000",
+      "release_time": 0.8
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "rtss_stream_k8.json",
+      "label": "K8",
+      "thread_count": 512,
+      "block_count": 16,
+      "data_size": 0,
+      "additional_info": "500000000",
+      "release_time": 1.2
+    }
+  ]
+}
