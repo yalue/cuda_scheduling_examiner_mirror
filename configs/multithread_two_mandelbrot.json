@@ -1,0 +1,27 @@
+{
+  "name": "Mandelbrot multithread test",
+  "max_iterations": 1000,
+  "max_time": 300,
+  "cuda_device": 0,
+  "pin_cpus": true,
+  "use_processes": false,
+  "benchmarks": [
+    {
+      "filename": "./bin/mandelbrot.so",
+      "log_name": "multithread_two_mandelbrot_1.json",
+      "label": "Thread 1",
+      "thread_count": 512,
+      "block_count": 256,
+      "data_size": 1000000
+    },
+    {
+      "filename": "./bin/mandelbrot.so",
+      "log_name": "multithread_two_mandelbrot_2.json",
+      "label": "Thread 2",
+      "thread_count": 512,
+      "block_count": 256,
+      "data_size": 1000000
+    }
+
+  ]
+}
