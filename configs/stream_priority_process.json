@@ -1,0 +1,31 @@
+{
+  "name": "Stream priority process test",
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "pin_cpus": true,
+  "use_processes": true,
+  "benchmarks": [
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "stream_priority_process_1.json",
+      "label": "Kernel 1",
+      "thread_count": 1024,
+      "block_count": 64,
+      "data_size": 0,
+      "stream_priority": 0,
+      "additional_info": "100000000"
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "stream_priority_process_2.json",
+      "label": "Kernel 2",
+      "thread_count": 1024,
+      "block_count": 64,
+      "data_size": 0,
+      "stream_priority": -1,
+      "additional_info": "100000000",
+      "release_time": 0.2
+    }
+  ]
+}

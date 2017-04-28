@@ -147,9 +147,25 @@ static void* Initialize(InitializationParameters *params) {
     Cleanup(state);
     return NULL;
   }
-  if (!CheckCUDAError(cudaStreamCreate(&(state->stream)))) {
-    Cleanup(state);
-    return NULL;
+  // get the range of stream priorities for this device
+  int priority_high, priority_low;
+  cudaDeviceGetStreamPriorityRange(&priority_low, &priority_high);
+  printf("high: %d, low: %d, setting: %d\n", priority_high, priority_low,
+          params->stream_priority);
+  // if the stream priority configuration is out of range, use normal stream
+  // create function
+  if (params->stream_priority > priority_low
+          || params->stream_priority < priority_high) {
+    if (!CheckCUDAError(cudaStreamCreate(&(state->stream)))) {
+      Cleanup(state);
+      return NULL;
+    }
+  } else {
+    if (!CheckCUDAError(cudaStreamCreateWithPriority(&(state->stream),
+                    cudaStreamNonBlocking, params->stream_priority))) {
+      Cleanup(state);
+      return NULL;
+    }
   }
   state->stream_created = 1;
   return state;
