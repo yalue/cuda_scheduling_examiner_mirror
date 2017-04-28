@@ -236,16 +236,24 @@ def draw_release_arrow(axes, release_time):
     right, left = axes.get_xlim()
     width = (right - left) * 0.004
     bottom, top = axes.get_ylim()
-    height = (top - bottom) * 0.8
-    color = 'pink'
+    height = (top - bottom) * 0.4
+    color = 'lightgray'
     axes.arrow(release_time, bottom, 0, height, color=color, lw=2, width=width,
         length_includes_head=True, head_length=height * 0.15,
         head_width=width * 5)
+    return
+
+def benchmark_sort_key(benchmark):
+    """Returns the key that may be used to sort benchmarks by label."""
+    if not "label" in benchmark:
+        return ""
+    return benchmark["label"]
 
 def plot_scenario(benchmarks, name):
     """Takes a list of parsed benchmark results and a scenario name and
     generates a plot showing the timeline of benchmark behaviors for the
     specific scenario. Returns a matplotlib Figure object."""
+    benchmarks = sorted(benchmarks, key = benchmark_sort_key)
     figure = plot.figure()
     figure.suptitle(name)
     total_timeline = get_total_timeline(benchmarks)
@@ -255,7 +263,7 @@ def plot_scenario(benchmarks, name):
     # Plot each timeline in a separate subplot
     for i in range(len(benchmarks)):
         benchmark = benchmarks[i]
-        axes = figure.add_subplot(len(benchmarks) + 1, 1, i + 1)
+        axes = figure.add_subplot(len(benchmarks), 1, i + 1)
         timeline = get_thread_timeline(benchmark)
         # Make sure all timelines extend to the right end of the plot
         timeline[0].append(max_time)
@@ -265,19 +273,13 @@ def plot_scenario(benchmarks, name):
         # Draw the release arrow before (below) the plotted line
         if "release_time" in benchmark:
             draw_release_arrow(axes, benchmark["release_time"])
-        axes.plot(timeline[0], timeline[1], c='k', lw=3)
+        axes.plot(timeline[0], timeline[1], color="k", lw=3)
         label = "%d: %s" % (i + 1, benchmark["benchmark_name"])
         if "label" in benchmark:
             label = benchmark["label"]
         axes.set_ylabel("# threads,\n" + label)
-    # Add the total timeline in the bottommost subplot
-    axes = figure.add_subplot(len(benchmarks) + 1, 1, len(benchmarks) + 1)
-    max_threads = max(total_timeline[1])
-    set_axes_dimensions(axes, min_time, max_time, 0, max_threads)
-    axes.set_ylabel("# threads, total\n(max supported: %d): " %
-        (max_resident_threads))
+    # Add the X label below the bottommost subplot
     axes.set_xlabel("Time (seconds)")
-    axes.plot(total_timeline[0], total_timeline[1], c='k', lw=3)
     return figure
 
 def show_plots(filenames):
