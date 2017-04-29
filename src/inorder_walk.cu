@@ -221,13 +221,14 @@ static __device__ __inline__ uint64_t GlobalTimer64(void) {
   return to_return;
 }
 
-// Spins in a loop until at least spin_duration nanoseconds have elapsed.
+// Traverses the walk_buffer, taking each subsequent index to visit as the
+// value stored in the current index.
 static __global__ void WalkKernel(uint64_t access_count,
-    uint64_t *accumulator, uint32_t *walk_buffer, uint64_t *kernel_times,
-    uint64_t *block_times, uint32_t *block_smids) {
+    uint64_t *accumulator, uint32_t *walk_buffer, uint64_t walk_buffer_length,
+    uint64_t *kernel_times, uint64_t *block_times, uint32_t *block_smids) {
   uint64_t start_time = GlobalTimer64();
   uint64_t i = 0;
-  uint64_t walk_index = 0;
+  uint64_t walk_index = threadIdx.x % walk_buffer_length;
   // First, record the kernel and block start times
   if (threadIdx.x == 0) {
     if (blockIdx.x == 0) kernel_times[0] = start_time;
@@ -251,8 +252,9 @@ static int Execute(void *data) {
   BenchmarkState *state = (BenchmarkState *) data;
   WalkKernel<<<state->block_count, state->thread_count, 0, state->stream>>>(
     state->memory_access_count, state->device_accumulator,
-    state->device_walk_buffer, state->device_kernel_times,
-    state->device_block_times, state->device_block_smids);
+    state->device_walk_buffer, state->walk_buffer_length,
+    state->device_kernel_times, state->device_block_times,
+    state->device_block_smids);
   if (!CheckCUDAError(cudaStreamSynchronize(state->stream))) return 0;
   return 1;
 }
