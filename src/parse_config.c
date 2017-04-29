@@ -153,6 +153,7 @@ static int VerifyBenchmarkConfigKeys(cJSON *benchmark_config) {
     "max_time",
     "release_time",
     "cpu_core",
+    "stream_priority",
   };
   keys_count = sizeof(valid_keys) / sizeof(char*);
   return VerifyConfigKeys(benchmark_config, valid_keys, keys_count);
@@ -298,6 +299,16 @@ static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
     } else {
       benchmarks[i].cpu_core = USE_DEFAULT_CPU_CORE;
     }
+    entry = cJSON_GetObjectItem(current_benchmark, "stream_priority");
+    if (entry) {
+      if (entry->type != cJSON_Number) {
+        printf("Invalid stream priority in config.\n");
+        goto ErrorCleanup;
+      }
+      benchmarks[i].stream_priority = entry->valueint;
+    } else {
+      benchmarks[i].stream_priority = USE_DEFAULT_STREAM_PRIORITY;
+    }
     current_benchmark = current_benchmark->next;
   }
   config->benchmarks = benchmarks;
@@ -350,6 +361,10 @@ GlobalConfiguration* ParseConfiguration(const char *filename) {
   // already. Casting valuedouble to a uint64_t will be just as good, and will
   // have a bigger range.
   to_return->max_iterations = entry->valuedouble;
+  if (to_return->max_iterations < 0) {
+    printf("Invalid(negative) default max_iterations in config.\n");
+    goto ErrorCleanup;
+  }
   entry = cJSON_GetObjectItem(root, "max_time");
   if (!entry || (entry->type != cJSON_Number)) {
     printf("Missing/invalid default max_time in config.\n");

@@ -8,6 +8,7 @@ extern "C" {
 #include <stdint.h>
 
 #define USE_DEFAULT_CPU_CORE (-1)
+#define USE_DEFAULT_STREAM_PRIORITY (-100)
 
 // Holds the configuration for a single benchmark, as specified by the JSON
 // format given in the README.
@@ -40,6 +41,8 @@ typedef struct {
   double release_time;
   // The CPU core to pin this benchmark to. Ignored if negative.
   int cpu_core;
+  // The stream priority used to create the CUDA stream. Ignored if negative.
+  int stream_priority;
 } SingleBenchmarkConfiguration;
 
 // Holds default settings for all benchmarks, and a list of individual

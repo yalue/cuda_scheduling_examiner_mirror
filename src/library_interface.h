@@ -34,6 +34,8 @@ typedef struct {
   char *additional_info;
   // The CUDA device ID to use.
   int cuda_device;
+  // The stream priority
+  int stream_priority;
 } InitializationParameters;
 
 // Holds times and metadata about a single kernel's execution in a benchmark

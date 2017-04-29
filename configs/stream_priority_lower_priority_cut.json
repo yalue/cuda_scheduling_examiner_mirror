@@ -1,0 +1,107 @@
+{
+  "name": "Stream priority lower priority kernel cut-ahead test",
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "pin_cpus": true,
+  "benchmarks": [
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "stream_priority_lower_priority_cut_1.json",
+      "label": "Kernel 1",
+      "thread_count": 512,
+      "block_count": 1,
+      "data_size": 0,
+      "stream_priority": 0,
+      "additional_info": "1000000000"
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "stream_priority_lower_priority_cut_2.json",
+      "label": "Kernel 2",
+      "thread_count": 512,
+      "block_count": 1,
+      "data_size": 0,
+      "stream_priority": 0,
+      "additional_info": "1000000000",
+      "release_time": 0.1
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "stream_priority_lower_priority_cut_3.json",
+      "label": "Kernel 3",
+      "thread_count": 512,
+      "block_count": 1,
+      "data_size": 0,
+      "stream_priority": 0,
+      "additional_info": "1000000000",
+      "release_time": 0.2
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "stream_priority_lower_priority_cut_4.json",
+      "label": "Kernel 4",
+      "thread_count": 512,
+      "block_count": 1,
+      "data_size": 0,
+      "stream_priority": 0,
+      "additional_info": "1000000000",
+      "release_time": 0.3
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "stream_priority_lower_priority_cut_5.json",
+      "label": "Kernel 5",
+      "thread_count": 512,
+      "block_count": 1,
+      "data_size": 0,
+      "stream_priority": 0,
+      "additional_info": "1000000000",
+      "release_time": 0.4
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "stream_priority_lower_priority_cut_6.json",
+      "label": "Kernel 6",
+      "thread_count": 512,
+      "block_count": 1,
+      "data_size": 0,
+      "stream_priority": 0,
+      "additional_info": "1000000000",
+      "release_time": 0.5
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "stream_priority_lower_priority_cut_7.json",
+      "label": "Kernel 7",
+      "thread_count": 512,
+      "block_count": 1,
+      "data_size": 0,
+      "stream_priority": 0,
+      "additional_info": "1000000000",
+      "release_time": 0.6
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "stream_priority_lower_priority_cut_8.json",
+      "label": "Kernel 8",
+      "thread_count": 512,
+      "block_count": 1,
+      "data_size": 0,
+      "stream_priority": 0,
+      "additional_info": "1000000000",
+      "release_time": 0.7
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "stream_priority_lower_priority_cut_9.json",
+      "label": "Kernel 9",
+      "thread_count": 1024,
+      "block_count": 1,
+      "data_size": 0,
+      "stream_priority": -1,
+      "additional_info": "500000000",
+      "release_time": 0.65
+    }
+  ]
+}

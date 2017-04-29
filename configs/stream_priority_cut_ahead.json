@@ -1,0 +1,42 @@
+
+{
+  "name": "Stream priority cut-ahead test",
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "pin_cpus": true,
+  "benchmarks": [
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "stream_priority_cut_ahead_1.json",
+      "label": "Kernel 1",
+      "thread_count": 1024,
+      "block_count": 8,
+      "data_size": 0,
+      "stream_priority": 0,
+      "additional_info": "500000000"
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "stream_priority_cut_ahead_2.json",
+      "label": "Kernel 2",
+      "thread_count": 1024,
+      "block_count": 8,
+      "data_size": 0,
+      "stream_priority": 0,
+      "additional_info": "500000000",
+      "release_time": 0.2
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "stream_priority_cut_ahead_3.json",
+      "label": "Kernel 3",
+      "thread_count": 1024,
+      "block_count": 8,
+      "data_size": 0,
+      "stream_priority": -1,
+      "additional_info": "500000000",
+      "release_time": 0.3
+    }
+  ]
+}

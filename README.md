@@ -102,6 +102,9 @@ The layout of each configuration file is as follows:
         the first iteration) before beginning execution.>,
       "cpu_core": <Number. Optional. If specified, and pin_cpus is false, the
         system will attempt to pin this benchmark onto the given CPU core.>
+      "stream_priority": <Number. Optional. If specified, and is an integer in
+        the range [-1,0], the stream will be created with priority. -1 is higher
+        priority and 0 is lower.
     },
     {
       <more benchmarks can be listed here>
@@ -169,6 +172,7 @@ floating-point numbers of seconds. The format of the log file is:
       "block_times": [<start time>, <end time>, ...],
       "block_smids": [<block 0 SMID>, <block 1 SMID>, ...],
       "cpu_core": <the current CPU core being used>,
+      "stream_priority": <the stream priority used to create the stream>,
     },
     ...
   ]

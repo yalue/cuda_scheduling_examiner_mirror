@@ -585,6 +585,7 @@ static ProcessConfig* CreateProcessConfigs(ParentState *parent_state) {
     new_list[i].parameters.data_size = benchmark->data_size;
     new_list[i].parameters.additional_info = benchmark->additional_info;
     new_list[i].release_time = benchmark->release_time;
+    new_list[i].parameters.stream_priority = benchmark->stream_priority;
     // Either cycle through CPUs or use the per-benchmark CPU core.
     if (config->pin_cpus) {
       new_list[i].cpu_core = current_cpu_core;
