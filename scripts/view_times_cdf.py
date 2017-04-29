@@ -40,10 +40,17 @@ def get_benchmark_cdf(benchmark, times_key):
             raw_values.append(times[end_index] - times[start_index])
     return convert_values_to_cdf(raw_values)
 
+def benchmark_sort_key(benchmark):
+    """Returns the key that may be used to sort benchmarks by label."""
+    if not "label" in benchmark:
+        return ""
+    return benchmark["label"]
+
 def plot_scenario(benchmarks, name, times_key):
     """Takes a list of parsed benchmark results and a scenario name and
     generates a CDF plot of CPU times for the scenario. See get_benchmark_cdf
     for an explanation of the times_key argument."""
+    benchmarks = sorted(benchmarks, key = benchmark_sort_key)
     cdfs = []
     labels = []
     min_x = 1.0e99
@@ -80,7 +87,7 @@ def plot_scenario(benchmarks, name, times_key):
     return figure
     return figure
 
-def show_plots(filenames, times_key="kernel_times"):
+def show_plots(filenames, times_key="block_times"):
     """Takes a list of filenames, and generates one plot per scenario found in
     the files. See get_benchmark_cdf for an explanation of the times_key
     argument."""
