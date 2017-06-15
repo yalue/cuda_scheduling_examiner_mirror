@@ -91,8 +91,8 @@ The layout of each configuration file is as follows:
         blocks this benchmark should use.>,
       "data_size": <Number. Required, but may be ignored. The input size, in
         bytes, for the benchmark.>,
-      "additional_info": <String. Optional. This can be used to pass additional
-        benchmark-specific configuration parameters.>,
+      "additional_info": <A JSON object of any format. Optional. This can be
+        used to pass additional benchmark-specific configuration parameters.>,
       "max_iterations": <Number. Optional. If specified, overrides the default
         max_iterations for this benchmark alone. 0 = unlimited.>,
       "max_time": <Number. Optional. If specified, overrides the default
@@ -139,12 +139,12 @@ floating-point numbers of seconds. The format of the log file is:
 ```
 {
   "scenario_name": "<Scenario name>",
-  "benchmark_name": "<benchmark name>",
-  "label": "<this benchmark's label, if given in the config>",
+  "benchmark_name": "<Benchmark name>",
+  "label": "<This benchmark's label, if given in the config>",
   "max_resident_threads": <The maximum number of threads that can be assigned
     to the GPU at a time (from all benchmarks in the scenario)>,
-  "data_size": <data size>,
-  "release_time": <requested release time in seconds>,
+  "data_size": <Data size>,
+  "release_time": <Requested release time in seconds>,
   "PID": <pid>,
   "TID": <The thread ID, if benchmarks were run as threads>,
   "times": [
@@ -172,15 +172,14 @@ floating-point numbers of seconds. The format of the log file is:
       "block_count": <The number of blocks in this kernel invocation.>,
       "thread_count": <The number of threads per block in this invocation.>,
       "shared_memory": <The amount of shared memory used by this kernel.>,
-      "kernel_times": [<start time>, <end time>],
-      "block_times": [<start time>, <end time>, ...],
-      "block_smids": [<block 0 SMID>, <block 1 SMID>, ...],
-      "cpu_core": <the current CPU core being used>
+      "kernel_times": [<Start time>, <End time>],
+      "block_times": [<Start time>, <End time>, ...],
+      "block_smids": [<Block 0 SMID>, <Block 1 SMID>, ...],
+      "cpu_core": <The current CPU core being used>
     },
     ...
   ]
 }
-
 ```
 
 Notice that the first entry in the "times" array will be blank and should be

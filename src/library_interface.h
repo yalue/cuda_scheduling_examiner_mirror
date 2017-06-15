@@ -1,8 +1,8 @@
 // This file defines the interface each shared library must export. Library
 // functions may print a single error message if they fail. Otherwise, they are
 // not expected to output any text.
-#ifndef BENCHMARK_INTERFACE_H
-#define BENCHMARK_INTERFACE_H
+#ifndef LIBRARY_INTERFACE_H
+#define LIBRARY_INTERFACE_H
 #include <stdint.h>
 
 // The number of threads in a warp for CUDA devices. This should be 32 for all
