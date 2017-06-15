@@ -5,24 +5,13 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "benchmark_gpu_utilities.h"
 #include "library_interface.h"
 
 // The default number of iterations used when determining if a point escapes
 // the mandelbrot set. Optionally, the number of iterations can be specified
 // using the additional_info field.
 #define DEFAULT_MAX_ITERATIONS (1000)
-
-// This macro takes a cudaError_t value. It prints an error message and returns
-// 0 if the cudaError_t isn't cudaSuccess. Otherwise, it returns nonzero.
-#define CheckCUDAError(val) (InternalCUDAErrorCheck((val), #val, __FILE__, __LINE__))
-
-// Prints an error message and returns 0 if the given CUDA result is an error.
-static int InternalCUDAErrorCheck(cudaError_t result, const char *fn,
-    const char *file, int line) {
-  if (result == cudaSuccess) return 1;
-  printf("CUDA error %d in %s, line %d (%s)\n", (int) result, file, line, fn);
-  return 0;
-}
 
 // Holds the boundaries and sizes of the fractal, in both pixels and numbers
 typedef struct {
@@ -197,7 +186,8 @@ static void* Initialize(InitializationParameters *params) {
     Cleanup(info);
     return NULL;
   }
-  if (!CheckCUDAError(cudaStreamCreate(&(info->stream)))) {
+  if (!CheckCUDAError(CreateCUDAStreamWithPriority(params->stream_priority,
+    &(info->stream)))) {
     Cleanup(info);
     return NULL;
   }

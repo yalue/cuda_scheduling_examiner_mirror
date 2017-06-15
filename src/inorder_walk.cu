@@ -8,22 +8,11 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "benchmark_gpu_utilities.h"
 #include "library_interface.h"
 
 // The default number of memory reads to perform in each iteration
 #define DEFAULT_MEMORY_ACCESS_COUNT (1000 * 1000)
-
-// This macro takes a cudaError_t value. It prints an error message and returns
-// 0 if the cudaError_t isn't cudaSuccess. Otherwise, it returns nonzero.
-#define CheckCUDAError(val) (InternalCUDAErrorCheck((val), #val, __FILE__, __LINE__))
-
-// Prints an error message and returns 0 if the given CUDA result is an error.
-static int InternalCUDAErrorCheck(cudaError_t result, const char *fn,
-    const char *file, int line) {
-  if (result == cudaSuccess) return 1;
-  printf("CUDA error %d in %s, line %d (%s)\n", (int) result, file, line, fn);
-  return 0;
-}
 
 // Holds the local state for one instance of this benchmark.
 typedef struct {
@@ -194,7 +183,8 @@ static void* Initialize(InitializationParameters *params) {
     Cleanup(state);
     return NULL;
   }
-  if (!CheckCUDAError(cudaStreamCreate(&(state->stream)))) {
+  if (!CheckCUDAError(CreateCUDAStreamWithPriority(params->stream_priority,
+    &(state->stream)))) {
     Cleanup(state);
     return NULL;
   }

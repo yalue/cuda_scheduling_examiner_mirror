@@ -132,6 +132,7 @@ static int VerifyGlobalConfigKeys(cJSON *main_config) {
     "base_result_directory",
     "pin_cpus",
     "benchmarks",
+    "comment",
   };
   keys_count = sizeof(valid_keys) / sizeof(char*);
   return VerifyConfigKeys(main_config, valid_keys, keys_count);
@@ -154,6 +155,7 @@ static int VerifyBenchmarkConfigKeys(cJSON *benchmark_config) {
     "release_time",
     "cpu_core",
     "stream_priority",
+    "comment",
   };
   keys_count = sizeof(valid_keys) / sizeof(char*);
   return VerifyConfigKeys(benchmark_config, valid_keys, keys_count);
