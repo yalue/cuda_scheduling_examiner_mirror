@@ -91,8 +91,8 @@ The layout of each configuration file is as follows:
         blocks this benchmark should use.>,
       "data_size": <Number. Required, but may be ignored. The input size, in
         bytes, for the benchmark.>,
-      "additional_info": <String. Optional. This can be used to pass additional
-        benchmark-specific configuration parameters.>,
+      "additional_info": <A JSON object of any format. Optional. This can be
+        used to pass additional benchmark-specific configuration parameters.>,
       "max_iterations": <Number. Optional. If specified, overrides the default
         max_iterations for this benchmark alone. 0 = unlimited.>,
       "max_time": <Number. Optional. If specified, overrides the default
