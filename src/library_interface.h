@@ -34,7 +34,7 @@ typedef struct {
   char *additional_info;
   // The CUDA device ID to use.
   int cuda_device;
-  // The stream priority
+  // The stream priority to use for this instance's streams, if necessary.
   int stream_priority;
 } InitializationParameters;
 

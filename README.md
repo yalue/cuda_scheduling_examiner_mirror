@@ -113,6 +113,10 @@ The layout of each configuration file is as follows:
 }
 ```
 
+Additionally, benchmark configurations support the insertion of comments via
+the usage of "comment" keys, which will be ignored at runtime.
+
+
 Automatic Benchmark Generation
 ------------------------------
 
@@ -171,8 +175,7 @@ floating-point numbers of seconds. The format of the log file is:
       "kernel_times": [<start time>, <end time>],
       "block_times": [<start time>, <end time>, ...],
       "block_smids": [<block 0 SMID>, <block 1 SMID>, ...],
-      "cpu_core": <the current CPU core being used>,
-      "stream_priority": <the stream priority used to create the stream>,
+      "cpu_core": <the current CPU core being used>
     },
     ...
   ]
@@ -215,6 +218,9 @@ the actions that every library-provided function is expected to carry out.
 The existing libraries in `src/mandelbrot.cu` and `src/timer_spin.cu` provide
 examples of working library implementations.
 
+In addition to `library_interface.h`, `benchmark_library_funcions.h/cu` define
+a library of utility functions that may be shared between benchmarks.
+
 Benchmark libraries are invoked by the master process as follows:
 
  1. The shared library file is loaded using the `dlopen()` function, and the
@@ -234,3 +240,33 @@ Benchmark libraries are invoked by the master process as follows:
  5. When enough time has elapsed or the maximum number of iterations has been
     reached, the benchmark's `cleanup` function will be called, to allow for
     the benchmark to clean up and free its local state.
+
+
+Basic Testing
+-------------
+
+If any changes are made to the `runner` tool, or that somehow affect all
+benchmarks, a script exists that automatically runs all `.so` files in the
+`bin/` directory. To use it, run:
+
+```bash
+python scripts/test_all_benchmarks.py
+```
+
+In the best case, you shouldn't see any error messages while this test runs.
+
+This script automatically generates a config file for each benchmark with
+minimal default parameters. Ideally, any new benchmark should have sane
+defaults which enable it to be tested using this script.
+
+Coding Style
+------------
+
+Even though CUDA supports C++, contributions to this project should use the C
+programming language when possible. C or CUDA source code should adhere to the
+parts of the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html)
+that apply to the C language.
+
+Scripts should remain in the `scripts/` directory and should be written in
+python when possible. For now, there is no explicit style guide for python
+scripts apart from trying to maintain a consistent style within each file.

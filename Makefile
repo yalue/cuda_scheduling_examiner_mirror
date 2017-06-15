@@ -10,6 +10,9 @@ NVCCFLAGS := -g --ptxas-options=-v --compiler-options="$(CFLAGS)" \
 	--generate-code arch=compute_60,code=[compute_60,sm_60] \
 	--generate-code arch=compute_62,code=[compute_62,sm_62]
 
+BENCHMARK_DEPENDENCIES := src/library_interface.h \
+	src/benchmark_gpu_utilities.h obj/benchmark_gpu_utilities.o
+
 all: directories benchmarks bin/runner
 
 benchmarks: bin/mandelbrot.so bin/timer_spin.so bin/multikernel.so \
@@ -21,36 +24,41 @@ directories:
 	mkdir -p bin/
 	mkdir -p obj/
 
-bin/mandelbrot.so: src/mandelbrot.cu src/library_interface.h
-	nvcc --shared $(NVCCFLAGS) -o bin/mandelbrot.so src/mandelbrot.cu
+bin/mandelbrot.so: src/mandelbrot.cu $(BENCHMARK_DEPENDENCIES)
+	nvcc --shared $(NVCCFLAGS) -o bin/mandelbrot.so src/mandelbrot.cu \
+		obj/benchmark_gpu_utilities.o
 
-bin/timer_spin.so: src/timer_spin.cu src/library_interface.h
-	nvcc --shared $(NVCCFLAGS) -o bin/timer_spin.so src/timer_spin.cu
+bin/timer_spin.so: src/timer_spin.cu $(BENCHMARK_DEPENDENCIES)
+	nvcc --shared $(NVCCFLAGS) -o bin/timer_spin.so src/timer_spin.cu \
+		obj/benchmark_gpu_utilities.o
 
 bin/timer_spin_default_stream.so: src/timer_spin_default_stream.cu \
-		src/library_interface.h
+		$(BENCHMARK_DEPENDENCIES)
 	nvcc --shared $(NVCCFLAGS) -o bin/timer_spin_default_stream.so \
-		src/timer_spin_default_stream.cu
+		src/timer_spin_default_stream.cu obj/benchmark_gpu_utilities.o
 
-bin/multikernel.so: src/multikernel.cu src/library_interface.h
-	nvcc --shared $(NVCCFLAGS) -o bin/multikernel.so src/multikernel.cu
+bin/multikernel.so: src/multikernel.cu $(BENCHMARK_DEPENDENCIES)
+	nvcc --shared $(NVCCFLAGS) -o bin/multikernel.so src/multikernel.cu \
+		obj/benchmark_gpu_utilities.o
 
-bin/inorder_walk.so: src/inorder_walk.cu src/library_interface.h
-	nvcc --shared $(NVCCFLAGS) -o bin/inorder_walk.so src/inorder_walk.cu
+bin/inorder_walk.so: src/inorder_walk.cu $(BENCHMARK_DEPENDENCIES)
+	nvcc --shared $(NVCCFLAGS) -o bin/inorder_walk.so src/inorder_walk.cu \
+		obj/benchmark_gpu_utilities.o
 
-bin/random_walk.so: src/random_walk.cu src/library_interface.h
-	nvcc --shared $(NVCCFLAGS) -o bin/random_walk.so src/random_walk.cu
+bin/random_walk.so: src/random_walk.cu $(BENCHMARK_DEPENDENCIES)
+	nvcc --shared $(NVCCFLAGS) -o bin/random_walk.so src/random_walk.cu \
+		obj/benchmark_gpu_utilities.o
+
+bin/sharedmem_timer_spin.so: src/sharedmem_timer_spin.cu \
+		$(BENCHMARK_DEPENDENCIES)
+	nvcc --shared $(NVCCFLAGS) -o bin/sharedmem_timer_spin.so \
+		src/sharedmem_timer_spin.cu obj/benchmark_gpu_utilities.o
 
 bin/cpu_inorder_walk.so: src/cpu_inorder_walk.c src/library_interface.h
 	gcc $(CFLAGS) -shared -o bin/cpu_inorder_walk.so src/cpu_inorder_walk.c
 
 bin/cpu_random_walk.so: src/cpu_random_walk.c src/library_interface.h
 	gcc $(CFLAGS) -shared -o bin/cpu_random_walk.so src/cpu_random_walk.c
-
-bin/sharedmem_timer_spin.so: src/sharedmem_timer_spin.cu \
-		src/library_interface.h
-	nvcc --shared $(NVCCFLAGS) -o bin/sharedmem_timer_spin.so \
-		src/sharedmem_timer_spin.cu
 
 obj/cjson.o: src/third_party/cJSON.c src/third_party/cJSON.h
 	gcc -c $(CFLAGS) -o obj/cjson.o src/third_party/cJSON.c
@@ -65,6 +73,11 @@ obj/runner.o: src/runner.c src/third_party/cJSON.h src/library_interface.h
 obj/gpu_utilities.o: src/gpu_utilities.cu src/gpu_utilities.h \
 		src/library_interface.h
 	nvcc -c $(NVCCFLAGS) -o obj/gpu_utilities.o src/gpu_utilities.cu
+
+obj/benchmark_gpu_utilities.o: src/benchmark_gpu_utilities.cu \
+		src/benchmark_gpu_utilities.h
+	nvcc -c $(NVCCFLAGS) -o obj/benchmark_gpu_utilities.o \
+		src/benchmark_gpu_utilities.cu
 
 obj/barrier_wait.o: src/barrier_wait.c src/barrier_wait.h
 	gcc -c $(CFLAGS) -o obj/barrier_wait.o src/barrier_wait.c
