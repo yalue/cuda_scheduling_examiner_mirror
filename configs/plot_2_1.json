@@ -12,7 +12,20 @@
       "thread_count": 0,
       "block_count": 0,
       "data_size": 0,
-      "additional_info": "K1,500000000,7,512,K2,500000000,7,512"
+      "additional_info": [
+        {
+          "kernel_label": "K1",
+          "duration": 500000000,
+          "block_count": 7,
+          "thread_count": 512
+        },
+        {
+          "kernel_label": "K2",
+          "duration": 500000000,
+          "block_count": 7,
+          "thread_count": 512
+        }
+      ]
     },
     {
       "filename": "./bin/multikernel.so",
@@ -21,7 +34,14 @@
       "thread_count": 0,
       "block_count": 0,
       "data_size": 0,
-      "additional_info": "K3,500000000,1,512",
+      "additional_info": [
+        {
+          "kernel_label": "K3",
+          "duration": 500000000,
+          "block_count": 1,
+          "thread_count": 512
+        }
+      ],
       "release_time": 0.25
     },
     {
@@ -31,7 +51,14 @@
       "thread_count": 0,
       "block_count": 0,
       "data_size": 0,
-      "additional_info": "K4,500000000,1,1024",
+      "additional_info": [
+        {
+          "kernel_label": "K4",
+          "duration": 500000000,
+          "block_count": 1,
+          "thread_count": 1024
+        }
+      ],
       "release_time": 0.25
     },
     {
@@ -41,7 +68,14 @@
       "thread_count": 0,
       "block_count": 0,
       "data_size": 0,
-      "additional_info": "K5,500000000,1,512",
+      "additional_info": [
+        {
+          "kernel_label": "K5",
+          "duration": 500000000,
+          "block_count": 1,
+          "thread_count": 512
+        }
+      ],
       "release_time": 0.4
     }
   ]

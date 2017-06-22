@@ -12,7 +12,26 @@
       "thread_count": 0,
       "block_count": 0,
       "data_size": 0,
-      "additional_info": "K1,500000000,6,1024,K2,500000000,2,512,K3,500000000,2,256"
+      "additional_info": [
+        {
+          "kernel_label": "K1",
+          "duration": 500000000,
+          "block_count": 6,
+          "thread_count": 1024
+        },
+        {
+          "kernel_label": "K2",
+          "duration": 500000000,
+          "block_count": 2,
+          "thread_count": 512
+        },
+        {
+          "kernel_label": "K3",
+          "duration": 500000000,
+          "block_count": 2,
+          "thread_count": 256
+        }
+      ]
     },
     {
       "filename": "./bin/sharedmem_timer_spin.so",

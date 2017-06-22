@@ -155,10 +155,6 @@ static void* Initialize(InitializationParameters *params) {
   }
   memset(info, 0, sizeof(*info));
   if (!CheckCUDAError(cudaSetDevice(params->cuda_device))) return NULL;
-  // Round the thread count up to a value evenly divisble by 32.
-  if ((params->thread_count % WARP_SIZE) != 0) {
-    params->thread_count += WARP_SIZE - (params->thread_count % WARP_SIZE);
-  }
   info->thread_count = params->thread_count;
   // Fill in the dimensions and parameters of the complex plane region we'll
   // draw.

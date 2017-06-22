@@ -2,8 +2,8 @@
 // of memory reads over a buffer in GPU memory.
 //
 // By default, this benchmark performs an arbitrary constant number of memory
-// references, but a specific number of references can be provided as an
-// "additional_info" string.
+// references, but a specific number of references can be provided in the
+// "additional_info" field.
 #include <cuda_runtime.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -139,10 +139,6 @@ static void* Initialize(InitializationParameters *params) {
   if (!state) return NULL;
   memset(state, 0, sizeof(*state));
   if (!CheckCUDAError(cudaSetDevice(params->cuda_device))) return NULL;
-  // Round the thread count up to a value evenly divisible by 32.
-  if ((params->thread_count % WARP_SIZE) != 0) {
-    params->thread_count += WARP_SIZE - (params->thread_count % WARP_SIZE);
-  }
   state->thread_count = params->thread_count;
   state->block_count = params->block_count;
   state->walk_buffer_length = params->data_size / 4;

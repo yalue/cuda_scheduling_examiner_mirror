@@ -5,10 +5,6 @@
 #define LIBRARY_INTERFACE_H
 #include <stdint.h>
 
-// The number of threads in a warp for CUDA devices. This should be 32 for all
-// relevant GPUs.
-#define WARP_SIZE (32)
-
 #ifdef __cplusplus
 extern "C" {
 #endif

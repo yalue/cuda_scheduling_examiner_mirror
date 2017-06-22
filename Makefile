@@ -37,9 +37,9 @@ bin/timer_spin_default_stream.so: src/timer_spin_default_stream.cu \
 	nvcc --shared $(NVCCFLAGS) -o bin/timer_spin_default_stream.so \
 		src/timer_spin_default_stream.cu obj/benchmark_gpu_utilities.o
 
-bin/multikernel.so: src/multikernel.cu $(BENCHMARK_DEPENDENCIES)
+bin/multikernel.so: src/multikernel.cu $(BENCHMARK_DEPENDENCIES) obj/cjson.o
 	nvcc --shared $(NVCCFLAGS) -o bin/multikernel.so src/multikernel.cu \
-		obj/benchmark_gpu_utilities.o
+		obj/benchmark_gpu_utilities.o obj/cjson.o
 
 bin/inorder_walk.so: src/inorder_walk.cu $(BENCHMARK_DEPENDENCIES)
 	nvcc --shared $(NVCCFLAGS) -o bin/inorder_walk.so src/inorder_walk.cu \
@@ -50,7 +50,7 @@ bin/random_walk.so: src/random_walk.cu $(BENCHMARK_DEPENDENCIES)
 		obj/benchmark_gpu_utilities.o
 
 bin/sharedmem_timer_spin.so: src/sharedmem_timer_spin.cu \
-		$(BENCHMARK_DEPENDENCIES) obj/cjson.o src/third_party/cJSON.h
+		$(BENCHMARK_DEPENDENCIES) obj/cjson.o
 	nvcc --shared $(NVCCFLAGS) -o bin/sharedmem_timer_spin.so \
 		src/sharedmem_timer_spin.cu obj/benchmark_gpu_utilities.o obj/cjson.o
 

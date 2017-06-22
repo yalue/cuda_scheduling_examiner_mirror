@@ -2,11 +2,13 @@
 // somewhat-configurable way to specify shared memory usage: the
 // additional_info now has the following format:
 //
-// additional_info: "<ns to spin>,<# of shared 32-bit integers>"
+// additional_info: {
+//   "duration": <ns to spin>,
+//   "shared_memory_size": <# of shared 32-bit integers>
+// }
 //
-// The number of 32-bit integers to place in shared memory must be one of 4096,
-// 8192, or 10240. The shared memory usage in bytes will therefore be one of
-// those values multiplied by 4.
+// The shared_memory_size must be one of 4096, 8192, or 10240. The shared
+// memory usage in bytes will therefore be one of those values multiplied by 4.
 #include <cuda_runtime.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -146,10 +148,6 @@ static void* Initialize(InitializationParameters *params) {
   state = (BenchmarkState *) malloc(sizeof(*state));
   memset(state, 0, sizeof(*state));
   if (!CheckCUDAError(cudaSetDevice(params->cuda_device))) return NULL;
-  // Round the thread count up to a value evenly divisible by 32.
-  if ((params->thread_count % WARP_SIZE) != 0) {
-    params->thread_count += WARP_SIZE - (params->thread_count % WARP_SIZE);
-  }
   state->thread_count = params->thread_count;
   state->block_count = params->block_count;
   if (!AllocateMemory(state)) {

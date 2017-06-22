@@ -19,25 +19,22 @@ def generate_multikernel_benchmark(number, min_threads, max_threads,
     always be rounded up to the nearest multiple of 32)."""
 
     kernel_config_string = ""
+    kernel_config_list = []
     for i in range(kernel_count):
-        # If we're not the first kernel in the string, append a comma to the
-        # string before adding a new kernel name.
-        if len(kernel_config_string) != 0:
-            kernel_config_string += ","
+        to_append = {}
         # Create the kernel name. For example, the kernel named "1_K2" will be
         # kernel 2 of benchmark number 1
-        kernel_config_string += "%d_K%d," % (number, i + 1)
+        to_append["kernel_label"] = "%d_K%d" % (number, i + 1)
         # Generate a random time for this kernel to spin, in ns
-        spin_ns = random.randint(min_spin_ns, max_spin_ns)
-        kernel_config_string += str(spin_ns) + ","
+        to_append["duration"] = random.randint(min_spin_ns, max_spin_ns)
         # Generate a random block count for this kernel
-        block_count = random.randint(min_blocks, max_blocks)
-        kernel_config_string += str(block_count) + ","
+        to_append["block_count"] = random.randint(min_blocks, max_blocks)
         # Generate a random thread count, rounded up to a multiple of 32
         thread_count = random.randint(min_threads, max_threads)
         if (thread_count % 32) != 0:
             thread_count += 32 - (thread_count % 32)
-        kernel_config_string += str(thread_count)
+        to_append["thread_count"] = thread_count
+        kernel_config_list.append(to_append)
 
     to_return = {}
     to_return["filename"] = "./bin/multikernel.so"
@@ -47,7 +44,7 @@ def generate_multikernel_benchmark(number, min_threads, max_threads,
     to_return["thread_count"] = 0
     to_return["block_count"] = 0
     to_return["data_size"] = 0
-    to_return["additional_info"] = kernel_config_string
+    to_return["additional_info"] = kernel_config_list
     return to_return
 
 def generate_overall_config():
