@@ -22,7 +22,7 @@
       "block_count": 0,
       "data_size": 0,
       "additional_info": "K3,500000000,1,512",
-      "release_time":0.25
+      "release_time": 0.25
     },
     {
       "filename": "./bin/multikernel.so",
@@ -32,7 +32,7 @@
       "block_count": 0,
       "data_size": 0,
       "additional_info": "K4,500000000,1,1024",
-      "release_time":0.4
+      "release_time": 0.4
     },
     {
       "filename": "./bin/multikernel.so",
@@ -42,7 +42,7 @@
       "block_count": 0,
       "data_size": 0,
       "additional_info": "K5,500000000,1,512",
-      "release_time":0.25
+      "release_time": 0.25
     }
   ]
 }

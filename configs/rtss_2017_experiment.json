@@ -41,7 +41,7 @@
       "thread_count": 512,
       "block_count": 1,
       "data_size": 0,
-      "additional_info": "500000000",
+      "additional_info": 500000000,
       "release_time": 0.7
     },
     {
@@ -51,7 +51,7 @@
       "thread_count": 512,
       "block_count": 1,
       "data_size": 0,
-      "additional_info": "500000000",
+      "additional_info": 500000000,
       "release_time": 0.8
     },
     {
@@ -61,7 +61,7 @@
       "thread_count": 512,
       "block_count": 16,
       "data_size": 0,
-      "additional_info": "500000000",
+      "additional_info": 500000000,
       "release_time": 1.2
     }
   ]
