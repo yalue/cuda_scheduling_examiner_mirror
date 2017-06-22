@@ -12,7 +12,7 @@
       "thread_count": 1024,
       "block_count": 1,
       "data_size": 0,
-      "additional_info": "1000000000"
+      "additional_info": 1000000000
     },
     {
       "filename": "./bin/timer_spin.so",
@@ -21,7 +21,7 @@
       "thread_count": 1024,
       "block_count": 9,
       "data_size": 0,
-      "additional_info": "1000000000",
+      "additional_info": 1000000000,
       "release_time": 0.25
     },
     {
@@ -31,7 +31,7 @@
       "thread_count": 256,
       "block_count": 1,
       "data_size": 0,
-      "additional_info": "500000000",
+      "additional_info": 500000000,
       "release_time": 0.5
     }
   ]

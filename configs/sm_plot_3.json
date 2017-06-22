@@ -12,7 +12,10 @@
       "thread_count": 128,
       "block_count": 1,
       "data_size": 0,
-      "additional_info": "1000000000,4096"
+      "additional_info": {
+        "duration": 1000000000,
+        "shared_memory_size": 4096
+      }
     },
     {
       "filename": "./bin/sharedmem_timer_spin.so",
@@ -21,7 +24,10 @@
       "thread_count": 128,
       "block_count": 16,
       "data_size": 0,
-      "additional_info": "1000000000,4096",
+      "additional_info": {
+        "duration": 1000000000,
+        "shared_memory_size": 4096
+      },
       "release_time": 0.25
     },
     {
@@ -31,7 +37,10 @@
       "thread_count": 128,
       "block_count": 1,
       "data_size": 0,
-      "additional_info": "500000000,4096",
+      "additional_info": {
+        "duration": 500000000,
+        "shared_memory_size": 4096
+      },
       "release_time": 0.5
     }
   ]

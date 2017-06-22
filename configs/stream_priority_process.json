@@ -14,7 +14,7 @@
       "block_count": 64,
       "data_size": 0,
       "stream_priority": 0,
-      "additional_info": "100000000"
+      "additional_info": 100000000
     },
     {
       "filename": "./bin/timer_spin.so",
@@ -24,7 +24,7 @@
       "block_count": 64,
       "data_size": 0,
       "stream_priority": -1,
-      "additional_info": "100000000",
+      "additional_info": 100000000,
       "release_time": 0.2
     }
   ]

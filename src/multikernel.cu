@@ -6,15 +6,20 @@
 // all fields in its initialization parameters apart from cuda_device and
 // additional_info.
 //
-// The format of the necessary additional_info string is as follows:
-// "kernel_1_name,<ns to spin>,<# blocks>,<# threads>,kernel_2_name,...".
+// The format of the necessary additional_info field is as follows:
+// "additional_info": [
+//   {
+//     "kernel_label": "<Label string to give this kernel launch>",
+//     "duration": <number of nanoseconds to run this kernel>,
+//     "block_count": <number of blocks to launch for this kernel>,
+//     "thread_count": <number of threads per block for this kernel>
+//   },
+//   {... <kernel 2 info> ...},
+//   ...
+// ]
 //
-// Essentially, the string will be a comma-separated list of arguments, the
-// first of which is a name to be given to the kernel, the second is the number
-// of nanoseconds the kernel should spin, the third is the block count, and the
-// fourth is the thread count. One kernel is created for every group of 4
-// arguments. Kernel names can't contain commas. Kernels are issued to the
-// stream in the same order that they're specified in additional_info.
+// Kernels are issued to the stream in the same order that they're specified
+// in the additional_info list.
 #include <cuda_runtime.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -22,6 +27,7 @@
 #include <string.h>
 #include "benchmark_gpu_utilities.h"
 #include "library_interface.h"
+#include "third_party/cJSON.h"
 
 // Holds the parameters for a single kernel's execution.
 typedef struct {
@@ -101,100 +107,6 @@ static void Cleanup(void *data) {
   free(state);
 }
 
-// Splits the additional_input field into comma-separated tokens. Sets the
-// tokens argument to a pointer to an array of strings, and the token_count
-// argument to the number of strings in the tokens array. Returns 0 on error,
-// or nonzero on success. Both the individual token pointers and the list of
-// pointers returned by this function must be freed by the caller. Fails if the
-// number of tokens is not divisible by 4.
-static int SplitAdditionalInfoTokens(const char *input, char ***tokens,
-    int *token_count) {
-  char **to_return = NULL;
-  char *input_copy = NULL;
-  size_t input_length = strlen(input);
-  char *token_start = NULL;
-  uint32_t temp_token_count = 0;
-  size_t i = 0;
-  char c = 0;
-  *tokens = NULL;
-  *token_count = 0;
-  if (input_length == 0) {
-    printf("The multikernel benchmark was created with no kernels to run.");
-    return 0;
-  }
-  // First, count the number of tokens in the input string, and build a copy of
-  // the input will commas replaced with null bytes.
-  input_copy = (char *) malloc(input_length + 1);
-  if (!input_copy) return 0;
-  memset(input_copy, 0, input_length + 1);
-  for (i = 0; i < input_length; i++) {
-    c = input[i];
-    // This should never happen...
-    if (c == 0) break;
-    // Copy non-comma characters
-    if (c != ',') {
-      input_copy[i] = c;
-      continue;
-    }
-    // If a comma is seen, increment the token count and replace it with a null
-    // byte.
-    input_copy[i] = 0;
-    temp_token_count++;
-  }
-  // The last token won't have had a comma, so increment the count of tokens.
-  temp_token_count++;
-  if ((temp_token_count % 4) != 0) {
-    printf("The benchmark requires a comma-separated list of arguments with a "
-      "number of entries divisible by 4.\n");
-    goto ErrorCleanup;
-  }
-  // Allocate the list of pointers. The ErrorCleanup code needs this to be
-  // zeroed, so use calloc.
-  to_return = (char **) calloc(temp_token_count, sizeof(char *));
-  if (!to_return) goto ErrorCleanup;
-  // Finally, duplicate the strings by seeking past the null characters and
-  // using strdup.
-  token_start = input_copy;
-  for (i = 0; i < temp_token_count; i++) {
-    to_return[i] = strdup(token_start);
-    if (!to_return[i]) goto ErrorCleanup;
-    // Advance to the byte past the next null byte
-    while (*token_start != 0) {
-      token_start++;
-    }
-    token_start++;
-  }
-  free(input_copy);
-  *tokens = to_return;
-  *token_count = temp_token_count;
-  return 1;
-ErrorCleanup:
-  if (input_copy) free(input_copy);
-  // Free any existing string copies in addition to the list of pointers.
-  if (to_return) {
-    for (i = 0; i < temp_token_count; i++) {
-      if (to_return[i]) free(to_return[i]);
-    }
-    free(to_return);
-  }
-  return 0;
-}
-
-// Parses an input value to a uint64_t. Returns 0 on error or nonzero on
-// success.
-static int StringToUint64(const char *input, uint64_t *parsed) {
-  char *end = NULL;
-  uint64_t parsed_value;
-  *parsed = 0;
-  parsed_value = strtoull(input, &end, 10);
-  if ((end == input) || (*end != 0)) {
-    printf("Invalid integer: %s\n", input);
-    return 0;
-  }
-  *parsed = parsed_value;
-  return 1;
-}
-
 // Allocates host and device memory for a single kernel config struct. Returns
 // 0 on error and nonzero on success. Must be called after block size has been
 // set.
@@ -254,57 +166,70 @@ static int CopyKernelMemoryOut(SingleKernelData *config,
 // Parses the additional info setting and allocates/initializes the
 // kernel_configs array in the state struct. Returns 0 on error.
 static int InitializeKernelConfigs(BenchmarkState *state, char *info) {
-  int token_count = 0;
-  int kernel_count = 0;
-  int i = 0;
-  int j;
-  uint64_t parsed_number = 0;
-  char **tokens = NULL;
+  cJSON *parsed = NULL;
+  cJSON *list_entry = NULL;
+  cJSON *entry = NULL;
   SingleKernelData *kernel_configs = NULL;
-  state->kernel_configs = NULL;
-  state->kernel_count = 0;
-  if (!SplitAdditionalInfoTokens(info, &tokens, &token_count)) return 0;
-  kernel_count = token_count / 4;
-  // I don't think SplitAdditionalTokens will report a success in this case,
-  // but it still shouldn't hurt at this point if 0 kernels were specified.
-  if (kernel_count == 0) return 1;
+  int i = 0;
+  int kernel_count = 0;
+  parsed = cJSON_Parse(info);
+  if (!parsed || (parsed->type != cJSON_Array) || !parsed->child) {
+    printf("Missing/invalid list of kernels for multikernel.so.\n");
+    goto ErrorCleanup;
+  }
+  // First, calculate the number of kernels so we can allocate the
+  // kernel_configs array.
+  list_entry = parsed->child;
+  kernel_count = 1;
+  while (list_entry->next) {
+    kernel_count++;
+    list_entry = list_entry->next;
+  }
   kernel_configs = (SingleKernelData *) calloc(kernel_count,
     sizeof(*kernel_configs));
   if (!kernel_configs) goto ErrorCleanup;
+
+  // Now, loop over each JSON object and read the kernel config data.
+  list_entry = parsed->child;
   for (i = 0; i < kernel_count; i++) {
-    j = i * 4;
-    kernel_configs[i].name = strdup(tokens[j]);
-    if (!kernel_configs[i].name) goto ErrorCleanup;
-    if (!StringToUint64(tokens[j + 1], &parsed_number)) goto ErrorCleanup;
-    kernel_configs[i].spin_duration = parsed_number;
-    if (!StringToUint64(tokens[j + 2], &parsed_number)) goto ErrorCleanup;
-    kernel_configs[i].block_count = parsed_number;
-    if (!StringToUint64(tokens[j + 3], &parsed_number)) goto ErrorCleanup;
-    kernel_configs[i].thread_count = parsed_number;
-    // Round thread count up to an amount evenly divisible by WARP_SIZE
-    if ((kernel_configs[i].thread_count % WARP_SIZE) != 0) {
-      kernel_configs[i].thread_count += WARP_SIZE -
-        (kernel_configs[i].thread_count % WARP_SIZE);
+    entry = cJSON_GetObjectItem(list_entry, "kernel_label");
+    if (!entry || (entry->type != cJSON_String)) {
+      printf("Missing/invalid kernel label for multikernel.so.\n");
+      goto ErrorCleanup;
     }
+    kernel_configs[i].name = strdup(entry->valuestring);
+    if (!kernel_configs[i].name) goto ErrorCleanup;
+    entry = cJSON_GetObjectItem(list_entry, "duration");
+    if (!entry || (entry->type != cJSON_Number)) {
+      printf("Missing/invalid kernel duration for multikernel.so.\n");
+      goto ErrorCleanup;
+    }
+    kernel_configs[i].spin_duration = entry->valuedouble;
+    entry = cJSON_GetObjectItem(list_entry, "block_count");
+    if (!entry || (entry->type != cJSON_Number)) {
+      printf("Missing/invalid block count for multikernel.so.\n");
+      goto ErrorCleanup;
+    }
+    kernel_configs[i].block_count = entry->valueint;
+    entry = cJSON_GetObjectItem(list_entry, "thread_count");
+    if (!entry || (entry->type != cJSON_Number)) {
+      printf("Missing/invalid thread count for multikernel.so.\n");
+      goto ErrorCleanup;
+    }
+    kernel_configs[i].thread_count = entry->valueint;
     if (!AllocateKernelDataMemory(kernel_configs + i)) goto ErrorCleanup;
+    list_entry = list_entry->next;
   }
+  cJSON_Delete(parsed);
+  parsed = NULL;
   state->kernel_configs = kernel_configs;
   state->kernel_count = kernel_count;
-  for (i = 0; i < token_count; i++) {
-    free(tokens[i]);
-  }
-  free(tokens);
   return 1;
 ErrorCleanup:
-  if (tokens) {
-    for (i = 0; i < token_count; i++) {
-      free(tokens[i]);
-    }
-    free(tokens);
-  }
+  if (parsed) cJSON_Delete(parsed);
   if (kernel_configs) {
     for (i = 0; i < kernel_count; i++) {
-      CleanupKernelConfig(kernel_configs + i);
+      if (kernel_configs[i].name) free(kernel_configs[i].name);
     }
     free(kernel_configs);
   }

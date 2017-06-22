@@ -5,7 +5,7 @@
 //
 // While this benchmark will spin for an arbitrary default number of
 // nanoseconds, the specific amount of time to spin may be given as a number
-// of nanoseconds provided as a string "additional_info" configuration field.
+// of nanoseconds provided in the "additional_info" configuration field.
 //
 // This benchmark differs from the regular timer_spin only in that it issues
 // all work to the default stream, rather than a user-defined stream.
@@ -114,10 +114,6 @@ static void* Initialize(InitializationParameters *params) {
   if (!state) return NULL;
   memset(state, 0, sizeof(*state));
   if (!CheckCUDAError(cudaSetDevice(params->cuda_device))) return NULL;
-  // Round the thread count up to a value evenly divisible by 32.
-  if ((params->thread_count % WARP_SIZE) != 0) {
-    params->thread_count += WARP_SIZE - (params->thread_count % WARP_SIZE);
-  }
   state->thread_count = params->thread_count;
   state->block_count = params->block_count;
   if (!AllocateMemory(state)) {

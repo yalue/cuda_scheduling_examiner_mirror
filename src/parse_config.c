@@ -248,13 +248,9 @@ static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
     benchmarks[i].data_size = entry->valuedouble;
     entry = cJSON_GetObjectItem(current_benchmark, "additional_info");
     if (entry) {
-      if (entry->type != cJSON_String) {
-        printf("Invalid benchmark additional_info string in config.\n");
-        goto ErrorCleanup;
-      }
-      benchmarks[i].additional_info = strdup(entry->valuestring);
+      benchmarks[i].additional_info = cJSON_PrintUnformatted(entry);
       if (!benchmarks[i].additional_info) {
-        printf("Error copying additional info string.\n");
+        printf("Error copying additional info JSON.\n");
         goto ErrorCleanup;
       }
     }
