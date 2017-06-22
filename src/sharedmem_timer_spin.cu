@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include "benchmark_gpu_utilities.h"
 #include "library_interface.h"
+#include "third_party/cJSON.h"
 
 // Holds the local state for one instance of this benchmark.
 typedef struct {
@@ -94,140 +95,48 @@ static int AllocateMemory(BenchmarkState *state) {
   return 1;
 }
 
-// Splits the additional_input field into comma-separated tokens. Sets the
-// tokens argument to a pointer to an array of strings, and the token_count
-// argument to the number of strings in the tokens array. Returns 0 on error,
-// or nonzero on success. Both the individual token pointers and the list of
-// pointers returned by this function must be freed by the caller. Fails if the
-// number of tokens is not divisible by 4.
-static int SplitAdditionalInfoTokens(const char *input, char ***tokens,
-    int *token_count) {
-  char **to_return = NULL;
-  char *input_copy = NULL;
-  size_t input_length = strlen(input);
-  char *token_start = NULL;
-  uint32_t temp_token_count = 0;
-  size_t i = 0;
-  char c = 0;
-  *tokens = NULL;
-  *token_count = 0;
-  if (input_length == 0) {
-    printf("The multikernel benchmark was created with no kernels to run.");
+// Parses the additional_info JSON object, which should contain two integer
+// keys: "duration", the spin duration and "shared_memory_size", the shared
+// memory size. Returns nonzero on success. The shared memory size must be one
+// of [4096, 8192, 10240].
+static int InitializeKernelConfig(BenchmarkState *state, char *info) {
+  cJSON *parsed = NULL;
+  cJSON *entry = NULL;
+  parsed = cJSON_Parse(info);
+  if (!parsed) {
+    // This should actually never happen, because it will have already been
+    // successfully parsed once when the top-level file was parsed.
+    printf("Failed parsing additional_info JSON\n");
     return 0;
   }
-  // First, count the number of tokens in the input string, and build a copy of
-  // the input will commas replaced with null bytes.
-  input_copy = (char *) malloc(input_length + 1);
-  if (!input_copy) return 0;
-  memset(input_copy, 0, input_length + 1);
-  for (i = 0; i < input_length; i++) {
-    c = input[i];
-    // This should never happen...
-    if (c == 0) break;
-    // Copy non-comma characters
-    if (c != ',') {
-      input_copy[i] = c;
-      continue;
-    }
-    // If a comma is seen, increment the token count and replace it with a null
-    // byte.
-    input_copy[i] = 0;
-    temp_token_count++;
-  }
-  // The last token won't have had a comma, so increment the count of tokens.
-  temp_token_count++;
-  if (temp_token_count != 2) {
-    printf("The benchmark requires a comma-separated list of arguments with "
-      "two entries.\n");
-    goto ErrorCleanup;
-  }
-  // Allocate the list of pointers. The ErrorCleanup code needs this to be
-  // zeroed, so use calloc.
-  to_return = (char **) calloc(temp_token_count, sizeof(char *));
-  if (!to_return) goto ErrorCleanup;
-  // Finally, duplicate the strings by seeking past the null characters and
-  // using strdup.
-  token_start = input_copy;
-  for (i = 0; i < temp_token_count; i++) {
-    to_return[i] = strdup(token_start);
-    if (!to_return[i]) goto ErrorCleanup;
-    // Advance to the byte past the next null byte
-    while (*token_start != 0) {
-      token_start++;
-    }
-    token_start++;
-  }
-  free(input_copy);
-  *tokens = to_return;
-  *token_count = temp_token_count;
-  return 1;
-ErrorCleanup:
-  if (input_copy) free(input_copy);
-  // Free any existing string copies in addition to the list of pointers.
-  if (to_return) {
-    for (i = 0; i < temp_token_count; i++) {
-      if (to_return[i]) free(to_return[i]);
-    }
-    free(to_return);
-  }
-  return 0;
-}
-
-// Parses an input value to a uint64_t. Returns 0 on error or nonzero on
-// success.
-static int StringToUint64(const char *input, uint64_t *parsed) {
-  char *end = NULL;
-  uint64_t parsed_value;
-  *parsed = 0;
-  parsed_value = strtoull(input, &end, 10);
-  if ((end == input) || (*end != 0)) {
-    printf("Invalid integer: %s\n", input);
+  entry = cJSON_GetObjectItem(parsed, "duration");
+  if (!entry || (entry->type != cJSON_Number)) {
+    printf("Missing/invalid duration for sharedmem_timer_spin.\n");
+    cJSON_Delete(parsed);
     return 0;
   }
-  *parsed = parsed_value;
-  return 1;
-}
-
-// Parses the additional info setting to get the spin duration and the
-// amount of static shared memory to use. Attempts to set the spin_duration
-// by parsing it as a number of nanoseconds. For shared memory, it must
-// be one of [4096, 8192, 10240], as these are statically-defined.
-// Returns 0 if the arguments have been set to invalid numbers, or nonzero
-// on success.
-static int InitializeKernelConfigs(BenchmarkState *state, char *info) {
-  int token_count = 0;
-  int i = 0;
-  uint64_t parsed_number = 0;
-  char **tokens = NULL;
-  if (!SplitAdditionalInfoTokens(info, &tokens, &token_count)) return 0;
-  // Spin duration
-  if (!StringToUint64(tokens[0], &parsed_number)) goto ErrorCleanup;
-  state->spin_duration = parsed_number;
-  // Shared memory
-  if (!StringToUint64(tokens[1], &parsed_number)) goto ErrorCleanup;
-  switch (parsed_number) {
+  // Once again, use valuedouble for better precision.
+  state->spin_duration = entry->valuedouble;
+  entry = cJSON_GetObjectItem(parsed, "shared_memory_size");
+  if (!entry || (entry->type != cJSON_Number)) {
+    printf("Missing/invalid shared_memory_size for sharedmem_timer_spin.\n");
+    cJSON_Delete(parsed);
+    return 0;
+  }
+  state->sharedmem_count = entry->valueint;
+  // Free the parsed JSON now that we've obtained what we need.
+  entry = NULL;
+  cJSON_Delete(parsed);
+  parsed = NULL;
+  switch (state->sharedmem_count) {
     case 4096:
     case 8192:
     case 10240:
-      break;
-    default:
-      printf("Unsupported shared memory size: %llu\n",
-        (unsigned long long) parsed_number);
-      goto ErrorCleanup;
+      return 1;
   }
-  state->sharedmem_count = parsed_number;
-  for (i = 0; i < token_count; i++) {
-    free(tokens[i]);
-  }
-  free(tokens);
-  return 1;
-ErrorCleanup:
-  if (tokens) {
-    for (i = 0; i < token_count; i++) {
-      free(tokens[i]);
-    }
-    free(tokens);
-  }
+  printf("Unsupported shared memory size: %d\n", (int) state->sharedmem_count);
+  state->spin_duration = 0;
+  state->sharedmem_count = 0;
   return 0;
 }
 
@@ -247,8 +156,8 @@ static void* Initialize(InitializationParameters *params) {
     Cleanup(state);
     return NULL;
   }
-  // Parse the configuration string (spin duration, shared memory count)
-  if (!InitializeKernelConfigs(state, params->additional_info)) return NULL;
+  // Parse the additional_info JSON (spin duration, shared memory count)
+  if (!InitializeKernelConfig(state, params->additional_info)) return NULL;
   if (!CheckCUDAError(CreateCUDAStreamWithPriority(params->stream_priority,
     &(state->stream)))) {
     Cleanup(state);

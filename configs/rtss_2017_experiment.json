@@ -21,7 +21,10 @@
       "thread_count": 256,
       "block_count": 4,
       "data_size": 0,
-      "additional_info": "500000000,8192",
+      "additional_info": {
+        "duration": 500000000,
+        "shared_memory_size": 8192
+      },
       "release_time": 0.1
     },
     {
@@ -31,7 +34,10 @@
       "thread_count": 256,
       "block_count": 2,
       "data_size": 0,
-      "additional_info": "500000000,8192",
+      "additional_info": {
+        "duration": 500000000,
+        "shared_memory_size": 8192
+      },
       "release_time": 0.2
     },
     {
