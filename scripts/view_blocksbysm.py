@@ -65,7 +65,10 @@ LEGEND_HEIGHT = 70
 BUFFER_LEGEND = 4
 
 USE_PATTERNS = True
-LINE_WIDTH = 1
+USE_BOLD_FONT = True
+
+LINE_WIDTH = 2
+ARROW_WIDTH = 2
 
 class Pattern(object):
     def __init__(self):
@@ -234,6 +237,7 @@ class PlotRect(Rectangle):
 
         Rectangle.__init__(self, Point(p1x, p1y), Point(p2x, p2y))
         self.setFill("white")
+        self.setWidth(LINE_WIDTH)
 
 class BlockSMRect(object):
     def __init__(self, block, firstTime, totalTime, totalNumSms, w, h, color, patternType, otherThreads):
@@ -262,6 +266,7 @@ class BlockSMRect(object):
         p2y = blockTop
 
         self.block = Rectangle(Point(p1x, p1y), Point(p2x, p2y))
+        self.block.setWidth(LINE_WIDTH)
         if patternType == None:
             self.block.setFill(color)
             self.pattern = None
@@ -292,6 +297,8 @@ class BlockSMRect(object):
 
         kernelName = block.kernelName
         self.label = Text(Point(px, py), "%s: %s" % (kernelName, block.id))
+        if USE_BOLD_FONT:
+            self.label.setStyle("bold")
 
     def draw(self, canvas):
         self.block.draw(canvas)
@@ -309,7 +316,7 @@ class KernelReleaseMarker(Line):
 
         Line.__init__(self, Point(px, p1y), Point(px, p2y))
         self.setArrow("first")
-        self.setWidth(2)
+        self.setWidth(ARROW_WIDTH)
         if patternType == None:
             self.setFill(color)
         else:
@@ -324,6 +331,9 @@ class Title(object):
         py = int(BUFFER_TOP * 0.75)
 
         self.title = Text(Point(px, py), name)
+        self.title.setSize(14)
+        if USE_BOLD_FONT:
+            self.title.setStyle("bold")
 
     def draw(self, canvas):
         self.title.draw(canvas)
@@ -331,6 +341,7 @@ class Title(object):
 class LegendBox(object):
     def __init__(self, posx, posy, w, h, i):
         self.rect = Rectangle(Point(posx - w/2, posy - h/2), Point(posx + w/2, posy + h/2))
+        self.rect.setWidth(LINE_WIDTH)
 
         if USE_PATTERNS:
             color = idToColorMap[i]
@@ -372,6 +383,7 @@ class Legend(object):
         self.outline = Rectangle(Point(p1x, p1y), Point(p2x, p2y))
         self.outline.setFill("white")
         self.outline.setOutline("black")
+        self.outline.setWidth(LINE_WIDTH)
 
     def build_labels(self, w, h, benchmark):
         self.boxes = []
@@ -410,6 +422,8 @@ class Legend(object):
         # Build the label
         s = stream.label
         label = Text(Point(left + 100, midy), "Stream %d (%s)" % (i+1, s)) # TODO: generalize
+        if USE_BOLD_FONT:
+            label.setStyle("bold")
         self.labels.append(label)
 
     def draw(self, canvas):
@@ -436,6 +450,7 @@ class XAxis(object):
 
         self.axis = Line(Point(p1x, py), Point(p2x, py))
         self.axis.setFill("black")
+        self.axis.setWidth(LINE_WIDTH)
 
     def calculate_tick_time(self, totalTime):
         if totalTime <= 2.0:
@@ -458,6 +473,7 @@ class XAxis(object):
 
             tick = Line(Point(px, p1y), Point(px, p2y))
             tick.setFill("black")
+            tick.setWidth(LINE_WIDTH)
             self.ticks.append(tick)
 
             # Bottom of plot area
@@ -467,6 +483,7 @@ class XAxis(object):
 
             tick = Line(Point(px, p1y), Point(px, p2y))
             tick.setFill("black")
+            tick.setWidth(LINE_WIDTH)
             self.ticks.append(tick)
 
     def build_labels(self, totalTime, w, h):
@@ -480,12 +497,16 @@ class XAxis(object):
 
             label = Text(Point(px, py), "%.1f" % (i * self.tick_time))
             label.setSize(10)
+            if USE_BOLD_FONT:
+                label.setStyle("bold")
             self.labels.append(label)
 
         # Give the axis a label
         px = w / 2
         py = h - (BUFFER_BOTTOM * 0.6)
         label = Text(Point(px, py), "Time (seconds)")
+        if USE_BOLD_FONT:
+            label.setStyle("bold")
         self.labels.append(label)
 
     def draw(self, canvas):
@@ -510,6 +531,7 @@ class YAxis(Rectangle):
 
         self.axis = Line(Point(px, p1y), Point(px, p2y))
         self.axis.setFill("black")
+        self.axis.setWidth(LINE_WIDTH)
 
     def build_grid_lines(self, totalNumSms, w, h):
         # Put a horizontal line between each SM
@@ -525,6 +547,7 @@ class YAxis(Rectangle):
 
             line = Line(Point(p1x, py), Point(p2x, py))
             line.setFill("black")
+            line.setWidth(LINE_WIDTH)
             self.gridlines.append(line)
 
     def build_labels(self, totalNumSms, w, h):
@@ -537,7 +560,9 @@ class YAxis(Rectangle):
             py = plotBottom - i * smHeight - int(0.5 * smHeight)
 
             label = Text(Point(px, py), "SM %d" % i)
-            label.setSize(10)
+            label.setSize(12)
+            if USE_BOLD_FONT:
+                label.setStyle("bold")
             self.labels.append(label)
 
     def draw(self, canvas):
