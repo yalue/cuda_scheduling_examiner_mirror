@@ -61,8 +61,10 @@ BUFFER_BOTTOM = 100
 BUFFER_LEFT = 100
 BUFFER_RIGHT = 20
 
-LEGEND_HEIGHT = 70
+LEGEND_HEIGHT_BASE = 32 # pixels per row
 BUFFER_LEGEND = 4
+
+LEGEND_BOX_SIZE = 20
 
 USE_PATTERNS = True
 USE_BOLD_FONT = True
@@ -393,7 +395,7 @@ class Legend(object):
             self.build_label(w, h, stream, i, len(benchmark.streams))
 
     def build_label(self, w, h, stream, i, n):
-        boxSize = 12
+        boxSize = LEGEND_BOX_SIZE
         numPerCol = math.ceil(n / 2.0)
 
         if i < numPerCol:
@@ -416,14 +418,16 @@ class Legend(object):
         midy = (top + bottom) / 2
 
         # Build the box
-        box = LegendBox(left + 20, midy, boxSize, boxSize, i)
+        box = LegendBox(left + 18, midy, boxSize, boxSize, i)
         self.boxes.append(box)
 
         # Build the label
         s = stream.label
-        label = Text(Point(left + 100, midy), "Stream %d (%s)" % (i+1, s)) # TODO: generalize
+        px = 18 + boxSize - 4
+        label = Text(Point(left + px, midy), "Stream %d (%s)" % (i+1, s)) # TODO: generalize
         if USE_BOLD_FONT:
             label.setStyle("bold")
+        label.config["anchor"] = 'w' # hack to left-align labels
         self.labels.append(label)
 
     def draw(self, canvas):
@@ -621,7 +625,12 @@ class BlockSMDisplay():
         self.draw_benchmark()
 
     def draw_benchmark(self):
+        global LEGEND_HEIGHT
+
         if len(self.benchmark.streams) == 0: return
+
+        # Calculate the legend height based on the # of streams (two columns)
+        LEGEND_HEIGHT = (len(self.benchmark.streams) + 1) / 2 * LEGEND_HEIGHT_BASE
         
         # Draw the plot area
         self.draw_plot_area()
