@@ -14,7 +14,8 @@ from graphics import *
 # Using threads vs shared memory
 SM_THREADS = 2048
 SM_SHARED_MEM = 65536
-Y_VAL_SOURCE = "sharedmem"
+#Y_VAL_SOURCE = "sharedmem"
+Y_VAL_SOURCE = "threads"
 if Y_VAL_SOURCE == "threads":
     MAX_YVAL = float(SM_THREADS)
 elif Y_VAL_SOURCE == "sharedmem":
@@ -35,7 +36,8 @@ idToColorMap = {0: 'light pink',
                 4: 'MediumPurple1',
                 5: 'gray68',
                 6: 'orange',
-                7: 'gray32'}
+                7: 'gray32',
+                8: 'turquoise3'}
 
 patternColorToBgColorMap = {"light pink": "lavender blush",
                             "light blue": "azure",
@@ -44,7 +46,8 @@ patternColorToBgColorMap = {"light pink": "lavender blush",
                             "MediumPurple1": "lavender",
                             "gray68": "light gray",
                             "orange": "navajo white",
-                            "gray32": "gray48"}
+                            "gray32": "gray48",
+                            "turquoise3": "turquoise1"}
 
 patternColorToArrowColorMap = {"light pink": "IndianRed3",
                                "light blue": "SteelBlue2",
@@ -53,19 +56,25 @@ patternColorToArrowColorMap = {"light pink": "IndianRed3",
                                "MediumPurple1": "MediumPurple1",
                                "gray68": "gray68",
                                "orange": "dark orange",
-                               "gray32": "gray32"}
+                               "gray32": "gray32",
+                               "turquoise3": "turquoise3"}
 
-BUFFER_TOP = 60
-BUFFER_BOTTOM = 100
+BUFFER_TOP = 32
+BUFFER_BOTTOM = 68
 
-BUFFER_LEFT = 100
-BUFFER_RIGHT = 20
+BUFFER_LEFT = 52
+BUFFER_RIGHT = 8
 
-LEGEND_HEIGHT = 70
+LEGEND_HEIGHT_BASE = 32 # pixels per row
 BUFFER_LEGEND = 4
 
+LEGEND_BOX_SIZE = 20
+
 USE_PATTERNS = True
-LINE_WIDTH = 1
+USE_BOLD_FONT = True
+
+LINE_WIDTH = 2
+ARROW_WIDTH = 2
 
 class Pattern(object):
     def __init__(self):
@@ -76,12 +85,10 @@ class Pattern(object):
             obj.draw(canvas)
 
 class HorizontalLinePattern(Pattern):
-    NUMLINES = 12
+    LINE_SPACING = 10
 
     def __init__(self, rect, color, numLines = None):
         Pattern.__init__(self)
-        if numLines == None:
-            numLines = self.NUMLINES
 
         p1x = rect.getP1().x+1
         p2x = rect.getP2().x-1
@@ -89,6 +96,9 @@ class HorizontalLinePattern(Pattern):
         ymin = min(rect.getP1().y, rect.getP2().y)
         ymax = max(rect.getP1().y, rect.getP2().y)
         h = ymax - ymin
+
+        if numLines == None:
+            numLines = int(h / self.LINE_SPACING)
         dy = h / float(numLines + 1)
 
         for i in range(1, numLines+1):
@@ -99,12 +109,10 @@ class HorizontalLinePattern(Pattern):
             self.objs.append(line)
 
 class VerticalLinePattern(Pattern):
-    NUMLINES = 23
+    LINE_SPACING = 10
 
     def __init__(self, rect, color, numLines = None):
         Pattern.__init__(self)
-        if numLines == None:
-            numLines = self.NUMLINES
 
         p1y = rect.getP1().y-1
         p2y = rect.getP2().y+1
@@ -112,6 +120,9 @@ class VerticalLinePattern(Pattern):
         xmin = min(rect.getP1().x, rect.getP2().x)
         xmax = max(rect.getP1().x, rect.getP2().x)
         w = xmax - xmin
+
+        if numLines == None:
+            numLines = int(w / self.LINE_SPACING)
         dx = w / float(numLines + 1)
 
         for i in range(1, numLines+1):
@@ -122,12 +133,10 @@ class VerticalLinePattern(Pattern):
             self.objs.append(line)
 
 class LeftDiagonalLinePattern(Pattern):
-    NUMLINES = 30
+    LINE_SPACING = 10
 
     def __init__(self, rect, color, numLines = None):
         Pattern.__init__(self)
-        if numLines == None:
-            numLines = self.NUMLINES
 
         xmin = int(min(rect.getP1().x, rect.getP2().x))
         xmax = int(max(rect.getP1().x, rect.getP2().x))
@@ -135,6 +144,9 @@ class LeftDiagonalLinePattern(Pattern):
         ymax = int(max(rect.getP1().y, rect.getP2().y))
 
         totalDist = (ymax - ymin) + (xmax - xmin)
+
+        if numLines == None:
+            numLines = int(totalDist / self.LINE_SPACING)
         ddist = totalDist / float(numLines + 1)
 
         ycount = int((ymax-ymin) / ddist)
@@ -168,12 +180,10 @@ class LeftDiagonalLinePattern(Pattern):
             self.objs.append(line)
 
 class RightDiagonalLinePattern(Pattern):
-    NUMLINES = 30
+    LINE_SPACING = 10
 
     def __init__(self, rect, color, numLines = None):
         Pattern.__init__(self)
-        if numLines == None:
-            numLines = self.NUMLINES
 
         xmin = int(min(rect.getP1().x, rect.getP2().x))
         xmax = int(max(rect.getP1().x, rect.getP2().x))
@@ -181,6 +191,9 @@ class RightDiagonalLinePattern(Pattern):
         ymax = int(max(rect.getP1().y, rect.getP2().y))
 
         totalDist = (ymax - ymin) + (xmax - xmin)
+
+        if numLines == None:
+            numLines = int(totalDist / self.LINE_SPACING)
         ddist = totalDist / float(numLines + 1)
 
         ycount = int((ymax-ymin) / ddist)
@@ -220,7 +233,8 @@ idToPatternMap = {0: HorizontalLinePattern,
                   4: VerticalLinePattern,
                   5: RightDiagonalLinePattern,
                   6: LeftDiagonalLinePattern,
-                  7: HorizontalLinePattern}
+                  7: HorizontalLinePattern,
+                  8: VerticalLinePattern}
 
 class PlotRect(Rectangle):
     def __init__(self, w, h):
@@ -234,6 +248,7 @@ class PlotRect(Rectangle):
 
         Rectangle.__init__(self, Point(p1x, p1y), Point(p2x, p2y))
         self.setFill("white")
+        self.setWidth(LINE_WIDTH)
 
 class BlockSMRect(object):
     def __init__(self, block, firstTime, totalTime, totalNumSms, w, h, color, patternType, otherThreads):
@@ -262,6 +277,7 @@ class BlockSMRect(object):
         p2y = blockTop
 
         self.block = Rectangle(Point(p1x, p1y), Point(p2x, p2y))
+        self.block.setWidth(LINE_WIDTH)
         if patternType == None:
             self.block.setFill(color)
             self.pattern = None
@@ -292,6 +308,8 @@ class BlockSMRect(object):
 
         kernelName = block.kernelName
         self.label = Text(Point(px, py), "%s: %s" % (kernelName, block.id))
+        if USE_BOLD_FONT:
+            self.label.setStyle("bold")
 
     def draw(self, canvas):
         self.block.draw(canvas)
@@ -309,7 +327,7 @@ class KernelReleaseMarker(Line):
 
         Line.__init__(self, Point(px, p1y), Point(px, p2y))
         self.setArrow("first")
-        self.setWidth(2)
+        self.setWidth(ARROW_WIDTH)
         if patternType == None:
             self.setFill(color)
         else:
@@ -321,9 +339,12 @@ class Title(object):
 
     def build_title(self, w, h, name):
         px = w / 2
-        py = int(BUFFER_TOP * 0.75)
+        py = int(BUFFER_TOP - 16)
 
         self.title = Text(Point(px, py), name)
+        self.title.setSize(14)
+        if USE_BOLD_FONT:
+            self.title.setStyle("bold")
 
     def draw(self, canvas):
         self.title.draw(canvas)
@@ -331,6 +352,7 @@ class Title(object):
 class LegendBox(object):
     def __init__(self, posx, posy, w, h, i):
         self.rect = Rectangle(Point(posx - w/2, posy - h/2), Point(posx + w/2, posy + h/2))
+        self.rect.setWidth(LINE_WIDTH)
 
         if USE_PATTERNS:
             color = idToColorMap[i]
@@ -372,6 +394,7 @@ class Legend(object):
         self.outline = Rectangle(Point(p1x, p1y), Point(p2x, p2y))
         self.outline.setFill("white")
         self.outline.setOutline("black")
+        self.outline.setWidth(LINE_WIDTH)
 
     def build_labels(self, w, h, benchmark):
         self.boxes = []
@@ -381,7 +404,7 @@ class Legend(object):
             self.build_label(w, h, stream, i, len(benchmark.streams))
 
     def build_label(self, w, h, stream, i, n):
-        boxSize = 12
+        boxSize = LEGEND_BOX_SIZE
         numPerCol = math.ceil(n / 2.0)
 
         if i < numPerCol:
@@ -404,12 +427,16 @@ class Legend(object):
         midy = (top + bottom) / 2
 
         # Build the box
-        box = LegendBox(left + 20, midy, boxSize, boxSize, i)
+        box = LegendBox(left + 18, midy, boxSize, boxSize, i)
         self.boxes.append(box)
 
         # Build the label
         s = stream.label
-        label = Text(Point(left + 100, midy), "Stream %d (%s)" % (i+1, s)) # TODO: generalize
+        px = 18 + boxSize - 4
+        label = Text(Point(left + px, midy), "Stream %d (%s)" % (i+1, s)) # TODO: generalize
+        if USE_BOLD_FONT:
+            label.setStyle("bold")
+        label.config["anchor"] = 'w' # hack to left-align labels
         self.labels.append(label)
 
     def draw(self, canvas):
@@ -436,6 +463,7 @@ class XAxis(object):
 
         self.axis = Line(Point(p1x, py), Point(p2x, py))
         self.axis.setFill("black")
+        self.axis.setWidth(LINE_WIDTH)
 
     def calculate_tick_time(self, totalTime):
         if totalTime <= 2.0:
@@ -458,6 +486,7 @@ class XAxis(object):
 
             tick = Line(Point(px, p1y), Point(px, p2y))
             tick.setFill("black")
+            tick.setWidth(LINE_WIDTH)
             self.ticks.append(tick)
 
             # Bottom of plot area
@@ -467,6 +496,7 @@ class XAxis(object):
 
             tick = Line(Point(px, p1y), Point(px, p2y))
             tick.setFill("black")
+            tick.setWidth(LINE_WIDTH)
             self.ticks.append(tick)
 
     def build_labels(self, totalTime, w, h):
@@ -480,12 +510,16 @@ class XAxis(object):
 
             label = Text(Point(px, py), "%.1f" % (i * self.tick_time))
             label.setSize(10)
+            if USE_BOLD_FONT:
+                label.setStyle("bold")
             self.labels.append(label)
 
         # Give the axis a label
         px = w / 2
         py = h - (BUFFER_BOTTOM * 0.6)
         label = Text(Point(px, py), "Time (seconds)")
+        if USE_BOLD_FONT:
+            label.setStyle("bold")
         self.labels.append(label)
 
     def draw(self, canvas):
@@ -510,6 +544,7 @@ class YAxis(Rectangle):
 
         self.axis = Line(Point(px, p1y), Point(px, p2y))
         self.axis.setFill("black")
+        self.axis.setWidth(LINE_WIDTH)
 
     def build_grid_lines(self, totalNumSms, w, h):
         # Put a horizontal line between each SM
@@ -525,6 +560,7 @@ class YAxis(Rectangle):
 
             line = Line(Point(p1x, py), Point(p2x, py))
             line.setFill("black")
+            line.setWidth(LINE_WIDTH)
             self.gridlines.append(line)
 
     def build_labels(self, totalNumSms, w, h):
@@ -533,11 +569,13 @@ class YAxis(Rectangle):
         smHeight = plotHeight / totalNumSms
         self.labels = []
         for i in range(totalNumSms):
-            px = int(BUFFER_LEFT * 0.75)
+            px = int(BUFFER_LEFT - 25)
             py = plotBottom - i * smHeight - int(0.5 * smHeight)
 
             label = Text(Point(px, py), "SM %d" % i)
-            label.setSize(10)
+            label.setSize(12)
+            if USE_BOLD_FONT:
+                label.setStyle("bold")
             self.labels.append(label)
 
     def draw(self, canvas):
@@ -576,7 +614,7 @@ class BlockSMDisplay():
         self.width = width
         self.height = height
         self.firstTime = 0.0
-        self.totalTime = (benchmark.get_end() - self.firstTime) * 1.1
+        self.totalTime = (benchmark.get_end() - self.firstTime) * 1.05
 
         # Create a canvas
         self.canvas = ResizingCanvasFrame(win, self.width, self.height, self.redraw)
@@ -596,7 +634,12 @@ class BlockSMDisplay():
         self.draw_benchmark()
 
     def draw_benchmark(self):
+        global LEGEND_HEIGHT
+
         if len(self.benchmark.streams) == 0: return
+
+        # Calculate the legend height based on the # of streams (two columns)
+        LEGEND_HEIGHT = (len(self.benchmark.streams) + 1) / 2 * LEGEND_HEIGHT_BASE
         
         # Draw the plot area
         self.draw_plot_area()
