@@ -14,7 +14,8 @@ from graphics import *
 # Using threads vs shared memory
 SM_THREADS = 2048
 SM_SHARED_MEM = 65536
-Y_VAL_SOURCE = "sharedmem"
+#Y_VAL_SOURCE = "sharedmem"
+Y_VAL_SOURCE = "threads"
 if Y_VAL_SOURCE == "threads":
     MAX_YVAL = float(SM_THREADS)
 elif Y_VAL_SOURCE == "sharedmem":
@@ -55,11 +56,11 @@ patternColorToArrowColorMap = {"light pink": "IndianRed3",
                                "orange": "dark orange",
                                "gray32": "gray32"}
 
-BUFFER_TOP = 60
-BUFFER_BOTTOM = 100
+BUFFER_TOP = 32
+BUFFER_BOTTOM = 68
 
-BUFFER_LEFT = 100
-BUFFER_RIGHT = 20
+BUFFER_LEFT = 52
+BUFFER_RIGHT = 8
 
 LEGEND_HEIGHT_BASE = 32 # pixels per row
 BUFFER_LEGEND = 4
@@ -330,7 +331,7 @@ class Title(object):
 
     def build_title(self, w, h, name):
         px = w / 2
-        py = int(BUFFER_TOP * 0.75)
+        py = int(BUFFER_TOP - 16)
 
         self.title = Text(Point(px, py), name)
         self.title.setSize(14)
@@ -560,7 +561,7 @@ class YAxis(Rectangle):
         smHeight = plotHeight / totalNumSms
         self.labels = []
         for i in range(totalNumSms):
-            px = int(BUFFER_LEFT * 0.75)
+            px = int(BUFFER_LEFT - 25)
             py = plotBottom - i * smHeight - int(0.5 * smHeight)
 
             label = Text(Point(px, py), "SM %d" % i)
@@ -605,7 +606,7 @@ class BlockSMDisplay():
         self.width = width
         self.height = height
         self.firstTime = 0.0
-        self.totalTime = (benchmark.get_end() - self.firstTime) * 1.1
+        self.totalTime = (benchmark.get_end() - self.firstTime) * 1.05
 
         # Create a canvas
         self.canvas = ResizingCanvasFrame(win, self.width, self.height, self.redraw)
