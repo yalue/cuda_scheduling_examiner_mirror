@@ -36,7 +36,8 @@ idToColorMap = {0: 'light pink',
                 4: 'MediumPurple1',
                 5: 'gray68',
                 6: 'orange',
-                7: 'gray32'}
+                7: 'gray32',
+                8: 'turquoise3'}
 
 patternColorToBgColorMap = {"light pink": "lavender blush",
                             "light blue": "azure",
@@ -45,7 +46,8 @@ patternColorToBgColorMap = {"light pink": "lavender blush",
                             "MediumPurple1": "lavender",
                             "gray68": "light gray",
                             "orange": "navajo white",
-                            "gray32": "gray48"}
+                            "gray32": "gray48",
+                            "turquoise3": "turquoise1"}
 
 patternColorToArrowColorMap = {"light pink": "IndianRed3",
                                "light blue": "SteelBlue2",
@@ -54,7 +56,8 @@ patternColorToArrowColorMap = {"light pink": "IndianRed3",
                                "MediumPurple1": "MediumPurple1",
                                "gray68": "gray68",
                                "orange": "dark orange",
-                               "gray32": "gray32"}
+                               "gray32": "gray32",
+                               "turquoise3": "turquoise3"}
 
 BUFFER_TOP = 32
 BUFFER_BOTTOM = 68
@@ -82,12 +85,10 @@ class Pattern(object):
             obj.draw(canvas)
 
 class HorizontalLinePattern(Pattern):
-    NUMLINES = 12
+    LINE_SPACING = 10
 
     def __init__(self, rect, color, numLines = None):
         Pattern.__init__(self)
-        if numLines == None:
-            numLines = self.NUMLINES
 
         p1x = rect.getP1().x+1
         p2x = rect.getP2().x-1
@@ -95,6 +96,9 @@ class HorizontalLinePattern(Pattern):
         ymin = min(rect.getP1().y, rect.getP2().y)
         ymax = max(rect.getP1().y, rect.getP2().y)
         h = ymax - ymin
+
+        if numLines == None:
+            numLines = int(h / self.LINE_SPACING)
         dy = h / float(numLines + 1)
 
         for i in range(1, numLines+1):
@@ -105,12 +109,10 @@ class HorizontalLinePattern(Pattern):
             self.objs.append(line)
 
 class VerticalLinePattern(Pattern):
-    NUMLINES = 23
+    LINE_SPACING = 10
 
     def __init__(self, rect, color, numLines = None):
         Pattern.__init__(self)
-        if numLines == None:
-            numLines = self.NUMLINES
 
         p1y = rect.getP1().y-1
         p2y = rect.getP2().y+1
@@ -118,6 +120,9 @@ class VerticalLinePattern(Pattern):
         xmin = min(rect.getP1().x, rect.getP2().x)
         xmax = max(rect.getP1().x, rect.getP2().x)
         w = xmax - xmin
+
+        if numLines == None:
+            numLines = int(w / self.LINE_SPACING)
         dx = w / float(numLines + 1)
 
         for i in range(1, numLines+1):
@@ -128,12 +133,10 @@ class VerticalLinePattern(Pattern):
             self.objs.append(line)
 
 class LeftDiagonalLinePattern(Pattern):
-    NUMLINES = 30
+    LINE_SPACING = 10
 
     def __init__(self, rect, color, numLines = None):
         Pattern.__init__(self)
-        if numLines == None:
-            numLines = self.NUMLINES
 
         xmin = int(min(rect.getP1().x, rect.getP2().x))
         xmax = int(max(rect.getP1().x, rect.getP2().x))
@@ -141,6 +144,9 @@ class LeftDiagonalLinePattern(Pattern):
         ymax = int(max(rect.getP1().y, rect.getP2().y))
 
         totalDist = (ymax - ymin) + (xmax - xmin)
+
+        if numLines == None:
+            numLines = int(totalDist / self.LINE_SPACING)
         ddist = totalDist / float(numLines + 1)
 
         ycount = int((ymax-ymin) / ddist)
@@ -174,12 +180,10 @@ class LeftDiagonalLinePattern(Pattern):
             self.objs.append(line)
 
 class RightDiagonalLinePattern(Pattern):
-    NUMLINES = 30
+    LINE_SPACING = 10
 
     def __init__(self, rect, color, numLines = None):
         Pattern.__init__(self)
-        if numLines == None:
-            numLines = self.NUMLINES
 
         xmin = int(min(rect.getP1().x, rect.getP2().x))
         xmax = int(max(rect.getP1().x, rect.getP2().x))
@@ -187,6 +191,9 @@ class RightDiagonalLinePattern(Pattern):
         ymax = int(max(rect.getP1().y, rect.getP2().y))
 
         totalDist = (ymax - ymin) + (xmax - xmin)
+
+        if numLines == None:
+            numLines = int(totalDist / self.LINE_SPACING)
         ddist = totalDist / float(numLines + 1)
 
         ycount = int((ymax-ymin) / ddist)
@@ -226,7 +233,8 @@ idToPatternMap = {0: HorizontalLinePattern,
                   4: VerticalLinePattern,
                   5: RightDiagonalLinePattern,
                   6: LeftDiagonalLinePattern,
-                  7: HorizontalLinePattern}
+                  7: HorizontalLinePattern,
+                  8: VerticalLinePattern}
 
 class PlotRect(Rectangle):
     def __init__(self, w, h):
