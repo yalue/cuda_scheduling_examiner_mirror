@@ -223,20 +223,6 @@ static int CopyIn(void *data) {
   return 1;
 }
 
-// Returns the ID of the SM this is executed on.
-static __device__ __inline__ uint32_t GetSMID(void) {
-  uint32_t to_return;
-  asm volatile("mov.u32 %0, %%smid;" : "=r"(to_return));
-  return to_return;
-}
-
-// Returns the value of CUDA's global nanosecond timer.
-static __device__ __inline__ uint64_t GlobalTimer64(void) {
-  uint64_t to_return;
-  asm volatile("mov.u64 %0, %%globaltimer;" : "=l"(to_return));
-  return to_return;
-}
-
 // Traverses the walk_buffer, taking each subsequent index to visit as the
 // value stored in the current index.
 static __global__ void WalkKernel(uint64_t access_count,
