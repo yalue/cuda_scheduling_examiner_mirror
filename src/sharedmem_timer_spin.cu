@@ -170,20 +170,6 @@ static int CopyIn(void *data) {
   return 1;
 }
 
-// Returns the ID of the SM this is executed on.
-static __device__ __inline__ uint32_t GetSMID(void) {
-  uint32_t to_return;
-  asm volatile("mov.u32 %0, %%smid;" : "=r"(to_return));
-  return to_return;
-}
-
-// Returns the value of CUDA's global nanosecond timer.
-static __device__ __inline__ uint64_t GlobalTimer64(void) {
-  uint64_t to_return;
-  asm volatile("mov.u64 %0, %%globaltimer;" : "=l"(to_return));
-  return to_return;
-}
-
 // Uses 4096 bytes of statically-defined shared memory.
 static __device__ uint32_t UseSharedMemory4096(void) {
   __shared__ uint32_t shared_mem_arr[4096];

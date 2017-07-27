@@ -85,7 +85,6 @@ def plot_scenario(benchmarks, name, times_key):
     legend = plot.legend()
     legend.draggable()
     return figure
-    return figure
 
 def show_plots(filenames, times_key="block_times"):
     """Takes a list of filenames, and generates one plot per scenario found in
