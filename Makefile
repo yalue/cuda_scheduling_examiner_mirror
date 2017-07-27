@@ -17,7 +17,7 @@ all: directories benchmarks bin/runner
 
 benchmarks: bin/mandelbrot.so bin/timer_spin.so bin/multikernel.so \
 	bin/cpu_inorder_walk.so bin/cpu_random_walk.so bin/inorder_walk.so \
-	bin/random_walk.so bin/sharedmem_timer_spin.so \
+	bin/random_walk.so bin/sharedmem_timer_spin.so bin/counter_spin.so \
 	bin/timer_spin_default_stream.so
 
 directories:
@@ -30,6 +30,10 @@ bin/mandelbrot.so: src/mandelbrot.cu $(BENCHMARK_DEPENDENCIES)
 
 bin/timer_spin.so: src/timer_spin.cu $(BENCHMARK_DEPENDENCIES)
 	nvcc --shared $(NVCCFLAGS) -o bin/timer_spin.so src/timer_spin.cu \
+		obj/benchmark_gpu_utilities.o
+
+bin/counter_spin.so: src/counter_spin.cu $(BENCHMARK_DEPENDENCIES)
+	nvcc --shared $(NVCCFLAGS) -o bin/counter_spin.so src/counter_spin.cu \
 		obj/benchmark_gpu_utilities.o
 
 bin/timer_spin_default_stream.so: src/timer_spin_default_stream.cu \
