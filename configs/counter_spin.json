@@ -1,0 +1,30 @@
+{
+  "name": "Blocking at end test (counter spin)",
+  "comment": "This config is just for testing the counter-spin benchmark",
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "pin_cpus": true,
+  "benchmarks": [
+    {
+      "filename": "./bin/counter_spin.so",
+      "log_name": "block_at_end_counter_1.json",
+      "label": "Kernel 1",
+      "thread_count": 512,
+      "block_count": 9,
+      "data_size": 0,
+      "release_time": 0.0,
+      "additional_info": 100000000
+    },
+    {
+      "filename": "./bin/counter_spin.so",
+      "log_name": "block_at_end_counter_2.json",
+      "label": "Kernel 1",
+      "thread_count": 256,
+      "block_count": 1,
+      "data_size": 0,
+      "release_time": 0.75,
+      "additional_info": 200000000
+    }
+  ]
+}
