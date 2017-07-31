@@ -12,7 +12,9 @@
 //     "kernel_label": "<Label string to give this kernel launch>",
 //     "duration": <number of nanoseconds to run this kernel>,
 //     "block_count": <number of blocks to launch for this kernel>,
-//     "thread_count": <number of threads per block for this kernel>
+//     "thread_count": <number of threads per block for this kernel>,
+//     "delay": <number of seconds to sleep after the previous kernel, but
+//              before releasing this kernel. Defaults to 0.0.>
 //   },
 //   {... <kernel 2 info> ...},
 //   ...
@@ -25,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "benchmark_gpu_utilities.h"
 #include "library_interface.h"
 #include "third_party/cJSON.h"
@@ -38,6 +41,9 @@ typedef struct {
   // The grid dimensions for this kernel
   int block_count;
   int thread_count;
+  // The number of seconds to sleep after the previous kernel's completion,
+  // before executing this kernel.
+  double delay;
   // The host and device memory buffers for the kernel.
   uint64_t *host_kernel_times;
   uint64_t *device_kernel_times;
@@ -217,6 +223,15 @@ static int InitializeKernelConfigs(BenchmarkState *state, char *info) {
       goto ErrorCleanup;
     }
     kernel_configs[i].thread_count = entry->valueint;
+    entry = cJSON_GetObjectItem(list_entry, "delay");
+    kernel_configs[i].delay = 0.0;
+    if (entry) {
+      if (entry->type != cJSON_Number) {
+        printf("Invalid delay for multikernel.so.\n");
+        goto ErrorCleanup;
+      }
+      kernel_configs[i].delay = entry->valuedouble;
+    }
     if (!AllocateKernelDataMemory(kernel_configs + i)) goto ErrorCleanup;
     list_entry = list_entry->next;
   }
@@ -289,6 +304,13 @@ static __global__ void GPUSpin(uint64_t spin_duration, uint64_t *kernel_times,
   kernel_times[1] = GlobalTimer64();
 }
 
+// Sleeps for at least the given number of seconds, with a microsecond
+// granularity.
+static void SleepSeconds(double seconds) {
+  uint64_t to_sleep = (uint64_t) (seconds * 1e6);
+  usleep(to_sleep);
+}
+
 static int Execute(void *data) {
   BenchmarkState *state = (BenchmarkState *) data;
   SingleKernelData *config = NULL;
@@ -296,6 +318,10 @@ static int Execute(void *data) {
   // Submit all of the kernels before calling cudaStreamSynchronize
   for (i = 0; i < state->kernel_count; i++) {
     config = state->kernel_configs + i;
+    if (config->delay > 0.0) {
+      if (!CheckCUDAError(cudaStreamSynchronize(state->stream))) return 0;
+      SleepSeconds(config->delay);
+    }
     GPUSpin<<<config->block_count, config->thread_count, 0, state->stream>>>(
       config->spin_duration, config->device_kernel_times,
       config->device_block_times, config->device_smids);
