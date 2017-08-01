@@ -1,5 +1,5 @@
 {
-  "name": "RTAS 2017 experiment",
+  "name": "RTSS 2017 experiment - figure 3",
   "max_iterations": 1,
   "max_time": 0,
   "cuda_device": 0,
@@ -7,7 +7,7 @@
   "benchmarks": [
     {
       "filename": "./bin/multikernel.so",
-      "log_name": "rtss_multikernels.json",
+      "log_name": "rtss17_fig3_stream1.json",
       "label": "K1 through K3",
       "thread_count": 0,
       "block_count": 0,
@@ -15,79 +15,71 @@
       "additional_info": [
         {
           "kernel_label": "K1",
-          "duration": 500000000,
+          "duration": 1000000000,
           "block_count": 6,
-          "thread_count": 1024
+          "thread_count": 768
         },
         {
           "kernel_label": "K2",
-          "duration": 500000000,
+          "duration": 1000000000,
           "block_count": 2,
-          "thread_count": 512
+          "thread_count": 512,
+          "copy_out_count": 67108864
         },
         {
           "kernel_label": "K3",
-          "duration": 500000000,
+          "duration": 1000000000,
           "block_count": 2,
-          "thread_count": 256
+          "thread_count": 1024,
+          "copy_in_count": 67108864,
+          "copy_out_count": 67108864
         }
       ]
     },
     {
-      "filename": "./bin/sharedmem_timer_spin.so",
-      "log_name": "rtss_sharedmem_1.json",
-      "label": "K4",
-      "thread_count": 256,
-      "block_count": 4,
+      "filename": "./bin/multikernel.so",
+      "log_name": "rtss17_fig3_stream2.json",
+      "label": "K4 and K6",
+      "thread_count": 0,
+      "block_count": 0,
       "data_size": 0,
-      "additional_info": {
-        "duration": 500000000,
-        "shared_memory_size": 8192
-      },
-      "release_time": 0.1
+      "additional_info": [
+        {
+          "kernel_label": "K4",
+          "duration": 1000000000,
+          "block_count": 4,
+          "thread_count": 256,
+          "shared_memory_size": 8192,
+          "delay": 0.2
+        },
+        {
+          "kernel_label": "K6",
+          "duration": 1000000000,
+          "block_count": 2,
+          "thread_count": 512,
+          "copy_in_count": 67108864,
+          "delay": 2.0
+        }
+      ]
     },
     {
-      "filename": "./bin/sharedmem_timer_spin.so",
-      "log_name": "rtss_sharedmem_2.json",
+      "filename": "./bin/multikernel.so",
+      "log_name": "rtss17_fig3_stream3.json",
       "label": "K5",
-      "thread_count": 256,
-      "block_count": 2,
+      "thread_count": 0,
+      "block_count": 0,
       "data_size": 0,
-      "additional_info": {
-        "duration": 500000000,
-        "shared_memory_size": 8192
-      },
-      "release_time": 0.2
-    },
-    {
-      "filename": "./bin/timer_spin_default_stream.so",
-      "log_name": "rtss_default_stream_1.json",
-      "label": "K6",
-      "thread_count": 512,
-      "block_count": 1,
-      "data_size": 0,
-      "additional_info": 500000000,
-      "release_time": 0.7
-    },
-    {
-      "filename": "./bin/timer_spin_default_stream.so",
-      "log_name": "rtss_default_stream_2.json",
-      "label": "K7",
-      "thread_count": 512,
-      "block_count": 1,
-      "data_size": 0,
-      "additional_info": 500000000,
-      "release_time": 0.8
-    },
-    {
-      "filename": "./bin/timer_spin.so",
-      "log_name": "rtss_stream_k8.json",
-      "label": "K8",
-      "thread_count": 512,
-      "block_count": 16,
-      "data_size": 0,
-      "additional_info": 500000000,
-      "release_time": 1.2
+      "additional_info": [
+        {
+          "kernel_label": "K5",
+          "duration": 1000000000,
+          "block_count": 2,
+          "thread_count": 256,
+          "shared_memory_size": 8192,
+          "copy_out_count": 67108864
+        }
+      ],
+      "release_time": 0.4
     }
   ]
 }

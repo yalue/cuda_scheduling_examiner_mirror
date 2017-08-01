@@ -85,23 +85,23 @@
       "filename": "./bin/timer_spin.so",
       "log_name": "stream_priority_lower_priority_cut_8.json",
       "label": "Kernel 8",
-      "thread_count": 512,
-      "block_count": 1,
-      "data_size": 0,
-      "stream_priority": 0,
-      "additional_info": 1000000000,
-      "release_time": 0.7
-    },
-    {
-      "filename": "./bin/timer_spin.so",
-      "log_name": "stream_priority_lower_priority_cut_9.json",
-      "label": "Kernel 9",
       "thread_count": 1024,
       "block_count": 1,
       "data_size": 0,
       "stream_priority": -1,
       "additional_info": 500000000,
       "release_time": 0.65
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "stream_priority_lower_priority_cut_9.json",
+      "label": "Kernel 9",
+      "thread_count": 512,
+      "block_count": 1,
+      "data_size": 0,
+      "stream_priority": 0,
+      "additional_info": 1000000000,
+      "release_time": 0.7
     }
   ]
 }

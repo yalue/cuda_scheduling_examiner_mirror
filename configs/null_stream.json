@@ -1,0 +1,71 @@
+{
+  "name": "Kernel ordering with NULL stream",
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "pin_cpus": true,
+  "benchmarks": [
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "null_stream_1.json",
+      "label": "Kernel 1",
+      "thread_count": 768,
+      "block_count": 6,
+      "data_size": 0,
+      "additional_info": 1000000000
+    },
+    {
+      "filename": "./bin/timer_spin_default_stream.so",
+      "log_name": "null_stream_2.json",
+      "label": "Kernel 2 (NULL stream)",
+      "thread_count": 1024,
+      "block_count": 1,
+      "data_size": 0,
+      "additional_info": 1000000000,
+      "release_time": 0.2
+    },
+    {
+      "filename": "./bin/multikernel.so",
+      "log_name": "null_stream_3.json",
+      "label": "Kernels 3 and 4",
+      "thread_count": 0,
+      "block_count": 0,
+      "data_size": 0,
+      "additional_info": [
+        {
+          "kernel_label": "K3",
+          "duration": 1000000000,
+          "block_count": 4,
+          "thread_count": 256
+        },
+        {
+          "kernel_label": "K4",
+          "duration": 1000000000,
+          "block_count": 4,
+          "thread_count": 256
+        }
+      ],
+      "release_time": 0.4
+    },
+    {
+      "filename": "./bin/timer_spin_default_stream.so",
+      "log_name": "null_stream_4.json",
+      "label": "Kernel 5 (NULL stream)",
+      "thread_count": 1024,
+      "block_count": 1,
+      "data_size": 0,
+      "additional_info": 1000000000,
+      "release_time": 0.6
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "null_stream_5.json",
+      "label": "Kernel 6",
+      "thread_count": 256,
+      "block_count": 2,
+      "data_size": 0,
+      "additional_info": 1000000000,
+      "release_time": 0.8
+    }
+  ]
+}
