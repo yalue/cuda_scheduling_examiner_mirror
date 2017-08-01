@@ -37,7 +37,19 @@ idToColorMap = {0: 'light pink',
                 5: 'gray68',
                 6: 'orange',
                 7: 'gray32',
-                8: 'turquoise3'}
+                8: 'turquoise3',
+                9: 'light pink',
+                10: 'light blue',
+                11: 'LightGoldenrod2',
+                12: 'light sea green',
+                13: 'MediumPurple1',
+                14: 'gray68',
+                15: 'orange',
+                16: 'gray32',
+                17: 'turquoise3',
+                18: 'light pink',
+                19: 'light blue',
+                20: 'LightGoldenrod2'}
 
 patternColorToBgColorMap = {"light pink": "lavender blush",
                             "light blue": "azure",
@@ -234,7 +246,19 @@ idToPatternMap = {0: HorizontalLinePattern,
                   5: RightDiagonalLinePattern,
                   6: LeftDiagonalLinePattern,
                   7: HorizontalLinePattern,
-                  8: VerticalLinePattern}
+                  8: VerticalLinePattern,
+                  9: RightDiagonalLinePattern,
+                  10: LeftDiagonalLinePattern,
+                  11: HorizontalLinePattern,
+                  12: VerticalLinePattern,
+                  13: RightDiagonalLinePattern,
+                  14: LeftDiagonalLinePattern,
+                  15: HorizontalLinePattern,
+                  16: VerticalLinePattern,
+                  17: RightDiagonalLinePattern,
+                  18: LeftDiagonalLinePattern,
+                  19: HorizontalLinePattern,
+                  20: VerticalLinePattern}
 
 class PlotRect(Rectangle):
     def __init__(self, w, h):
@@ -730,11 +754,11 @@ class BlockSMDisplay():
                 pass # invalid!
 
         # Draw a marker for the kernel release time
-        releaseIdx = releaseDict.get(kernel.releaseTime, 0)
-        releaseDict[kernel.releaseTime] = releaseIdx + 1
-        krm = KernelReleaseMarker(kernel, self.firstTime, self.totalTime,
-                                  self.numSms, self.width, self.height, color, patternType, releaseIdx)
-        krm.draw(self.canvas)
+##        releaseIdx = releaseDict.get(kernel.releaseTime, 0)
+##        releaseDict[kernel.releaseTime] = releaseIdx + 1
+##        krm = KernelReleaseMarker(kernel, self.firstTime, self.totalTime,
+##                                  self.numSms, self.width, self.height, color, patternType, releaseIdx)
+##        krm.draw(self.canvas)
 
     def draw_title(self):
         title = Title(self.width, self.height, self.name)
