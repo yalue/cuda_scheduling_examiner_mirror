@@ -8,7 +8,7 @@
     {
       "filename": "./bin/timer_spin.so",
       "log_name": "stream_priority_starve_1.json",
-      "label": "Kernel 1",
+      "label": "K1 (low priority)",
       "thread_count": 1024,
       "block_count": 8,
       "data_size": 0,
@@ -18,20 +18,22 @@
     {
       "filename": "./bin/timer_spin.so",
       "log_name": "stream_priority_starve_2.json",
-      "label": "Kernel 2",
+      "label": "K2 (high priority)",
       "thread_count": 1024,
       "block_count": 16,
       "data_size": 0,
+      "stream_priority": -1,
       "additional_info": 500000000,
       "release_time": 0.2
     },
     {
       "filename": "./bin/timer_spin.so",
       "log_name": "stream_priority_starve_3.json",
-      "label": "Kernel 2",
+      "label": "K3 (high priority)",
       "thread_count": 1024,
       "block_count": 16,
       "data_size": 0,
+      "stream_priority": -1,
       "additional_info": 500000000,
       "release_time": 0.5
     }
