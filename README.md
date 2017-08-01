@@ -26,8 +26,9 @@ Usage
 
 The tool must be provided a JSON configuration file, which will contain
 information about which benchmark libraries to run, how to run them, and what
-parameters to give file. `configs/simple.json` has been provided as a minimal
-example, running one instance of the `mandelbrot.so` benchmark. To run it:
+parameters to provide. The file `configs/simple.json` has been provided as a
+minimal example, running one instance of the `mandelbrot.so` benchmark. To run
+it:
 
 ```bash
 ./bin/runner ./configs/simple.json
