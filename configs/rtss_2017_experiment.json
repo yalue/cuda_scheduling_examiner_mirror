@@ -23,13 +23,16 @@
           "kernel_label": "K2",
           "duration": 1000000000,
           "block_count": 2,
-          "thread_count": 512
+          "thread_count": 512,
+          "copy_out_count": 67108864
         },
         {
           "kernel_label": "K3",
           "duration": 1000000000,
           "block_count": 2,
-          "thread_count": 1024
+          "thread_count": 1024,
+          "copy_in_count": 67108864,
+          "copy_out_count": 67108864
         }
       ]
     },
@@ -53,7 +56,8 @@
           "kernel_label": "K6",
           "duration": 1000000000,
           "block_count": 2,
-          "thread_count": 512
+          "thread_count": 512,
+          "copy_in_count": 67108864,
           "delay": 2.0
         }
       ]
@@ -71,7 +75,8 @@
           "duration": 1000000000,
           "block_count": 2,
           "thread_count": 256,
-          "shared_memory_size": 8192
+          "shared_memory_size": 8192,
+          "copy_out_count": 67108864
         }
       ],
       "release_time": 0.4

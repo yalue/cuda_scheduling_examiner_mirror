@@ -18,7 +18,15 @@
 //     "shared_memory_size": <# of shared 32-bit integers. Must be one of
 //                           0, 4096, 8192, or 10240. The shared memory
 //                           usage in bytes will be one of those values
-//                           multiplied by 4. Defaults to 0.>
+//                           multiplied by 4. Defaults to 0.>,
+//     "copy_in_count": <# of 32-bit integers to copy from the host to the
+//                      device before invoking the kernel. The amount of data
+//                      copied in bytes will be this value multiplied by 4.
+//                      Defaults to 0.>,
+//     "copy_out_count": <# of 32-bit integers to copy from the device to the
+//                       host after invoking the kernel. The amount of data
+//                       copied in bytes will be this value multiplied by 4.
+//                       Defaults to 0.>
 //   },
 //   {... <kernel 2 info> ...},
 //   ...
@@ -47,6 +55,12 @@ typedef struct {
   int thread_count;
   // The amount of shared memory used by the kernel.
   int shared_memory_count;
+  // The number of 32-bit integers to copy to the device before executing
+  // this kernel.
+  int copy_in_count;
+  // The number of 32-bit integers to copy from the device after executing
+  // this kernel. This should be <= copy_in_count.
+  int copy_out_count;
   // The number of seconds to sleep after the previous kernel's completion,
   // before executing this kernel.
   double delay;
@@ -57,6 +71,8 @@ typedef struct {
   uint64_t *device_block_times;
   uint32_t *host_smids;
   uint32_t *device_smids;
+  uint32_t *host_copy_data;
+  uint32_t *device_copy_data;
 } SingleKernelData;
 
 // Holds the local state for one instance of this benchmark.
@@ -87,6 +103,8 @@ static void CleanupKernelConfig(SingleKernelData *kernel_config) {
   if (tmp64) cudaFreeHost(tmp64);
   tmp32 = kernel_config->host_smids;
   if (tmp32) cudaFreeHost(tmp32);
+  tmp32 = kernel_config->host_copy_data;
+  if (tmp32) cudaFreeHost(tmp32);
   if (kernel_config->name) free(kernel_config->name);
   // Free GPU memory for this kernel.
   tmp64 = kernel_config->device_kernel_times;
@@ -94,6 +112,8 @@ static void CleanupKernelConfig(SingleKernelData *kernel_config) {
   tmp64 = kernel_config->device_block_times;
   if (tmp64) cudaFree(tmp64);
   tmp32 = kernel_config->device_smids;
+  if (tmp32) cudaFree(tmp32);
+  tmp32 = kernel_config->device_copy_data;
   if (tmp32) cudaFree(tmp32);
   memset(kernel_config, 0, sizeof(*kernel_config));
 }
@@ -125,6 +145,9 @@ static void Cleanup(void *data) {
 static int AllocateKernelDataMemory(SingleKernelData *config) {
   size_t block_times_size = 2 * config->block_count * sizeof(uint64_t);
   size_t smids_size = config->block_count * sizeof(uint32_t);
+  uint64_t copy_data_size = config->copy_in_count > config->copy_out_count ?
+                            config->copy_in_count * sizeof(uint32_t) :
+                            config->copy_out_count * sizeof(uint32_t);
   // Allocate host memory
   if (!CheckCUDAError(cudaMallocHost(&config->host_kernel_times, 2 *
     sizeof(uint64_t)))) {
@@ -137,6 +160,10 @@ static int AllocateKernelDataMemory(SingleKernelData *config) {
   if (!CheckCUDAError(cudaMallocHost(&config->host_smids, smids_size))) {
     return 0;
   }
+  if (!CheckCUDAError(cudaMallocHost(&config->host_copy_data,
+    copy_data_size))) {
+    return 0;
+  }
   // Allocate device memory
   if (!CheckCUDAError(cudaMalloc(&config->device_kernel_times, 2 *
     sizeof(uint64_t)))) {
@@ -147,6 +174,10 @@ static int AllocateKernelDataMemory(SingleKernelData *config) {
     return 0;
   }
   if (!CheckCUDAError(cudaMalloc(&config->device_smids, smids_size))) {
+    return 0;
+  }
+  if (!CheckCUDAError(cudaMalloc(&(config->device_copy_data),
+    copy_data_size))) {
     return 0;
   }
   return 1;
@@ -234,6 +265,18 @@ static int InitializeKernelConfigs(BenchmarkState *state, char *info) {
       kernel_configs[i].shared_memory_count = 0;
     } else {
       kernel_configs[i].shared_memory_count = entry->valueint;
+    }
+    entry = cJSON_GetObjectItem(list_entry, "copy_in_count");
+    if (!entry || (entry->type != cJSON_Number)) {
+      kernel_configs[i].copy_in_count = 0;
+    } else {
+      kernel_configs[i].copy_in_count = entry->valueint;
+    }
+    entry = cJSON_GetObjectItem(list_entry, "copy_out_count");
+    if (!entry || (entry->type != cJSON_Number)) {
+      kernel_configs[i].copy_out_count = 0;
+    } else {
+      kernel_configs[i].copy_out_count = entry->valueint;
     }
     entry = cJSON_GetObjectItem(list_entry, "delay");
     kernel_configs[i].delay = 0.0;
@@ -464,6 +507,13 @@ static int Execute(void *data) {
       if (!CheckCUDAError(cudaStreamSynchronize(state->stream))) return 0;
       SleepSeconds(config->delay);
     }
+    if (config->copy_in_count > 0) {
+      if (!CheckCUDAError(cudaMemcpyAsync(config->device_copy_data,
+        config->host_copy_data, config->copy_in_count * sizeof(uint32_t),
+        cudaMemcpyHostToDevice, state->stream))) {
+        return 0;
+      }
+    }
     if (config->shared_memory_count == 0) {
       GPUSpin<<<config->block_count, config->thread_count, 0, state->stream>>>(
         config->spin_duration, config->device_kernel_times,
@@ -480,6 +530,13 @@ static int Execute(void *data) {
       SharedMem_GPUSpin10240<<<config->block_count, config->thread_count, 0,
         state->stream>>>(config->spin_duration, config->device_kernel_times,
         config->device_block_times, config->device_smids);
+    }
+    if (config->copy_out_count > 0) {
+      if (!CheckCUDAError(cudaMemcpyAsync(config->host_copy_data,
+        config->device_copy_data, config->copy_out_count * sizeof(uint32_t),
+        cudaMemcpyDeviceToHost, state->stream))) {
+        return 0;
+      }
     }
   }
   if (!CheckCUDAError(cudaStreamSynchronize(state->stream))) return 0;
