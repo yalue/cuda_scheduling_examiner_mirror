@@ -133,7 +133,7 @@ static int VerifyGlobalConfigKeys(cJSON *main_config) {
     "pin_cpus",
     "benchmarks",
     "comment",
-    "resync_iterations",
+    "sync_every_iteration",
   };
   keys_count = sizeof(valid_keys) / sizeof(char*);
   return VerifyConfigKeys(main_config, valid_keys, keys_count);
@@ -427,17 +427,17 @@ GlobalConfiguration* ParseConfiguration(const char *filename) {
   } else {
     to_return->pin_cpus = 0;
   }
-  // The resync_iterations setting defaults to 0 (false)
-  entry = cJSON_GetObjectItem(root, "resync_iterations");
+  // The sync_every_iteration setting defaults to 0 (false)
+  entry = cJSON_GetObjectItem(root, "sync_every_iteration");
   if (entry) {
     tmp = entry->type;
     if ((tmp != cJSON_True) && (tmp != cJSON_False)) {
-      printf("Invalid resync_iterations setting in config.\n");
+      printf("Invalid sync_every_iteration setting in config.\n");
       goto ErrorCleanup;
     }
-    to_return->resync_iterations = tmp == cJSON_True;
+    to_return->sync_every_iteration = tmp == cJSON_True;
   } else {
-    to_return->resync_iterations = 0;
+    to_return->sync_every_iteration = 0;
   }
   // Finally, parse the benchmark list. Ensure that we've obtained a valid JSON
   // array for the benchmarks before calling ParseBenchmarkList.

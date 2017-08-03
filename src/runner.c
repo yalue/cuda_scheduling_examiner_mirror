@@ -420,9 +420,9 @@ static void* RunBenchmark(void *data) {
     if (config->max_seconds > 0) {
       if ((CurrentSeconds() - start_time) >= config->max_seconds) break;
     }
-    // If resync_iterations was true, we'll wait here for previous iterations
+    // If sync_every_iteration is true, we'll wait here for previous iterations
     // of all benchmarks to complete.
-    if (config->parent_state->global_config->resync_iterations) {
+    if (config->parent_state->global_config->sync_every_iteration) {
       if (!BarrierWait(barrier, &local_sense)) {
         printf("Failed waiting to sync before an iteration.\n");
         return NULL;
