@@ -23,7 +23,9 @@ int BarrierCreate(ProcessBarrier *b, int process_count);
 void BarrierDestroy(ProcessBarrier *b);
 
 // Causes the process to wait on the given barrier. Internally, this will
-// involve busy-waiting. Returns nonzero on success.
-int BarrierWait(ProcessBarrier *b);
+// involve busy-waiting. Returns nonzero on success. local_sense *must* be a
+// pointer to a non-shared local integer, initialized to 0, and then unchanged
+// by the caller in subsequent calls to BarrierWait.
+int BarrierWait(ProcessBarrier *b, int *local_sense);
 
 #endif  // BARRIER_WAIT_H

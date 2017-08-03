@@ -51,7 +51,7 @@ def get_kernel_timeline(kernel_times):
                 # current thread count.
                 current_time = start_times.pop()
                 end_times.pop()
-            if start_times[-1] <= end_times[-1]:
+            elif start_times[-1] <= end_times[-1]:
                 # A block started, so increase the thread count
                 current_time = start_times.pop()
                 current_thread_count += kernel_times["thread_count"]
@@ -273,7 +273,7 @@ def plot_scenario(benchmarks, name):
         # Draw the release arrow before (below) the plotted line
         if "release_time" in benchmark:
             draw_release_arrow(axes, benchmark["release_time"])
-        axes.plot(timeline[0], timeline[1], color="k", lw=3)
+        axes.plot(timeline[0], timeline[1], color="k", lw=2)
         label = "%d: %s" % (i + 1, benchmark["benchmark_name"])
         if "label" in benchmark:
             label = benchmark["label"]

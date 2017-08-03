@@ -1,0 +1,29 @@
+{
+  "name": "Resync iterations test",
+  "comment": "This file illustrates how the resync_iterations option makes",
+  "comment": "the shorter 0.25s kernel wait until the 0.5s kernel completes.",
+  "max_iterations": 3,
+  "max_time": 0,
+  "cuda_device": 0,
+  "sync_every_iteration": true,
+  "benchmarks": [
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "resync_test_1.json",
+      "label": "256 threads, 0.5s",
+      "thread_count": 256,
+      "block_count": 1,
+      "data_size": 0,
+      "additional_info": 500000000
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "resync_test_2.json",
+      "label": "512 threads, 0.25s",
+      "thread_count": 512,
+      "block_count": 1,
+      "data_size": 0,
+      "additional_info": 250000000
+    }
+  ]
+}

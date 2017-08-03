@@ -75,6 +75,10 @@ The layout of each configuration file is as follows:
   "pin_cpus": <Boolean. Optional, defaults to false. If true, attempt to pin
     benchmarks to CPU cores, evenly distributed across cores. If true,
     individual benchmark cpu_core settings are ignored.>,
+  "sync_every_iteration": <Boolean. Optional, defaults to false. If true,
+    iterations of each benchmark start when all benchmarks have completed their
+    previous iteration. By default, each benchmark only waits for its own
+    previous iteration to complete.>,
   "benchmarks": [
     {
       "filename": <String. Required. The path to the benchmark file, relative

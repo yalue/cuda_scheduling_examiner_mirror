@@ -2,6 +2,7 @@
 // defined in barrier_wait.h.
 
 #include <stdatomic.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,9 +14,11 @@
 typedef struct {
   // Maintains a count of the number of remaining processes.
   atomic_int processes_remaining;
-  // This will be initialized to 0, and become nonzero if all processes have
-  // reached the barrier.
-  int done;
+  // Used in combination with local_sense to prevent multiple barriers from
+  // interfering with each other.
+  int sense;
+  // This will be the number of processes which are sharing the barrier.
+  int process_count;
 } InternalSharedBuffer;
 
 // Allocates a private shared memory buffer containing the given number of
@@ -38,8 +41,9 @@ int BarrierCreate(ProcessBarrier *b, int process_count) {
   InternalSharedBuffer *internal = NULL;
   internal = (InternalSharedBuffer *) AllocateSharedBuffer(sizeof(*internal));
   if (!internal) return 0;
-  internal->done = 0;
+  internal->process_count = process_count;
   atomic_init(&(internal->processes_remaining), process_count);
+  internal->sense = 0;
   b->internal_buffer = internal;
   return 1;
 }
@@ -49,14 +53,19 @@ void BarrierDestroy(ProcessBarrier *b) {
   b->internal_buffer = NULL;
 }
 
-int BarrierWait(ProcessBarrier *b) {
+int BarrierWait(ProcessBarrier *b, int *local_sense) {
   volatile InternalSharedBuffer *internal =
     (InternalSharedBuffer *) b->internal_buffer;
+  *local_sense = !(*local_sense);
   atomic_int value = atomic_fetch_sub(&(internal->processes_remaining), 1);
   if (value == 1) {
-    internal->done = 1;
+    // We were the last process to call atomic_fetch_sub, so reset the counter
+    // and release the other processes by writing internal->sense.
+    atomic_store(&(internal->processes_remaining), internal->process_count);
+    internal->sense = *local_sense;
+    return 1;
   }
-  while (!internal->done) {
+  while (internal->sense != *local_sense) {
     continue;
   }
   return 1;

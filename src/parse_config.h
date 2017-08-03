@@ -67,6 +67,10 @@ typedef struct {
   // benchmark's cpu_core setting. If nonzero, benchmarks are distributed
   // evenly accrorss CPU cores.
   int pin_cpus;
+  // If zero, iterations of individual benchmarks run as soon as previous
+  // iterations complete. If 1, then every benchmark starts each iteration
+  // only after the previous iteration of every benchmark has completed.
+  int sync_every_iteration;
   // The number of entries in the benchmarks list. Must never be 0.
   int benchmark_count;
   // The list of benchmarks to run.
