@@ -5,7 +5,7 @@
   "max_iterations": 3,
   "max_time": 0,
   "cuda_device": 0,
-  "resync_iterations": true,
+  "sync_every_iteration": true,
   "benchmarks": [
     {
       "filename": "./bin/timer_spin.so",
