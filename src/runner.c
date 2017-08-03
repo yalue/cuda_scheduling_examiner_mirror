@@ -53,9 +53,9 @@ typedef struct {
   double starting_seconds;
   // The maximum number of threads resident on the GPU at a time.
   int max_resident_threads;
-  // This is used to force all threads or processes to wait until they have all
-  // completed their initialization.
-  ProcessBarrier initialize_barrier;
+  // This is used to force all threads or processes to wait until they are all
+  // at the same point in execution.
+  ProcessBarrier barrier;
 } ParentState;
 
 // Holds data about a given benchmark, in addition to configuration parameters.
@@ -210,15 +210,6 @@ static int SetCPUAffinity(ProcessConfig *config) {
     result = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set), &cpu_set);
   }
   return result == 0;
-}
-
-// This function will provide a barrier synchronization point, which will block
-// until all threads are passed their initialization phase. Caution: this isn't
-// implemented for processes yet. Returns 0 on error, nonzero on success.
-static int WaitForInitializationCompletion(ParentState *parent_state) {
-  int result = BarrierWait(&(parent_state->initialize_barrier));
-  if (!result) return 0;
-  return 1;
 }
 
 // Formats the given timing information as a JSON object and appends it to the
@@ -387,12 +378,15 @@ static int WriteOutputHeader(ProcessConfig *config) {
 static void* RunBenchmark(void *data) {
   ProcessConfig *config = (ProcessConfig *) data;
   BenchmarkLibraryFunctions *benchmark = &(config->benchmark);
+  ProcessBarrier *barrier = &(config->parent_state->barrier);
   TimingInformation timing_info;
   void *user_data = NULL;
   const char *name = benchmark->get_name();
   uint64_t i = 0;
   CPUTimes cpu_times;
   double start_time;
+  // local_sense is needed to allow the barrier to be reused.
+  int local_sense = 0;
   if (!SetCPUAffinity(config)) {
     printf("Failed pinning benchmark %s to CPU core.\n", name);
     return NULL;
@@ -406,12 +400,12 @@ static void* RunBenchmark(void *data) {
   printf("Benchmark %s initialized in %f seconds.\n", name, CurrentSeconds() -
     start_time);
   fflush(stdout);
-  if (!WaitForInitializationCompletion(config->parent_state)) {
-    printf("Failed waiting for post-initialization synchronization.\n");
-    return NULL;
-  }
   if (!WriteOutputHeader(config)) {
     printf("Failed writing metadata to log file.\n");
+    return NULL;
+  }
+  if (!BarrierWait(barrier, &local_sense)) {
+    printf("Failed waiting for post-initialization synchronization.\n");
     return NULL;
   }
   // This function does nothing if the release time is 0 or lower.
@@ -425,6 +419,14 @@ static void* RunBenchmark(void *data) {
     }
     if (config->max_seconds > 0) {
       if ((CurrentSeconds() - start_time) >= config->max_seconds) break;
+    }
+    // If resync_iterations was true, we'll wait here for previous iterations
+    // of all benchmarks to complete.
+    if (config->parent_state->global_config->resync_iterations) {
+      if (!BarrierWait(barrier, &local_sense)) {
+        printf("Failed waiting to sync before an iteration.\n");
+        return NULL;
+      }
     }
     // Perform the copy_in phase of the benchmark.
     cpu_times.copy_in_start = CurrentSeconds() -
@@ -791,9 +793,9 @@ int main(int argc, char **argv) {
     FreeGlobalConfiguration(global_config);
     return 1;
   }
-  if (!BarrierCreate(&(parent_state.initialize_barrier),
+  if (!BarrierCreate(&(parent_state.barrier),
     global_config->benchmark_count)) {
-    printf("Failed initializing initialization barrier.\n");
+    printf("Failed initializing synchronization barrier.\n");
     CleanupProcessConfigs(process_configs, global_config->benchmark_count);
     FreeGlobalConfiguration(global_config);
     return 1;
@@ -806,7 +808,7 @@ int main(int argc, char **argv) {
     result = RunAsThreads(&parent_state, process_configs);
   }
   // Last, clean up allocated state.
-  BarrierDestroy(&(parent_state.initialize_barrier));
+  BarrierDestroy(&(parent_state.barrier));
   CleanupProcessConfigs(process_configs, global_config->benchmark_count);
   FreeGlobalConfiguration(global_config);
   if (!result) {
