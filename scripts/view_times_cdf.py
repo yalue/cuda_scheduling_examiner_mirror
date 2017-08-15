@@ -1,7 +1,9 @@
 import glob
+import itertools
 import json
 import matplotlib.pyplot as plot
 import numpy
+import re
 import sys
 
 def convert_values_to_cdf(values):
@@ -22,6 +24,9 @@ def convert_values_to_cdf(values):
             current_min = v
     data_list.append(values[-1])
     ratio_list.append(100)
+    # Convert seconds to milliseconds
+    for i in range(len(data_list)):
+        data_list[i] *= 1000.0
     return [data_list, ratio_list]
 
 def get_benchmark_cdf(benchmark, times_key):
@@ -40,17 +45,73 @@ def get_benchmark_cdf(benchmark, times_key):
             raw_values.append(times[end_index] - times[start_index])
     return convert_values_to_cdf(raw_values)
 
+def nice_sort_key(label):
+    """If a label contains numbers, this will prevent sorting them
+    lexicographically."""
+    def tryint(s):
+        try:
+            return int(s)
+        except:
+            return s
+    return [tryint(c) for c in re.split(r'([0-9]+)', label)]
+
 def benchmark_sort_key(benchmark):
     """Returns the key that may be used to sort benchmarks by label."""
     if not "label" in benchmark:
         return ""
-    return benchmark["label"]
+    return nice_sort_key(benchmark["label"])
+
+all_styles = None
+def get_line_styles():
+    """Returns a list of line style possibilities, that includes more options
+    than matplotlib's default set that includes only a few solid colors."""
+    global all_styles
+    if all_styles is not None:
+        return all_styles
+    color_options = [
+        "blue",
+        "green",
+        "red",
+        "cyan",
+        "magenta",
+        "y",
+        "black"
+    ]
+    style_options = [
+        "-",
+        "--",
+        "-.",
+        ":"
+    ]
+    marker_options = [
+        None,
+        "o",
+        "v",
+        "s",
+        "*",
+        "+",
+        "D"
+    ]
+    # Build a combined list containing every style combination.
+    all_styles = []
+    for m in marker_options:
+        for s in style_options:
+            for c in color_options:
+                to_add = {}
+                if m is not None:
+                    to_add["marker"] = m
+                    to_add["markevery"] = 0.1
+                to_add["ls"] = s
+                to_add["c"] = c
+                all_styles.append(to_add)
+    return all_styles
 
 def plot_scenario(benchmarks, name, times_key):
     """Takes a list of parsed benchmark results and a scenario name and
     generates a CDF plot of CPU times for the scenario. See get_benchmark_cdf
     for an explanation of the times_key argument."""
     benchmarks = sorted(benchmarks, key = benchmark_sort_key)
+    style_cycler = itertools.cycle(get_line_styles())
     cdfs = []
     labels = []
     min_x = 1.0e99
@@ -79,8 +140,9 @@ def plot_scenario(benchmarks, name, times_key):
     plot.yticks(numpy.arange(0, 105, 100 / 5.0))
     axes = figure.add_subplot(1, 1, 1)
     for i in range(len(cdfs)):
-        axes.plot(cdfs[i][0], cdfs[i][1], label=labels[i], lw=3)
-    axes.set_xlabel("Time (seconds)")
+        axes.plot(cdfs[i][0], cdfs[i][1], label=labels[i], lw=3,
+            **(style_cycler.next()))
+    axes.set_xlabel("Time (milliseconds)")
     axes.set_ylabel("% <= X")
     legend = plot.legend()
     legend.draggable()

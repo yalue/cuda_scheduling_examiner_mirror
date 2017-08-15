@@ -130,6 +130,22 @@ static int SetMemoryAccessCount(const char *arg, BenchmarkState *state) {
   return 1;
 }
 
+// This kernel uses a single thread to access every element in the given
+// walk_buffer, which should bring (small) buffers into the GPU cache. The
+// accumulator can be NULL, and is used to prevent optimizations from removing
+// the kernel entirely.
+static __global__ void InitialWalk(uint32_t *walk_buffer,
+    uint64_t buffer_length, uint64_t *accumulator) {
+  uint64_t i = 0;
+  uint64_t result = 0;
+  if (blockIdx.x != 0) return;
+  if (threadIdx.x != 0) return;
+  for (i = 0; i < buffer_length; i++) {
+    result += walk_buffer[i];
+  }
+  if (accumulator != NULL) *accumulator = result;
+}
+
 static void* Initialize(InitializationParameters *params) {
   BenchmarkState *state = NULL;
   uint64_t i;
@@ -185,6 +201,12 @@ static void* Initialize(InitializationParameters *params) {
     return NULL;
   }
   state->stream_created = 1;
+  InitialWalk<<<1, 1, 0, state->stream>>>(state->device_walk_buffer,
+    state->walk_buffer_length, NULL);
+  if (!CheckCUDAError(cudaStreamSynchronize(state->stream))) {
+    Cleanup(state);
+    return NULL;
+  }
   return state;
 }
 
