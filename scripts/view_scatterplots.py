@@ -22,7 +22,7 @@ def convert_to_float(s):
 def benchmark_summary_values(benchmark):
     """Takes a single benchmark results (one parsed output file) and returns
     a list containing 3 elements: [min block duration, max block duration,
-    mean block duration]."""
+    mean block duration]. Durations are converted to milliseconds."""
     block_durations = []
     for t in benchmark["times"]:
         if "block_times" not in t:
@@ -31,39 +31,34 @@ def benchmark_summary_values(benchmark):
         i = 0
         while i < len(block_times):
             block_duration = block_times[i + 1] - block_times[i]
+            # Convert times to milliseconds here.
             block_durations.append(block_duration)
             i += 2
-    return [min(block_durations), max(block_durations), numpy.mean(
-        block_durations)]
+    minimum = min(block_durations) * 1000.0
+    maximum = max(block_durations) * 1000.0
+    average = numpy.mean(block_durations) * 1000.0
+    return [minimum, maximum, average]
 
-
-def benchmark_sort_key(benchmark):
-    """Returns the key that should be used to sort the benchmarks by label
-    (treating each label as a floating-point value)."""
-    return float(benchmark["label"])
-
-def get_distribution(benchmarks):
-    """Takes a list of benchmark results and returns a distribution of the
-    form: [[x values], [y_min values], [y_max values], [y_mean values]].
-    The X values are taken from each benchmark's label and the y values are
-    from the corresponding block durations."""
-    benchmarks = sorted(benchmarks, key = benchmark_sort_key)
+def scenario_to_distribution(scenario):
+    """Takes a scenario, mapping numbers to triplets, and re-shapes the data.
+    Returns an array of 4 arrays: [[x values], [min y values], [max y values],
+    [average y values]]."""
     x_values = []
-    y_min_values = []
-    y_max_values = []
-    y_mean_values = []
-    for b in benchmarks:
-        x_value = float(b["label"])
-        y_values = benchmark_summary_values(b)
-        x_values.append(x_value)
-        # Convert times to milliseconds here
-        y_min_values.append(y_values[0] * 1000.0)
-        y_max_values.append(y_values[1] * 1000.0)
-        y_mean_values.append(y_values[2] * 1000.0)
-    return [x_values, y_min_values, y_max_values, y_mean_values]
+    for k in scenario:
+        x_values.append(k)
+    x_values.sort()
+    min_y_values = []
+    max_y_values = []
+    mean_y_values = []
+    for k in x_values:
+        triplet = scenario[k]
+        min_y_values.append(triplet[0])
+        max_y_values.append(triplet[1])
+        mean_y_values.append(triplet[2])
+    return [x_values, min_y_values, max_y_values, mean_y_values]
 
-def plot_scenario(benchmarks, name):
-    data = get_distribution(benchmarks)
+def plot_scenario(scenario, name):
+    data = scenario_to_distribution(scenario)
     min_x = min(data[0])
     max_x = max(data[0])
     # Get the min and max y from the lists of minimum and maximum values.
@@ -94,7 +89,9 @@ def plot_scenario(benchmarks, name):
 def show_plots(filenames):
     """Takes a list of filenames and generates one plot per named scenario
     across all of the files."""
-    parsed_files = []
+    # Maps benchmark names to benchmark data, where the benchmark data is a map
+    # of X-values to y-value triplets.
+    all_scenarios = {}
     counter = 1
     for name in filenames:
         print "Parsing file %d / %d: %s" % (counter, len(filenames), name)
@@ -108,18 +105,15 @@ def show_plots(filenames):
             if float_value is None:
                 print "Skipping %s: label isn't a number." % (name)
                 continue
-            parsed_files.append(parsed)
-    # Group the files by scenario name.
-    scenarios = {}
-    for benchmark in parsed_files:
-        scenario = benchmark["scenario_name"]
-        if not scenario in scenarios:
-            scenarios[scenario] = []
-        scenarios[scenario].append(benchmark)
+            summary_values = benchmark_summary_values(parsed)
+            name = parsed["scenario_name"]
+            if name not in all_scenarios:
+                all_scenarios[name] = {}
+            all_scenarios[name][float_value] = summary_values
     # Draw each scenario's plot.
     figures = []
-    for scenario in scenarios:
-        figures.append(plot_scenario(scenarios[scenario], scenario))
+    for scenario in all_scenarios:
+        figures.append(plot_scenario(all_scenarios[scenario], scenario))
     plot.show()
 
 if __name__ == "__main__":
