@@ -750,6 +750,8 @@ static int RunAsProcesses(ParentState *parent_state,
 
 int main(int argc, char **argv) {
   int result;
+  double host_start_seconds;
+  uint64_t device_start_nanoseconds;
   ParentState parent_state;
   ProcessConfig *process_configs = NULL;
   GlobalConfiguration *global_config = NULL;
@@ -788,16 +790,7 @@ int main(int argc, char **argv) {
   }
   printf("1 GPU second is approximately %f CPU seconds.\n",
     parent_state.gpu_time_scale);
-  // After the heavy initialization work has been done, record an approximate
-  // GPU time and system time.
-  parent_state.starting_gpu_clock = GetCurrentGPUNanoseconds(
-    global_config->cuda_device);
-  if (parent_state.starting_gpu_clock == 0) {
-    printf("Failed reading starting GPU clock.\n");
-    CleanupProcessConfigs(process_configs, global_config->benchmark_count);
-    FreeGlobalConfiguration(global_config);
-    return 1;
-  }
+
   if (!BarrierCreate(&(parent_state.barrier),
     global_config->benchmark_count)) {
     printf("Failed initializing synchronization barrier.\n");
@@ -806,6 +799,17 @@ int main(int argc, char **argv) {
     return 1;
   }
   parent_state.starting_seconds = CurrentSeconds();
+  // After the heavy initialization work has been done, record an approximate
+  // GPU time and system time.
+  if (!GetHostDeviceTimeOffset(global_config->cuda_device, &host_start_seconds,
+    &device_start_nanoseconds)) {
+    printf("Failed reading GPU and CPU initial times.\n");
+    CleanupProcessConfigs(process_configs, global_config->benchmark_count);
+    FreeGlobalConfiguration(global_config);
+    return 1;
+  }
+  parent_state.starting_seconds = host_start_seconds;
+  parent_state.starting_gpu_clock = device_start_nanoseconds;
   // Finally, run the benchmarks in threads or processes
   if (global_config->use_processes) {
     result = RunAsProcesses(&parent_state, process_configs);

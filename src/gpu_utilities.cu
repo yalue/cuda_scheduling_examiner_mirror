@@ -28,6 +28,15 @@ static int InternalCUDAErrorCheck(cudaError_t result, const char *fn,
   return 0;
 }
 
+static double CurrentSeconds(void) {
+  struct timespec ts;
+  if (clock_gettime(CLOCK_MONOTONIC_RAW, &ts) != 0) {
+    printf("Error getting time.\n");
+    exit(1);
+  }
+  return ((double) ts.tv_sec) + (((double) ts.tv_nsec) / 1e9);
+}
+
 // Returns the value of CUDA's global nanosecond timer.
 static __device__ inline uint64_t GlobalTimer64(void) {
   // Due to a bug in CUDA's 64-bit globaltimer, the lower 32 bits can wrap
@@ -73,35 +82,41 @@ static void FreeSharedBuffer(void *buffer, size_t size) {
 
 // This function should be run in a separate process in order to read the GPU's
 // nanosecond counter. Returns 0 on error.
-static uint64_t InternalReadGPUNanoseconds(int cuda_device) {
+static void InternalReadGPUNanoseconds(int cuda_device, double *cpu_time,
+    uint64_t *gpu_time) {
   uint64_t *device_time = NULL;
-  uint64_t host_time = 0;
-  if (!CheckCUDAError(cudaSetDevice(cuda_device))) return 0;
-  if (!CheckCUDAError(cudaMalloc(&device_time, sizeof(*device_time)))) {
-    return 0;
-  }
+  if (!CheckCUDAError(cudaSetDevice(cuda_device))) return;
+  if (!CheckCUDAError(cudaMalloc(&device_time, sizeof(*device_time)))) return;
   // Run the kernel a first time to warm up the GPU.
   GetTime<<<1, 1>>>(device_time);
-  if (!CheckCUDAError(cudaDeviceSynchronize())) return 0;
+  if (!CheckCUDAError(cudaDeviceSynchronize())) return;
   // Now run the actual time-checking kernel.
   GetTime<<<1, 1>>>(device_time);
-  if (!CheckCUDAError(cudaMemcpy(&host_time, device_time, sizeof(host_time),
+  *cpu_time = CurrentSeconds();
+  if (!CheckCUDAError(cudaMemcpy(gpu_time, device_time, sizeof(*gpu_time),
     cudaMemcpyDeviceToHost))) {
     cudaFree(device_time);
-    return 0;
+    return;
   }
   cudaFree(device_time);
-  return host_time;
 }
 
-uint64_t GetCurrentGPUNanoseconds(int cuda_device) {
-  uint64_t *shared_time = NULL;
-  uint64_t to_return = 0;
+int GetHostDeviceTimeOffset(int cuda_device, double *host_seconds,
+  uint64_t *gpu_nanoseconds) {
+  uint64_t *shared_gpu_time = NULL;
+  double *shared_cpu_time = NULL;
   int status;
   pid_t pid = -1;
-  shared_time = (uint64_t *) AllocateSharedBuffer(sizeof(*shared_time));
-  if (!shared_time) {
+  shared_gpu_time = (uint64_t *) AllocateSharedBuffer(
+    sizeof(*shared_gpu_time));
+  if (!shared_gpu_time) {
     printf("Failed allocating shared buffer for IPC.\n");
+    return 0;
+  }
+  shared_cpu_time = (double *) AllocateSharedBuffer(sizeof(*shared_cpu_time));
+  if (!shared_cpu_time) {
+    printf("Failed allocating shared CPU time buffer for IPC.\n");
+    FreeSharedBuffer(shared_gpu_time, sizeof(*shared_gpu_time));
     return 0;
   }
   pid = fork();
@@ -112,23 +127,26 @@ uint64_t GetCurrentGPUNanoseconds(int cuda_device) {
   }
   if (pid == 0) {
     // The following CUDA code is run in the child process
-    *shared_time = InternalReadGPUNanoseconds(cuda_device);
+    InternalReadGPUNanoseconds(cuda_device, shared_cpu_time, shared_gpu_time);
     exit(0);
   }
   // The parent will wait for the child to finish, then return the value
   // written to the shared buffer.
   if (wait(&status) < 0) {
     printf("Failed waiting on the child process.\n");
-    FreeSharedBuffer(shared_time, sizeof(*shared_time));
+    FreeSharedBuffer(shared_cpu_time, sizeof(*shared_cpu_time));
+    FreeSharedBuffer(shared_gpu_time, sizeof(*shared_gpu_time));
     return 0;
   }
-  to_return = *shared_time;
-  FreeSharedBuffer(shared_time, sizeof(*shared_time));
+  *host_seconds = *shared_cpu_time;
+  *gpu_nanoseconds = *shared_gpu_time;
+  FreeSharedBuffer(shared_cpu_time, sizeof(*shared_cpu_time));
+  FreeSharedBuffer(shared_gpu_time, sizeof(*shared_gpu_time));
   if (!WIFEXITED(status)) {
     printf("The child process didn't exit normally.\n");
     return 0;
   }
-  return to_return;
+  return 1;
 }
 
 // This function should always be run in a separate process.
