@@ -250,17 +250,22 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
       kernel_times->shared_memory) < 0) {
       return 0;
     }
-    // Print the kernel times for this kernel.
-    if (fprintf(output, "\"kernel_times\": [") < 0) {
+    // Print the CUDA launch times for this kernel.
+    if (fprintf(output, "\"cuda_launch_times\": [") < 0) {
       return 0;
     }
-    // The kernel start time
-    tmp = GPUTimerToCPUTime(kernel_times->kernel_times[0], parent_state);
+    // The time before the (CPU-side) kernel launch.
+    tmp = kernel_times->cuda_launch_times[0] - parent_state->starting_seconds;
     if (fprintf(output, "%.9f, ", tmp) < 0) {
       return 0;
     }
-    // The kernel end time.
-    tmp = GPUTimerToCPUTime(kernel_times->kernel_times[1], parent_state);
+    // The time after the kernel launch returned.
+    tmp = kernel_times->cuda_launch_times[0] - parent_state->starting_seconds;
+    if (fprintf(output, "%.9f, ", tmp) < 0) {
+      return 0;
+    }
+    // The CPU time after the CUDA stream synchronize completed.
+    tmp = kernel_times->cuda_launch_times[2] - parent_state->starting_seconds;
     if (fprintf(output, "%.9f], ", tmp) < 0) {
       return 0;
     }

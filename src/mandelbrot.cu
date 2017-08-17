@@ -44,9 +44,6 @@ typedef struct {
   uint64_t max_iterations;
   // The dimensions of the complex plane used when drawing the mandelbrot set.
   FractalDimensions dimensions;
-  // Holds 2 64-bit elements: the start and stop times of the kernel, as
-  // measured on the device.
-  uint64_t *device_kernel_times;
   // Holds a start and stop time for each block, as measured on the device.
   uint64_t *device_block_times;
   // Holds the ID of the SM for each block, checked once the kernel executes.
@@ -69,10 +66,8 @@ static void Cleanup(void *data) {
   if (info->device_points) cudaFree(info->device_points);
   if (info->device_block_times) cudaFree(info->device_block_times);
   if (info->device_block_smids) cudaFree(info->device_block_smids);
-  if (info->device_kernel_times) cudaFree(info->device_kernel_times);
   // Host memory
   if (info->host_points) cudaFreeHost(info->host_points);
-  if (host_times->kernel_times) cudaFreeHost(host_times->kernel_times);
   if (host_times->block_times) cudaFreeHost(host_times->block_times);
   if (host_times->block_smids) cudaFreeHost(host_times->block_smids);
   if (info->stream_created) {
@@ -94,10 +89,6 @@ static int AllocateMemory(ThreadInformation *info) {
   if (!CheckCUDAError(cudaMalloc(&info->device_points, buffer_size))) {
     return 0;
   }
-  if (!CheckCUDAError(cudaMalloc(&info->device_kernel_times,
-    2 * sizeof(uint64_t)))) {
-    return 0;
-  }
   if (!CheckCUDAError(cudaMalloc(&info->device_block_times,
     block_times_size))) {
     return 0;
@@ -108,10 +99,6 @@ static int AllocateMemory(ThreadInformation *info) {
   }
   // Allocate host memory
   if (!CheckCUDAError(cudaMallocHost(&info->host_points, buffer_size))) {
-    return 0;
-  }
-  if (!CheckCUDAError(cudaMallocHost(&mandelbrot_kernel_times->kernel_times,
-    2 * sizeof(uint64_t)))) {
     return 0;
   }
   if (!CheckCUDAError(cudaMallocHost(&mandelbrot_kernel_times->block_times,
@@ -199,11 +186,10 @@ static int CopyIn(void *data) {
 // A basic mandelbrot set calculator which sets each element in data to 1 if
 // the point escapes within the given number of iterations.
 static __global__ void BasicMandelbrot(uint8_t *data, uint64_t iterations,
-    FractalDimensions dimensions, uint64_t *kernel_times,
-    uint64_t *block_times, uint32_t *block_smids) {
+    FractalDimensions dimensions, uint64_t *block_times,
+    uint32_t *block_smids) {
   uint64_t start_time = GlobalTimer64();
   if (threadIdx.x == 0) {
-    if (blockIdx.x == 0) kernel_times[0] = start_time;
     block_times[blockIdx.x * 2] = start_time;
     block_smids[blockIdx.x] = GetSMID();
   }
@@ -212,7 +198,9 @@ static __global__ void BasicMandelbrot(uint8_t *data, uint64_t iterations,
   int col = index % dimensions.w;
   // This may cause some threads to diverge on the last block only
   if (row >= dimensions.h) {
-    kernel_times[1] = GlobalTimer64();
+    if (threadIdx.x == 0) {
+      block_times[blockIdx.x * 2 + 1] = GlobalTimer64();
+    }
     return;
   }
   __syncthreads();
@@ -243,15 +231,17 @@ static __global__ void BasicMandelbrot(uint8_t *data, uint64_t iterations,
   if (threadIdx.x == 0) {
     block_times[blockIdx.x * 2 + 1] = GlobalTimer64();
   }
-  kernel_times[1] = GlobalTimer64();
 }
 
 static int Execute(void *data) {
   ThreadInformation *info = (ThreadInformation *) data;
+  info->mandelbrot_kernel_times.cuda_launch_times[0] = CurrentSeconds();
   BasicMandelbrot<<<info->block_count, info->thread_count, 0, info->stream>>>(
     info->device_points, info->max_iterations, info->dimensions,
-    info->device_kernel_times, info->device_block_times, info->device_block_smids);
+    info->device_block_times, info->device_block_smids);
+  info->mandelbrot_kernel_times.cuda_launch_times[1] = CurrentSeconds();
   if (!CheckCUDAError(cudaStreamSynchronize(info->stream))) return 0;
+  info->mandelbrot_kernel_times.cuda_launch_times[2] = CurrentSeconds();
   return 1;
 }
 
@@ -265,11 +255,6 @@ static int CopyOut(void *data, TimingInformation *times) {
   host_times->block_count = info->block_count;
   host_times->thread_count = info->thread_count;
   host_times->kernel_name = "BasicMandelbrot";
-  if (!CheckCUDAError(cudaMemcpyAsync(host_times->kernel_times,
-    info->device_kernel_times, 2 * sizeof(uint64_t),
-    cudaMemcpyDeviceToHost, info->stream))) {
-    return 0;
-  }
   if (!CheckCUDAError(cudaMemcpyAsync(host_times->block_times,
     info->device_block_times, block_times_count * sizeof(uint64_t),
     cudaMemcpyDeviceToHost, info->stream))) {

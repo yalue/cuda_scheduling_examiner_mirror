@@ -21,8 +21,6 @@
 
 // Holds the local state for one instance of this benchmark.
 typedef struct {
-  // Holds the device copy of the overall start and end time of the kernel.
-  uint64_t *device_kernel_times;
   // Holds the device copy of the start and end times of each block.
   uint64_t *device_block_times;
   // Holds the device copy of the SMID each block was assigned to.
@@ -42,11 +40,9 @@ static void Cleanup(void *data) {
   BenchmarkState *state = (BenchmarkState *) data;
   KernelTimes *host_times = &state->spin_kernel_times;
   // Free device memory.
-  if (state->device_kernel_times) cudaFree(state->device_kernel_times);
   if (state->device_block_times) cudaFree(state->device_block_times);
   if (state->device_block_smids) cudaFree(state->device_block_smids);
   // Free host memory.
-  if (host_times->kernel_times) cudaFreeHost(host_times->kernel_times);
   if (host_times->block_times) cudaFreeHost(host_times->block_times);
   if (host_times->block_smids) cudaFreeHost(host_times->block_smids);
   memset(state, 0, sizeof(*state));
@@ -59,10 +55,6 @@ static int AllocateMemory(BenchmarkState *state) {
   uint64_t block_smids_size = state->block_count * sizeof(uint32_t);
   KernelTimes *host_times = &state->spin_kernel_times;
   // Allocate device memory
-  if (!CheckCUDAError(cudaMalloc(&(state->device_kernel_times),
-    2 * sizeof(uint64_t)))) {
-    return 0;
-  }
   if (!CheckCUDAError(cudaMalloc(&(state->device_block_times),
     block_times_size))) {
     return 0;
@@ -72,10 +64,6 @@ static int AllocateMemory(BenchmarkState *state) {
     return 0;
   }
   // Allocate host memory.
-  if (!CheckCUDAError(cudaMallocHost(&host_times->kernel_times, 2 *
-    sizeof(uint64_t)))) {
-    return 0;
-  }
   if (!CheckCUDAError(cudaMallocHost(&host_times->block_times,
     block_times_size))) {
     return 0;
@@ -133,12 +121,11 @@ static int CopyIn(void *data) {
 }
 
 // Spins in a loop until at least spin_duration nanoseconds have elapsed.
-static __global__ void GPUSpin(uint64_t spin_duration, uint64_t *kernel_times,
-    uint64_t *block_times, uint32_t *block_smids) {
+static __global__ void GPUSpin(uint64_t spin_duration, uint64_t *block_times,
+    uint32_t *block_smids) {
   uint64_t start_time = GlobalTimer64();
   // First, record the kernel and block start times
   if (threadIdx.x == 0) {
-    if (blockIdx.x == 0) kernel_times[0] = start_time;
     block_times[blockIdx.x * 2] = start_time;
     block_smids[blockIdx.x] = GetSMID();
   }
@@ -152,14 +139,17 @@ static __global__ void GPUSpin(uint64_t spin_duration, uint64_t *kernel_times,
   if (threadIdx.x == 0) {
     block_times[blockIdx.x * 2 + 1] = GlobalTimer64();
   }
-  kernel_times[1] = GlobalTimer64();
 }
 
 static int Execute(void *data) {
   BenchmarkState *state = (BenchmarkState *) data;
+  state->spin_kernel_times.cuda_launch_times[0] = CurrentSeconds();
   GPUSpin<<<state->block_count, state->thread_count>>>(state->spin_duration,
-    state->device_kernel_times, state->device_block_times,
-    state->device_block_smids);
+    state->device_block_times, state->device_block_smids);
+  state->spin_kernel_times.cuda_launch_times[1] = CurrentSeconds();
+  // NOTE: This may not be correct--should this second time only be written
+  // after a cudaDeviceSynchronize?
+  state->spin_kernel_times.cuda_launch_times[2] = CurrentSeconds();
   return 1;
 }
 
@@ -169,11 +159,6 @@ static int CopyOut(void *data, TimingInformation *times) {
   uint64_t block_times_count = state->block_count * 2;
   uint64_t block_smids_count = state->block_count;
   memset(times, 0, sizeof(*times));
-  if (!CheckCUDAError(cudaMemcpy(host_times->kernel_times,
-    state->device_kernel_times, 2 * sizeof(uint64_t),
-    cudaMemcpyDeviceToHost))) {
-    return 0;
-  }
   if (!CheckCUDAError(cudaMemcpy(host_times->block_times,
     state->device_block_times, block_times_count * sizeof(uint64_t),
     cudaMemcpyDeviceToHost))) {

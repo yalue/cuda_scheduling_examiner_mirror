@@ -28,6 +28,10 @@ int InternalCUDAErrorCheck(cudaError_t result, const char *fn,
 cudaError_t CreateCUDAStreamWithPriority(int stream_priority,
     cudaStream_t *stream);
 
+// This returns the current CPU time, in seconds. This time will correspond
+// to the CPU times obtained by runner.c.
+double CurrentSeconds(void);
+
 // Returns the value of CUDA's global nanosecond timer. This is more convoluted
 // than should be necessary due to a bug in this register on the Jetson boards.
 __device__ inline uint64_t GlobalTimer64(void) {

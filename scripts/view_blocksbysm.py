@@ -7,6 +7,7 @@
 import glob
 import json
 import math
+import re
 import sys
 
 from graphics import *
@@ -754,11 +755,11 @@ class BlockSMDisplay():
                 pass # invalid!
 
         # Draw a marker for the kernel release time
-##        releaseIdx = releaseDict.get(kernel.releaseTime, 0)
-##        releaseDict[kernel.releaseTime] = releaseIdx + 1
-##        krm = KernelReleaseMarker(kernel, self.firstTime, self.totalTime,
-##                                  self.numSms, self.width, self.height, color, patternType, releaseIdx)
-##        krm.draw(self.canvas)
+        releaseIdx = releaseDict.get(kernel.releaseTime, 0)
+        releaseDict[kernel.releaseTime] = releaseIdx + 1
+        krm = KernelReleaseMarker(kernel, self.firstTime, self.totalTime,
+                                  self.numSms, self.width, self.height, color, patternType, releaseIdx)
+        krm.draw(self.canvas)
 
     def draw_title(self):
         title = Title(self.width, self.height, self.name)
@@ -801,12 +802,13 @@ class Kernel(object):
         self.scenarioName = stream.scenarioName
         self.label = stream.label
         self.tid = stream.tid
-        self.releaseTime = stream.releaseTime
         self.maxResidentThreads = stream.maxResidentThreads
 
+        self.releaseTimeStart = kernelInfoDict["cuda_launch_times"][0]
+        self.releaseTimeEnd = kernelInfoDict["cuda_launch_times"][1]
+        self.releaseTime = self.releaseTimeStart
+
         self.kernelName = kernelInfoDict["kernel_name"]
-        self.kernelStart = kernelInfoDict["kernel_times"][0]
-        self.kernelEnd = kernelInfoDict["kernel_times"][1]
 
         self.blockCount = kernelInfoDict["block_count"]
         self.threadCount = kernelInfoDict["thread_count"]
@@ -884,6 +886,14 @@ class Benchmark(object):
         self.streams = []
         for benchmark in benchmarks:
             self.streams.append(Stream(benchmark))
+        def sort_key(o):
+            def tryint(s):
+                try:
+                    return int(s)
+                except:
+                    return s
+            return [tryint(c) for c in re.split(r'([0-9]+)', o.label)]
+        self.streams.sort(key = sort_key)
 
     def get_start(self):
         return min([s.get_start() for s in self.streams])
