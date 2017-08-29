@@ -46,10 +46,10 @@ typedef struct {
   int block_count;
   // The amount of shared memory (in bytes) used by this kernel.
   int shared_memory;
-  // The start and end time, in nanoseconds, of this kernel. This array will
-  // contain exactly 2 entries. This must be a pointer so that it can be
-  // allocated in pinned memory.
-  uint64_t *kernel_times;
+  // This includes the CPU times, in seconds, immediately before and after
+  // kernels were launched. The third entry is the CPU time after synchronizing
+  // completes when the kernel is finished.
+  double cuda_launch_times[3];
   // The start and end times for each individual block. Even-numbered positions
   // contain start times and odd positions end times, in nanoseconds. This will
   // contain block_count * 2 entries.

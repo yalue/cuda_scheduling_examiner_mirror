@@ -7,10 +7,11 @@
 extern "C" {
 #endif
 
-// Returns the current value of the GPU's globaltimer64 register. Of course,
-// this will only be a rough value since there will also be overheads for
-// allocating and copying memory. Returns 0 on error.
-uint64_t GetCurrentGPUNanoseconds(int cuda_device);
+// Returns the closest-correlated CPU and GPU times for the given device. These
+// times can then be used to calculate the approximate mapping between CPU and
+// GPU time, in combination with GetGPUTimerScale. Returns 0 on error.
+int GetHostDeviceTimeOffset(int cuda_device, double *host_seconds,
+  uint64_t *gpu_nanoseconds);
 
 // Returns the maximum number of threads that can be sent to the GPU at once.
 // This will be equal to the number of warps per SM * the number of SMs * warp

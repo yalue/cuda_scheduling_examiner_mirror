@@ -1,7 +1,9 @@
 // This file contains the implementation of the library defined by
 // benchmark_gpu_utilities.h.
 #include <cuda_runtime.h>
+#include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 #include "benchmark_gpu_utilities.h"
 
 int InternalCUDAErrorCheck(cudaError_t result, const char *fn,
@@ -27,3 +29,11 @@ cudaError_t CreateCUDAStreamWithPriority(int stream_priority,
     stream_priority);
 }
 
+double CurrentSeconds(void) {
+  struct timespec ts;
+  if (clock_gettime(CLOCK_MONOTONIC_RAW, &ts) != 0) {
+    printf("Error getting time.\n");
+    exit(1);
+  }
+  return ((double) ts.tv_sec) + (((double) ts.tv_nsec) / 1e9);
+}

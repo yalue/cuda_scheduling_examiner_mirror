@@ -25,8 +25,6 @@ typedef struct {
   // useful because it allows us to unconditionally call Cleanup on error
   // without needing to worry about calling cudaStreamDestroy twice.
   int stream_created;
-  // Holds the device copy of the overall start and end time of the kernel.
-  uint64_t *device_kernel_times;
   // Holds the device copy of the start and end times of each block.
   uint64_t *device_block_times;
   // Holds the device copy of the SMID each block was assigned to.
@@ -47,11 +45,9 @@ static void Cleanup(void *data) {
   BenchmarkState *state = (BenchmarkState *) data;
   KernelTimes *host_times = &state->spin_kernel_times;
   // Free device memory.
-  if (state->device_kernel_times) cudaFree(state->device_kernel_times);
   if (state->device_block_times) cudaFree(state->device_block_times);
   if (state->device_block_smids) cudaFree(state->device_block_smids);
   // Free host memory.
-  if (host_times->kernel_times) cudaFreeHost(host_times->kernel_times);
   if (host_times->block_times) cudaFreeHost(host_times->block_times);
   if (host_times->block_smids) cudaFreeHost(host_times->block_smids);
   if (state->stream_created) {
@@ -69,10 +65,6 @@ static int AllocateMemory(BenchmarkState *state) {
   uint64_t block_smids_size = state->block_count * sizeof(uint32_t);
   KernelTimes *host_times = &state->spin_kernel_times;
   // Allocate device memory.
-  if (!CheckCUDAError(cudaMalloc(&(state->device_kernel_times),
-    2 * sizeof(uint64_t)))) {
-    return 0;
-  }
   if (!CheckCUDAError(cudaMalloc(&(state->device_block_times),
     block_times_size))) {
     return 0;
@@ -82,10 +74,6 @@ static int AllocateMemory(BenchmarkState *state) {
     return 0;
   }
   // Allocate host memory.
-  if (!CheckCUDAError(cudaMallocHost(&host_times->kernel_times, 2 *
-    sizeof(uint64_t)))) {
-    return 0;
-  }
   if (!CheckCUDAError(cudaMallocHost(&host_times->block_times,
     block_times_size))) {
     return 0;
@@ -209,12 +197,11 @@ static __device__ uint32_t UseSharedMemory10240(void) {
 // Accesses shared memory and spins in a loop until at least
 // spin_duration nanoseconds have elapsed.
 static __global__ void SharedMem_GPUSpin4096(uint64_t spin_duration,
-    uint64_t *kernel_times, uint64_t *block_times, uint32_t *block_smids) {
+    uint64_t *block_times, uint32_t *block_smids) {
   uint32_t shared_mem_res;
   uint64_t start_time = GlobalTimer64();
   // First, record the kernel and block start times
   if (threadIdx.x == 0) {
-    if (blockIdx.x == 0) kernel_times[0] = start_time;
     block_times[blockIdx.x * 2] = start_time;
     block_smids[blockIdx.x] = GetSMID();
   }
@@ -230,18 +217,16 @@ static __global__ void SharedMem_GPUSpin4096(uint64_t spin_duration,
   if (shared_mem_res == 0) {
     block_times[blockIdx.x * 2 + 1] = GlobalTimer64();
   }
-  kernel_times[1] = GlobalTimer64();
 }
 
 // Accesses shared memory and spins in a loop until at least
 // spin_duration nanoseconds have elapsed.
 static __global__ void SharedMem_GPUSpin8192(uint64_t spin_duration,
-    uint64_t *kernel_times, uint64_t *block_times, uint32_t *block_smids) {
+    uint64_t *block_times, uint32_t *block_smids) {
   uint32_t shared_mem_res;
   uint64_t start_time = GlobalTimer64();
   // First, record the kernel and block start times
   if (threadIdx.x == 0) {
-    if (blockIdx.x == 0) kernel_times[0] = start_time;
     block_times[blockIdx.x * 2] = start_time;
     block_smids[blockIdx.x] = GetSMID();
   }
@@ -257,18 +242,16 @@ static __global__ void SharedMem_GPUSpin8192(uint64_t spin_duration,
   if (shared_mem_res == 0) {
     block_times[blockIdx.x * 2 + 1] = GlobalTimer64();
   }
-  kernel_times[1] = GlobalTimer64();
 }
 
 // Accesses shared memory and spins in a loop until at least
 // spin_duration nanoseconds have elapsed.
 static __global__ void SharedMem_GPUSpin10240(uint64_t spin_duration,
-    uint64_t *kernel_times, uint64_t *block_times, uint32_t *block_smids) {
+    uint64_t *block_times, uint32_t *block_smids) {
   uint32_t shared_mem_res;
   uint64_t start_time = GlobalTimer64();
   // First, record the kernel and block start times
   if (threadIdx.x == 0) {
-    if (blockIdx.x == 0) kernel_times[0] = start_time;
     block_times[blockIdx.x * 2] = start_time;
     block_smids[blockIdx.x] = GetSMID();
   }
@@ -284,25 +267,27 @@ static __global__ void SharedMem_GPUSpin10240(uint64_t spin_duration,
   if (shared_mem_res == 0) {
     block_times[blockIdx.x * 2 + 1] = GlobalTimer64();
   }
-  kernel_times[1] = GlobalTimer64();
 }
 
 static int Execute(void *data) {
   BenchmarkState *state = (BenchmarkState *) data;
+  state->spin_kernel_times.cuda_launch_times[0] = CurrentSeconds();
   if (state->sharedmem_count == 4096) {
     SharedMem_GPUSpin4096<<<state->block_count, state->thread_count, 0,
-      state->stream>>>(state->spin_duration, state->device_kernel_times,
-      state->device_block_times, state->device_block_smids);
+      state->stream>>>(state->spin_duration, state->device_block_times,
+      state->device_block_smids);
   } else if (state->sharedmem_count == 8192) {
     SharedMem_GPUSpin8192<<<state->block_count, state->thread_count, 0,
-      state->stream>>>(state->spin_duration, state->device_kernel_times,
-      state->device_block_times, state->device_block_smids);
+      state->stream>>>(state->spin_duration, state->device_block_times,
+      state->device_block_smids);
   } else if (state->sharedmem_count == 10240) {
     SharedMem_GPUSpin10240<<<state->block_count, state->thread_count, 0,
-      state->stream>>>(state->spin_duration, state->device_kernel_times,
-      state->device_block_times, state->device_block_smids);
+      state->stream>>>(state->spin_duration, state->device_block_times,
+      state->device_block_smids);
   }
+  state->spin_kernel_times.cuda_launch_times[1] = CurrentSeconds();
   if (!CheckCUDAError(cudaStreamSynchronize(state->stream))) return 0;
+  state->spin_kernel_times.cuda_launch_times[2] = CurrentSeconds();
   return 1;
 }
 
@@ -312,11 +297,6 @@ static int CopyOut(void *data, TimingInformation *times) {
   uint64_t block_times_count = state->block_count * 2;
   uint64_t block_smids_count = state->block_count;
   memset(times, 0, sizeof(*times));
-  if (!CheckCUDAError(cudaMemcpyAsync(host_times->kernel_times,
-    state->device_kernel_times, 2 * sizeof(uint64_t),
-    cudaMemcpyDeviceToHost, state->stream))) {
-    return 0;
-  }
   if (!CheckCUDAError(cudaMemcpyAsync(host_times->block_times,
     state->device_block_times, block_times_count * sizeof(uint64_t),
     cudaMemcpyDeviceToHost, state->stream))) {

@@ -22,8 +22,6 @@ typedef struct {
   // useful because it allows us to unconditionally call Cleanup on error
   // without needing to worry about calling cudaStreamDestroy twice.
   int stream_created;
-  // Holds the device copy of the overall start and end time of the kernel.
-  uint64_t *device_kernel_times;
   // Holds the device copy of the start and end times of each block.
   uint64_t *device_block_times;
   // Holds the device copy of the SMID each block was assigned to.
@@ -51,13 +49,11 @@ static void Cleanup(void *data) {
   BenchmarkState *state = (BenchmarkState *) data;
   KernelTimes *host_times = &state->walk_kernel_times;
   // Free device memory.
-  if (state->device_kernel_times) cudaFree(state->device_kernel_times);
   if (state->device_block_times) cudaFree(state->device_block_times);
   if (state->device_block_smids) cudaFree(state->device_block_smids);
   if (state->device_walk_buffer) cudaFree(state->device_walk_buffer);
   if (state->device_accumulator) cudaFree(state->device_accumulator);
   // Free host memory.
-  if (host_times->kernel_times) cudaFreeHost(host_times->kernel_times);
   if (host_times->block_times) cudaFreeHost(host_times->block_times);
   if (host_times->block_smids) cudaFreeHost(host_times->block_smids);
   if (state->stream_created) {
@@ -75,10 +71,6 @@ static int AllocateMemory(BenchmarkState *state) {
   uint64_t block_smids_size = state->block_count * sizeof(uint32_t);
   KernelTimes *host_times = &state->walk_kernel_times;
   // Allocate device memory
-  if (!CheckCUDAError(cudaMalloc(&(state->device_kernel_times),
-    2 * sizeof(uint64_t)))) {
-    return 0;
-  }
   if (!CheckCUDAError(cudaMalloc(&(state->device_block_times),
     block_times_size))) {
     return 0;
@@ -96,10 +88,6 @@ static int AllocateMemory(BenchmarkState *state) {
     return 0;
   }
   // Allocate host memory.
-  if (!CheckCUDAError(cudaMallocHost(&host_times->kernel_times, 2 *
-    sizeof(uint64_t)))) {
-    return 0;
-  }
   if (!CheckCUDAError(cudaMallocHost(&host_times->block_times,
     block_times_size))) {
     return 0;
@@ -160,6 +148,22 @@ static void ShuffleArray(uint32_t *buffer, uint64_t element_count) {
   }
 }
 
+// This kernel uses a single thread to access every element in the given
+// walk_buffer, which should bring (small) buffers into the GPU cache. The
+// accumulator can be NULL, and is used to prevent optimizations from removing
+// the kernel entirely.
+static __global__ void InitialWalk(uint32_t *walk_buffer,
+    uint64_t buffer_length, uint64_t *accumulator) {
+  uint64_t i = 0;
+  uint64_t result = 0;
+  if (blockIdx.x != 0) return;
+  if (threadIdx.x != 0) return;
+  for (i = 0; i < buffer_length; i++) {
+    result += walk_buffer[i];
+  }
+  if (accumulator != NULL) *accumulator = result;
+}
+
 static void* Initialize(InitializationParameters *params) {
   BenchmarkState *state = NULL;
   uint64_t i;
@@ -215,6 +219,13 @@ static void* Initialize(InitializationParameters *params) {
     return NULL;
   }
   state->stream_created = 1;
+  // Bring the buffer into the GPU cache by accessing it once.
+  InitialWalk<<<1, 1, 0, state->stream>>>(state->device_walk_buffer,
+    state->walk_buffer_length, NULL);
+  if (!CheckCUDAError(cudaStreamSynchronize(state->stream))) {
+    Cleanup(state);
+    return NULL;
+  }
   return state;
 }
 
@@ -227,13 +238,12 @@ static int CopyIn(void *data) {
 // value stored in the current index.
 static __global__ void WalkKernel(uint64_t access_count,
     uint64_t *accumulator, uint32_t *walk_buffer, uint64_t walk_buffer_length,
-    uint64_t *kernel_times, uint64_t *block_times, uint32_t *block_smids) {
+    uint64_t *block_times, uint32_t *block_smids) {
   uint64_t start_time = GlobalTimer64();
   uint64_t i = 0;
   uint64_t walk_index = threadIdx.x % walk_buffer_length;
   // First, record the kernel and block start times
   if (threadIdx.x == 0) {
-    if (blockIdx.x == 0) kernel_times[0] = start_time;
     block_times[blockIdx.x * 2] = start_time;
     block_smids[blockIdx.x] = GetSMID();
   }
@@ -247,17 +257,18 @@ static __global__ void WalkKernel(uint64_t access_count,
   if (threadIdx.x == 0) {
     block_times[blockIdx.x * 2 + 1] = GlobalTimer64();
   }
-  kernel_times[1] = GlobalTimer64();
 }
 
 static int Execute(void *data) {
   BenchmarkState *state = (BenchmarkState *) data;
+  state->walk_kernel_times.cuda_launch_times[0] = CurrentSeconds();
   WalkKernel<<<state->block_count, state->thread_count, 0, state->stream>>>(
     state->memory_access_count, state->device_accumulator,
     state->device_walk_buffer, state->walk_buffer_length,
-    state->device_kernel_times, state->device_block_times,
-    state->device_block_smids);
+    state->device_block_times, state->device_block_smids);
+  state->walk_kernel_times.cuda_launch_times[1] = CurrentSeconds();
   if (!CheckCUDAError(cudaStreamSynchronize(state->stream))) return 0;
+  state->walk_kernel_times.cuda_launch_times[2] = CurrentSeconds();
   return 1;
 }
 
@@ -270,11 +281,6 @@ static int CopyOut(void *data, TimingInformation *times) {
   if (!CheckCUDAError(cudaMemcpyAsync(&(state->host_accumulator),
     state->device_accumulator, sizeof(uint64_t), cudaMemcpyDeviceToHost,
     state->stream))) {
-    return 0;
-  }
-  if (!CheckCUDAError(cudaMemcpyAsync(host_times->kernel_times,
-    state->device_kernel_times, 2 * sizeof(uint64_t),
-    cudaMemcpyDeviceToHost, state->stream))) {
     return 0;
   }
   if (!CheckCUDAError(cudaMemcpyAsync(host_times->block_times,
