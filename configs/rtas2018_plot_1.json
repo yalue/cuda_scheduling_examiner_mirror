@@ -1,0 +1,38 @@
+{
+  "name": "Unexpected blocking",
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "pin_cpus": true,
+  "benchmarks": [
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "rtas18_plot_1_1.json",
+      "label": "Kernel 1",
+      "thread_count": 512,
+      "block_count": 1,
+      "data_size": 0,
+      "additional_info": 300000000
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "rtas18_plot_1_2.json",
+      "label": "Kernel 2",
+      "thread_count": 512,
+      "block_count": 1,
+      "data_size": 0,
+      "additional_info": 1000000000,
+      "release_time": 0.25
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "rtas18_plot_1_3.json",
+      "label": "Kernel 3",
+      "thread_count": 512,
+      "block_count": 1,
+      "data_size": 0,
+      "release_time": 0.4,
+      "additional_info": 300000000
+    }
+  ]
+}

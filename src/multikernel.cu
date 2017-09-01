@@ -514,9 +514,9 @@ static int Execute(void *data) {
         return 0;
       }
     }
+    config->cuda_launch_times[2] = 0;
   }
   if (!CheckCUDAError(cudaStreamSynchronize(state->stream))) return 0;
-  config->cuda_launch_times[2] = CurrentSeconds();
   return 1;
 }
 
