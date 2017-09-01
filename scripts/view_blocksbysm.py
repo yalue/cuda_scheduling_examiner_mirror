@@ -828,7 +828,6 @@ class Kernel(object):
 
         self.releaseTimeStart = kernelInfoDict["cuda_launch_times"][0]
         self.releaseTimeEnd = kernelInfoDict["cuda_launch_times"][1]
-#        self.releaseTime = self.releaseTimeStart
         self.releaseTime = self.releaseTimeStart
 
         self.kernelName = kernelInfoDict["kernel_name"]
