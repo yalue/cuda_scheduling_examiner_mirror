@@ -50,7 +50,12 @@ idToColorMap = {0: 'light pink',
                 17: 'turquoise3',
                 18: 'light pink',
                 19: 'light blue',
-                20: 'LightGoldenrod2'}
+                20: 'LightGoldenrod2',
+                21: 'brown',
+                22: 'DarkOliveGreen',
+                23: 'deep pink',
+                24: 'gold1',
+                25: 'gold4'}
 
 patternColorToBgColorMap = {"light pink": "lavender blush",
                             "light blue": "azure",
@@ -60,7 +65,13 @@ patternColorToBgColorMap = {"light pink": "lavender blush",
                             "gray68": "light gray",
                             "orange": "navajo white",
                             "gray32": "gray48",
-                            "turquoise3": "turquoise1"}
+                            "turquoise3": "turquoise1",
+                            "brown": "beige",
+                            "DarkOliveGreen": "light gray",
+                            "deep pink": "light salmon",
+                            "gold1": "light yellow",
+                            "gold4": "light slate gray",
+                            }
 
 patternColorToArrowColorMap = {"light pink": "IndianRed3",
                                "light blue": "SteelBlue2",
@@ -70,7 +81,12 @@ patternColorToArrowColorMap = {"light pink": "IndianRed3",
                                "gray68": "gray68",
                                "orange": "dark orange",
                                "gray32": "gray32",
-                               "turquoise3": "turquoise3"}
+                               "turquoise3": "turquoise3",
+                               "brown": "brown",
+                               "DarkOliveGreen": "DarkOliveGreen",
+                               "deep pink": "deep pink",
+                               "gold1": "gold1",
+                               "gold4": "gold4"}
 
 BUFFER_TOP = 32
 BUFFER_BOTTOM = 68
@@ -259,7 +275,13 @@ idToPatternMap = {0: HorizontalLinePattern,
                   17: RightDiagonalLinePattern,
                   18: LeftDiagonalLinePattern,
                   19: HorizontalLinePattern,
-                  20: VerticalLinePattern}
+                  20: VerticalLinePattern,
+                  21: RightDiagonalLinePattern,
+                  22: LeftDiagonalLinePattern,
+                  23: HorizontalLinePattern,
+                  24: VerticalLinePattern,
+                  25: LeftDiagonalLinePattern,
+                  26: RightDiagonalLinePattern}
 
 class PlotRect(Rectangle):
     def __init__(self, w, h):
@@ -806,6 +828,7 @@ class Kernel(object):
 
         self.releaseTimeStart = kernelInfoDict["cuda_launch_times"][0]
         self.releaseTimeEnd = kernelInfoDict["cuda_launch_times"][1]
+#        self.releaseTime = self.releaseTimeStart
         self.releaseTime = self.releaseTimeStart
 
         self.kernelName = kernelInfoDict["kernel_name"]

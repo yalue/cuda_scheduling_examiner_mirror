@@ -260,12 +260,18 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
       return 0;
     }
     // The time after the kernel launch returned.
-    tmp = kernel_times->cuda_launch_times[0] - parent_state->starting_seconds;
+    tmp = kernel_times->cuda_launch_times[1] - parent_state->starting_seconds;
     if (fprintf(output, "%.9f, ", tmp) < 0) {
       return 0;
     }
     // The CPU time after the CUDA stream synchronize completed.
-    tmp = kernel_times->cuda_launch_times[2] - parent_state->starting_seconds;
+    if (kernel_times->cuda_launch_times[2] != 0) {
+      tmp = kernel_times->cuda_launch_times[2] -
+        parent_state->starting_seconds;
+    } else {
+      // The README states that this should be 0 if the time wasn't set.
+      tmp = 0;
+    }
     if (fprintf(output, "%.9f], ", tmp) < 0) {
       return 0;
     }

@@ -10,59 +10,54 @@
       "log_name": "concurrent_1st_1.json",
       "label": "Kernel 1",
       "thread_count": 512,
-      "block_count": 1,
+      "block_count": 9,
       "data_size": 0,
-      "additional_info": 500000000
+      "additional_info": 250000000
     },
     {
       "filename": "./bin/timer_spin.so",
       "log_name": "concurrent_1st_2.json",
       "label": "Kernel 2",
-      "thread_count": 256,
-      "block_count": 1,
-      "data_size": 0,
-      "additional_info": 500000000,
-      "release_time": 0.25
-    },
-    {
-      "filename": "./bin/timer_spin.so",
-      "log_name": "concurrent_1st_3.json",
-      "label": "Kernel 3",
       "thread_count": 512,
-      "block_count": 7,
-      "data_size": 0,
-      "additional_info": 500000000,
-      "release_time": 0.6
-    },
-    {
-      "filename": "./bin/timer_spin.so",
-      "log_name": "concurrent_1st_4.json",
-      "label": "Kernel 4",
-      "thread_count": 1024,
       "block_count": 1,
       "data_size": 0,
-      "additional_info": 500000000,
-      "release_time": 0.7
+      "additional_info": 750000000,
+      "release_time": 0.37
     },
     {
-      "filename": "./bin/timer_spin.so",
-      "log_name": "concurrent_1st_5.json",
-      "label": "Kernel 5",
-      "thread_count": 256,
-      "block_count": 1,
+      "filename": "./bin/multikernel.so",
+      "log_name": "concurrent_1st_3.json",
+      "label": "Multiple kernels",
+      "thread_count": 0,
+      "block_count": 0,
       "data_size": 0,
-      "additional_info": 500000000,
-      "release_time": 1.0
-    },
-    {
-      "filename": "./bin/timer_spin.so",
-      "log_name": "concurrent_1st_6.json",
-      "label": "Kernel 6",
-      "thread_count": 256,
-      "block_count": 1,
-      "data_size": 0,
-      "additional_info": 500000000,
-      "release_time": 1.4
+      "release_time": 0.6,
+      "additional_info": [
+        {
+          "kernel_label": "K3-1",
+          "duration": 250000000,
+          "block_count": 1,
+          "thread_count": 1024
+        },
+        {
+          "kernel_label": "K3-2",
+          "duration": 250000000,
+          "block_count": 1,
+          "thread_count": 512
+        },
+        {
+          "kernel_label": "K3-3",
+          "duration": 250000000,
+          "block_count": 1,
+          "thread_count": 256
+        },
+        {
+          "kernel_label": "K3-4",
+          "duration": 250000000,
+          "block_count": 1,
+          "thread_count": 128
+        }
+      ]
     }
   ]
 }

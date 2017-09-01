@@ -179,7 +179,8 @@ floating-point numbers of seconds. The format of the log file is:
       "shared_memory": <The amount of shared memory used by this kernel.>,
       "cuda_launch_times": [<CPU time immediately before the kernel launch.>,
         <CPU time immediately after kernel launch returned.>,
-        <CPU time immediately after cudaStreamSynchronize returned.>],
+        <CPU time immediately after cudaStreamSynchronize returned. This will
+        be set to 0 if cudaStreamSynchronize isn't called for this kernel.>],
       "block_times": [<Start time>, <End time>, ...],
       "block_smids": [<Block 0 SMID>, <Block 1 SMID>, ...],
       "cpu_core": <The current CPU core being used>

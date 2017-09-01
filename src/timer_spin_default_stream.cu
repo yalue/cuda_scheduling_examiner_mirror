@@ -147,9 +147,7 @@ static int Execute(void *data) {
   GPUSpin<<<state->block_count, state->thread_count>>>(state->spin_duration,
     state->device_block_times, state->device_block_smids);
   state->spin_kernel_times.cuda_launch_times[1] = CurrentSeconds();
-  // NOTE: This may not be correct--should this second time only be written
-  // after a cudaDeviceSynchronize?
-  state->spin_kernel_times.cuda_launch_times[2] = CurrentSeconds();
+  state->spin_kernel_times.cuda_launch_times[2] = 0;
   return 1;
 }
 
