@@ -368,6 +368,7 @@ class BlockSMRect(object):
         self.label = Text(Point(px, py), "%s: %s" % (kernelName, block.id))
         if USE_BOLD_FONT:
             self.label.setStyle("bold")
+        self.label.setSize(14)
 
     def draw(self, canvas):
         self.block.draw(canvas)
