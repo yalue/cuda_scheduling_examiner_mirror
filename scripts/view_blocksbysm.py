@@ -119,8 +119,8 @@ class HorizontalLinePattern(Pattern):
     def __init__(self, rect, color, numLines = None):
         Pattern.__init__(self)
 
-        p1x = rect.getP1().x+1
-        p2x = rect.getP2().x-1
+        p1x = rect.getP1().x
+        p2x = rect.getP2().x
 
         ymin = min(rect.getP1().y, rect.getP2().y)
         ymax = max(rect.getP1().y, rect.getP2().y)
@@ -143,8 +143,8 @@ class VerticalLinePattern(Pattern):
     def __init__(self, rect, color, numLines = None):
         Pattern.__init__(self)
 
-        p1y = rect.getP1().y-1
-        p2y = rect.getP2().y+1
+        p1y = rect.getP1().y
+        p2y = rect.getP2().y
 
         xmin = min(rect.getP1().x, rect.getP2().x)
         xmax = max(rect.getP1().x, rect.getP2().x)
@@ -176,17 +176,20 @@ class LeftDiagonalLinePattern(Pattern):
 
         if numLines == None:
             numLines = int(totalDist / self.LINE_SPACING)
-        ddist = totalDist / float(numLines + 1)
+        ddist = int(totalDist / float(numLines + 1))
 
         ycount = int((ymax-ymin) / ddist)
         xcount = int((xmax-xmin) / ddist)
 
         for i in range(ycount+1):
-            x1 = xmin + 1
+            x1 = xmin
             y1 = ymin + ddist * i
 
-            y2 = ymax - 1
+            y2 = ymax
             x2 = (y2 - y1) + x1
+            if x2 > xmax:
+                y2 -= x2 - xmax
+                x2 = xmax
 
             line = Line(Point(x1, y1), Point(x2, y2))
             line.setOutline(color)
@@ -195,13 +198,13 @@ class LeftDiagonalLinePattern(Pattern):
 
         for i in range(1, xcount+1):
             x1 = xmin + ddist * i
-            y1 = ymin + 1
+            y1 = ymin
 
-            x2 = (ymax - y1) + x1 - 1
-            y2 = ymax - 1
+            x2 = (ymax - y1) + x1
+            y2 = ymax
             if x2 > xmax:
-                y2 -= x2 - xmax + 1
-                x2 = xmax - 1
+                y2 -= x2 - xmax
+                x2 = xmax
 
             line = Line(Point(x1, y1), Point(x2, y2))
             line.setOutline(color)
@@ -223,17 +226,20 @@ class RightDiagonalLinePattern(Pattern):
 
         if numLines == None:
             numLines = int(totalDist / self.LINE_SPACING)
-        ddist = totalDist / float(numLines + 1)
+        ddist = int(totalDist / float(numLines + 1))
 
         ycount = int((ymax-ymin) / ddist)
         xcount = int((xmax-xmin) / ddist)
 
         for i in range(ycount+1):
-            x2 = xmax - 1
-            y2 = ymin + ddist * i #ymax - ddist * i
+            x2 = xmax
+            y2 = ymin + ddist * i + 1
 
-            y1 = ymax - 1
+            y1 = ymax
             x1 = xmax - (ymax - y2)
+            if x1 < xmin:
+                y1 -= xmin - x1
+                x1 = xmin
 
             line = Line(Point(x1, y1), Point(x2, y2))
             line.setOutline(color)
@@ -242,13 +248,13 @@ class RightDiagonalLinePattern(Pattern):
 
         for i in range(1, xcount+1):
             x2 = xmax - ddist * i
-            y2 = ymin + 1
+            y2 = ymin
 
-            y1 = ymax - 1
-            x1 = x2 - (y1 - ymin) + 1
+            y1 = ymax
+            x1 = x2 - (y1 - ymin)
             if x1 < xmin:
-                y1 -= xmin - x1 + 1
-                x1 = xmin + 1
+                y1 -= xmin - x1
+                x1 = xmin
 
             line = Line(Point(x1, y1), Point(x2, y2))
             line.setOutline(color)
@@ -332,6 +338,11 @@ class BlockSMRect(object):
             self.block.setFill(patternColorToBgColorMap[color])
             self.pattern = patternType(self.block, color)
 
+        # Draw just the outline, in case the pattern covers it
+        self.outline = Rectangle(Point(p1x, p1y), Point(p2x, p2y))
+        self.outline.setWidth(LINE_WIDTH)
+        self.outline.setFill("")
+
     def build_label(self, block, firstTime, totalTime, totalNumSms, w, h, color, otherThreads):
         # Height is fraction of an SM: 2048 threads/SM, with block.numThreads threads in block
         plotHeight = h - BUFFER_TOP - LEGEND_HEIGHT - BUFFER_LEGEND - BUFFER_BOTTOM
@@ -362,6 +373,7 @@ class BlockSMRect(object):
         self.block.draw(canvas)
         if self.pattern != None:
             self.pattern.draw(canvas)
+        self.outline.draw(canvas)
         self.label.draw(canvas)
 
 class KernelReleaseMarker(Line):
@@ -419,10 +431,15 @@ class LegendBox(object):
             self.rect.setFill(color)
             self.pattern = None
 
+        self.outline = Rectangle(self.rect.p1, self.rect.p2)
+        self.outline.setWidth(LINE_WIDTH)
+        self.outline.setFill("")
+
     def draw(self, canvas):
         self.rect.draw(canvas)
         if self.pattern != None:
             self.pattern.draw(canvas)
+        self.outline.draw(canvas)
 
 class Legend(object):
     def __init__(self, w, h, benchmark):
