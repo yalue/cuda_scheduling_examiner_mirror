@@ -30,12 +30,12 @@ else:
 ###################################################
 
 # Colors: http://www.tcl.tk/man/tcl8.4/TkCmd/colors.htm
-idToColorMap = {0: 'light pink',
-                1: 'light blue',
+idToColorMap = {0: 'azure',
+                1: 'light pink',
                 2: 'LightGoldenrod2',
-                3: 'light sea green',
+                3: 'DarkSeaGreen1',
                 4: 'MediumPurple1',
-                5: 'gray68',
+                5: 'light gray',
                 6: 'orange',
                 7: 'gray32',
                 8: 'turquoise3',
@@ -57,12 +57,12 @@ idToColorMap = {0: 'light pink',
                 24: 'gold1',
                 25: 'gold4'}
 
-patternColorToBgColorMap = {"light pink": "lavender blush",
-                            "light blue": "azure",
+patternColorToBgColorMap = {"light pink": "misty rose",
+                            "azure": "sky blue",
                             "LightGoldenrod2": "light yellow",
-                            "light sea green": "DarkSeaGreen1",
+                            "DarkSeaGreen1": "SeaGreen3",
                             "MediumPurple1": "lavender",
-                            "gray68": "light gray",
+                            "light gray": "gray68",
                             "orange": "navajo white",
                             "gray32": "gray48",
                             "turquoise3": "turquoise1",
@@ -74,11 +74,11 @@ patternColorToBgColorMap = {"light pink": "lavender blush",
                             }
 
 patternColorToArrowColorMap = {"light pink": "IndianRed3",
-                               "light blue": "SteelBlue2",
+                               "azure": "SteelBlue2",
                                "LightGoldenrod2": "LightGoldenrod3",
-                               "light sea green": "SpringGreen4",
+                               "DarkSeaGreen1": "SpringGreen4",
                                "MediumPurple1": "MediumPurple1",
-                               "gray68": "gray68",
+                               "light gray": "gray68",
                                "orange": "dark orange",
                                "gray32": "gray32",
                                "turquoise3": "turquoise3",
@@ -119,8 +119,8 @@ class HorizontalLinePattern(Pattern):
     def __init__(self, rect, color, numLines = None):
         Pattern.__init__(self)
 
-        p1x = rect.getP1().x+1
-        p2x = rect.getP2().x-1
+        p1x = rect.getP1().x
+        p2x = rect.getP2().x
 
         ymin = min(rect.getP1().y, rect.getP2().y)
         ymax = max(rect.getP1().y, rect.getP2().y)
@@ -143,8 +143,8 @@ class VerticalLinePattern(Pattern):
     def __init__(self, rect, color, numLines = None):
         Pattern.__init__(self)
 
-        p1y = rect.getP1().y-1
-        p2y = rect.getP2().y+1
+        p1y = rect.getP1().y
+        p2y = rect.getP2().y
 
         xmin = min(rect.getP1().x, rect.getP2().x)
         xmax = max(rect.getP1().x, rect.getP2().x)
@@ -176,17 +176,20 @@ class LeftDiagonalLinePattern(Pattern):
 
         if numLines == None:
             numLines = int(totalDist / self.LINE_SPACING)
-        ddist = totalDist / float(numLines + 1)
+        ddist = int(totalDist / float(numLines + 1))
 
         ycount = int((ymax-ymin) / ddist)
         xcount = int((xmax-xmin) / ddist)
 
         for i in range(ycount+1):
-            x1 = xmin + 1
+            x1 = xmin
             y1 = ymin + ddist * i
 
-            y2 = ymax - 1
+            y2 = ymax
             x2 = (y2 - y1) + x1
+            if x2 > xmax:
+                y2 -= x2 - xmax
+                x2 = xmax
 
             line = Line(Point(x1, y1), Point(x2, y2))
             line.setOutline(color)
@@ -195,13 +198,13 @@ class LeftDiagonalLinePattern(Pattern):
 
         for i in range(1, xcount+1):
             x1 = xmin + ddist * i
-            y1 = ymin + 1
+            y1 = ymin
 
-            x2 = (ymax - y1) + x1 - 1
-            y2 = ymax - 1
+            x2 = (ymax - y1) + x1
+            y2 = ymax
             if x2 > xmax:
-                y2 -= x2 - xmax + 1
-                x2 = xmax - 1
+                y2 -= x2 - xmax
+                x2 = xmax
 
             line = Line(Point(x1, y1), Point(x2, y2))
             line.setOutline(color)
@@ -223,17 +226,20 @@ class RightDiagonalLinePattern(Pattern):
 
         if numLines == None:
             numLines = int(totalDist / self.LINE_SPACING)
-        ddist = totalDist / float(numLines + 1)
+        ddist = int(totalDist / float(numLines + 1))
 
         ycount = int((ymax-ymin) / ddist)
         xcount = int((xmax-xmin) / ddist)
 
         for i in range(ycount+1):
-            x2 = xmax - 1
-            y2 = ymin + ddist * i #ymax - ddist * i
+            x2 = xmax
+            y2 = ymin + ddist * i + 1
 
-            y1 = ymax - 1
+            y1 = ymax
             x1 = xmax - (ymax - y2)
+            if x1 < xmin:
+                y1 -= xmin - x1
+                x1 = xmin
 
             line = Line(Point(x1, y1), Point(x2, y2))
             line.setOutline(color)
@@ -242,13 +248,13 @@ class RightDiagonalLinePattern(Pattern):
 
         for i in range(1, xcount+1):
             x2 = xmax - ddist * i
-            y2 = ymin + 1
+            y2 = ymin
 
-            y1 = ymax - 1
-            x1 = x2 - (y1 - ymin) + 1
+            y1 = ymax
+            x1 = x2 - (y1 - ymin)
             if x1 < xmin:
-                y1 -= xmin - x1 + 1
-                x1 = xmin + 1
+                y1 -= xmin - x1
+                x1 = xmin
 
             line = Line(Point(x1, y1), Point(x2, y2))
             line.setOutline(color)
@@ -332,6 +338,11 @@ class BlockSMRect(object):
             self.block.setFill(patternColorToBgColorMap[color])
             self.pattern = patternType(self.block, color)
 
+        # Draw just the outline, in case the pattern covers it
+        self.outline = Rectangle(Point(p1x, p1y), Point(p2x, p2y))
+        self.outline.setWidth(LINE_WIDTH)
+        self.outline.setFill("")
+
     def build_label(self, block, firstTime, totalTime, totalNumSms, w, h, color, otherThreads):
         # Height is fraction of an SM: 2048 threads/SM, with block.numThreads threads in block
         plotHeight = h - BUFFER_TOP - LEGEND_HEIGHT - BUFFER_LEGEND - BUFFER_BOTTOM
@@ -357,28 +368,85 @@ class BlockSMRect(object):
         self.label = Text(Point(px, py), "%s: %s" % (kernelName, block.id))
         if USE_BOLD_FONT:
             self.label.setStyle("bold")
+        self.label.setSize(14)
 
     def draw(self, canvas):
         self.block.draw(canvas)
         if self.pattern != None:
             self.pattern.draw(canvas)
+        self.outline.draw(canvas)
         self.label.draw(canvas)
 
-class KernelReleaseMarker(Line):
+class KernelReleaseMarker(object):
     def __init__(self, kernel, firstTime, totalTime, totalNumSms, w, h, color, patternType, idx):
+        self.lines = []
+        self.build_marker(kernel, firstTime, totalTime, totalNumSms, w, h, color, patternType, idx)
+
+    def build_marker(self, kernel, firstTime, totalTime, totalNumSms, w, h, color, patternType, idx):
         releaseTime = kernel.releaseTime
+        if patternType != None:
+            color = patternColorToArrowColorMap[color]
+
+        # Heuristics that look good
+        mh = 20
+        mw = int(0.15 * mh)
 
         px = int(float(releaseTime - firstTime) / totalTime * (w-BUFFER_LEFT-BUFFER_RIGHT)) + BUFFER_LEFT
-        p1y = h - BUFFER_BOTTOM + 20 + idx * 20
-        p2y = p1y + 20
+        p1y = h - BUFFER_BOTTOM + mh + idx * mh
+        p2y = p1y + mh
 
-        Line.__init__(self, Point(px, p1y), Point(px, p2y))
-        self.setArrow("first")
-        self.setWidth(ARROW_WIDTH)
-        if patternType == None:
-            self.setFill(color)
-        else:
-            self.setFill(patternColorToArrowColorMap[color])
+        minx = px - 3*mw
+        maxx = px + 3*mw
+
+        midlx = px - mw
+        midrx = px + mw
+
+        midy = p1y + int(0.45 * mh)
+
+        #  /\
+        # /  \
+        line = Line(Point(minx, midy), Point(px, p1y))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        line = Line(Point(px, p1y), Point(maxx, midy))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        # _  _
+        line = Line(Point(minx, midy), Point(midlx, midy))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        line = Line(Point(midrx, midy), Point(maxx, midy))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        # | |
+        # | |
+        # |_|
+        line = Line(Point(midlx, midy), Point(midlx, p2y))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        line = Line(Point(midrx, midy), Point(midrx, p2y))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        line = Line(Point(midlx, p2y), Point(midrx, p2y))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+    def draw(self, canvas):
+        for line in self.lines:
+            line.draw(canvas)
 
 class Title(object):
     def __init__(self, w, h, name):
@@ -419,10 +487,15 @@ class LegendBox(object):
             self.rect.setFill(color)
             self.pattern = None
 
+        self.outline = Rectangle(self.rect.p1, self.rect.p2)
+        self.outline.setWidth(LINE_WIDTH)
+        self.outline.setFill("")
+
     def draw(self, canvas):
         self.rect.draw(canvas)
         if self.pattern != None:
             self.pattern.draw(canvas)
+        self.outline.draw(canvas)
 
 class Legend(object):
     def __init__(self, w, h, benchmark):
@@ -777,8 +850,9 @@ class BlockSMDisplay():
                 pass # invalid!
 
         # Draw a marker for the kernel release time
-        releaseIdx = releaseDict.get(kernel.releaseTime, 0)
-        releaseDict[kernel.releaseTime] = releaseIdx + 1
+        releaseBucket = int(kernel.releaseTime / 0.02)
+        releaseIdx = releaseDict.get(releaseBucket, 0)
+        releaseDict[releaseBucket] = releaseIdx + 1
         krm = KernelReleaseMarker(kernel, self.firstTime, self.totalTime,
                                   self.numSms, self.width, self.height, color, patternType, releaseIdx)
         krm.draw(self.canvas)
