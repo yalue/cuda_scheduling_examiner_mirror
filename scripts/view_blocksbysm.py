@@ -794,8 +794,9 @@ class BlockSMDisplay():
                 pass # invalid!
 
         # Draw a marker for the kernel release time
-        releaseIdx = releaseDict.get(kernel.releaseTime, 0)
-        releaseDict[kernel.releaseTime] = releaseIdx + 1
+        releaseBucket = int(kernel.releaseTime / 0.02)
+        releaseIdx = releaseDict.get(releaseBucket, 0)
+        releaseDict[releaseBucket] = releaseIdx + 1
         krm = KernelReleaseMarker(kernel, self.firstTime, self.totalTime,
                                   self.numSms, self.width, self.height, color, patternType, releaseIdx)
         krm.draw(self.canvas)
