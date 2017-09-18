@@ -376,21 +376,76 @@ class BlockSMRect(object):
         self.outline.draw(canvas)
         self.label.draw(canvas)
 
-class KernelReleaseMarker(Line):
+class KernelReleaseMarker(object):
     def __init__(self, kernel, firstTime, totalTime, totalNumSms, w, h, color, patternType, idx):
+        self.lines = []
+        self.build_marker(kernel, firstTime, totalTime, totalNumSms, w, h, color, patternType, idx)
+
+    def build_marker(self, kernel, firstTime, totalTime, totalNumSms, w, h, color, patternType, idx):
         releaseTime = kernel.releaseTime
+        if patternType != None:
+            color = patternColorToArrowColorMap[color]
+
+        # Heuristics that look good
+        mh = 20
+        mw = int(0.15 * mh)
 
         px = int(float(releaseTime - firstTime) / totalTime * (w-BUFFER_LEFT-BUFFER_RIGHT)) + BUFFER_LEFT
-        p1y = h - BUFFER_BOTTOM + 20 + idx * 20
-        p2y = p1y + 20
+        p1y = h - BUFFER_BOTTOM + mh + idx * mh
+        p2y = p1y + mh
 
-        Line.__init__(self, Point(px, p1y), Point(px, p2y))
-        self.setArrow("first")
-        self.setWidth(ARROW_WIDTH)
-        if patternType == None:
-            self.setFill(color)
-        else:
-            self.setFill(patternColorToArrowColorMap[color])
+        minx = px - 3*mw
+        maxx = px + 3*mw
+
+        midlx = px - mw
+        midrx = px + mw
+
+        midy = p1y + int(0.45 * mh)
+
+        #  /\
+        # /  \
+        line = Line(Point(minx, midy), Point(px, p1y))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        line = Line(Point(px, p1y), Point(maxx, midy))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        # _  _
+        line = Line(Point(minx, midy), Point(midlx, midy))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        line = Line(Point(midrx, midy), Point(maxx, midy))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        # | |
+        # | |
+        # |_|
+        line = Line(Point(midlx, midy), Point(midlx, p2y))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        line = Line(Point(midrx, midy), Point(midrx, p2y))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        line = Line(Point(midlx, p2y), Point(midrx, p2y))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+    def draw(self, canvas):
+        for line in self.lines:
+            line.draw(canvas)
 
 class Title(object):
     def __init__(self, w, h, name):
