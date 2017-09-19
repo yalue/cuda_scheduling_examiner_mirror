@@ -483,6 +483,12 @@ static void* RunBenchmark(void *data) {
       return NULL;
     }
   }
+  // Wait before cleaning up any benchmarks due to CUDA free causing implicit
+  // synchronization that blocks the CPU.
+  if (!BarrierWait(barrier, &local_sense)) {
+    printf("Failed waiting to sync before cleanup.\n");
+    return NULL;
+  }
   if (benchmark->cleanup) benchmark->cleanup(user_data);
   if (fprintf(config->output_file, "\n]}") < 0) {
     printf("Failed writing footer to output file.\n");
