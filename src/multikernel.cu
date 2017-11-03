@@ -305,10 +305,17 @@ static void* Initialize(InitializationParameters *params) {
   BenchmarkState *state = NULL;
   // Allocate the local data for this benchmark and associate with a GPU.
   state = (BenchmarkState *) malloc(sizeof(*state));
+  if (!state) return NULL;
   memset(state, 0, sizeof(*state));
-  if (!CheckCUDAError(cudaSetDevice(params->cuda_device))) return NULL;
+  if (!CheckCUDAError(cudaSetDevice(params->cuda_device))) {
+    Cleanup(state);
+    return NULL;
+  }
   // Parse the configuration string and allocate most of the memory.
-  if (!InitializeKernelConfigs(state, params->additional_info)) return NULL;
+  if (!InitializeKernelConfigs(state, params->additional_info)) {
+    Cleanup(state);
+    return NULL;
+  }
   // Allocate the structures passed to the caller during CopyOut.
   state->kernel_times = (KernelTimes *) malloc(state->kernel_count *
     sizeof(*(state->kernel_times)));

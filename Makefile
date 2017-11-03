@@ -18,7 +18,7 @@ all: directories benchmarks bin/runner
 benchmarks: bin/mandelbrot.so bin/timer_spin.so bin/multikernel.so \
 	bin/cpu_inorder_walk.so bin/cpu_random_walk.so bin/inorder_walk.so \
 	bin/random_walk.so bin/sharedmem_timer_spin.so bin/counter_spin.so \
-	bin/timer_spin_default_stream.so
+	bin/timer_spin_default_stream.so bin/stream_action.so
 
 directories:
 	mkdir -p bin/
@@ -57,6 +57,11 @@ bin/sharedmem_timer_spin.so: src/sharedmem_timer_spin.cu \
 		$(BENCHMARK_DEPENDENCIES) obj/cjson.o
 	nvcc --shared $(NVCCFLAGS) -o bin/sharedmem_timer_spin.so \
 		src/sharedmem_timer_spin.cu obj/benchmark_gpu_utilities.o obj/cjson.o
+
+bin/stream_action.so: src/stream_action.cu src/stream_action.h \
+		$(BENCHMARK_DEPENDENCIES) obj/cjson.o
+	nvcc --shared $(NVCCFLAGS) -o bin/stream_action.so src/stream_action.cu \
+		obj/benchmark_gpu_utilities.o obj/cjson.o
 
 bin/cpu_inorder_walk.so: src/cpu_inorder_walk.c src/library_interface.h
 	gcc $(CFLAGS) -shared -o bin/cpu_inorder_walk.so src/cpu_inorder_walk.c
