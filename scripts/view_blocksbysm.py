@@ -380,16 +380,27 @@ class BlockSMRect(object):
 class KernelReleaseMarker(object):
     def __init__(self, kernel, firstTime, totalTime, totalNumSms, w, h, color, patternType, idx):
         self.lines = []
-        self.build_marker(kernel, firstTime, totalTime, totalNumSms, w, h, color, patternType, idx)
+
+        self.arrow_height = 20
+        self.arrow_width = int(0.3 * self.arrow_height)
+
+        # If the start and end of the release times are close together,
+        # just build a small straight arrow
+        if float(kernel.releaseTimeEnd - kernel.releaseTimeStart) / (totalTime - firstTime) <= \
+           (4.5 * self.arrow_width) / w:
+            self.build_marker(kernel, firstTime, totalTime, totalNumSms, w, h, color, patternType, idx)
+
+        # Otherwise, build a long |__^ arrow to show their differences
+        else:
+            self.build_double_marker(kernel, firstTime, totalTime, totalNumSms, w, h, color, patternType, idx)
 
     def build_marker(self, kernel, firstTime, totalTime, totalNumSms, w, h, color, patternType, idx):
         releaseTime = kernel.releaseTime
         if patternType != None:
             color = patternColorToArrowColorMap[color]
 
-        # Heuristics that look good
-        mh = 20
-        mw = int(0.15 * mh)
+        mh = self.arrow_height
+        mw = self.arrow_width / 2
 
         px = int(float(releaseTime - firstTime) / totalTime * (w-BUFFER_LEFT-BUFFER_RIGHT)) + BUFFER_LEFT
         p1y = h - BUFFER_BOTTOM + mh + idx * mh
@@ -440,6 +451,97 @@ class KernelReleaseMarker(object):
         self.lines.append(line)
 
         line = Line(Point(midlx, p2y), Point(midrx, p2y))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+    def build_double_marker(self, kernel, firstTime, totalTime, totalNumSms, w, h, color, patternType, idx):
+        releaseTimeStart = kernel.releaseTimeStart
+        releaseTimeEnd = kernel.releaseTimeEnd
+        if patternType != None:
+            color = patternColorToArrowColorMap[color]
+
+        mh = self.arrow_height
+        mw = self.arrow_width / 2
+
+        p1x = int(float(releaseTimeStart - firstTime) / totalTime * (w-BUFFER_LEFT-BUFFER_RIGHT)) + BUFFER_LEFT
+        p2x = int(float(releaseTimeEnd - firstTime) / totalTime * (w-BUFFER_LEFT-BUFFER_RIGHT)) + BUFFER_LEFT
+        p1y = h - BUFFER_BOTTOM + mh + idx * mh
+        p2y = p1y + mh
+
+        min1x = p1x - mw
+        max1x = p1x + mw
+
+        min2x = p2x - 3*mw
+        max2x = p2x + 3*mw
+
+        mid2lx = p2x - mw
+        mid2rx = p2x + mw
+
+        mid1y = p2y - 2*mw
+        mid2y = p1y + int(0.45 * mh)
+
+        # __
+        # | |
+        # | |_________
+        # |_____________
+        line = Line(Point(min1x, p1y), Point(max1x, p1y))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        line = Line(Point(min1x, p1y), Point(min1x, p2y))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        line = Line(Point(max1x, p1y), Point(max1x, mid1y))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        line = Line(Point(min1x, p2y), Point(mid2rx, p2y))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        line = Line(Point(max1x, mid1y), Point(mid2lx, mid1y))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        #  /\
+        # /  \
+        line = Line(Point(min2x, mid2y), Point(p2x, p1y))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        line = Line(Point(p2x, p1y), Point(max2x, mid2y))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        # _  _
+        line = Line(Point(min2x, mid2y), Point(mid2lx, mid2y))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        line = Line(Point(mid2rx, mid2y), Point(max2x, mid2y))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        # | |
+        # | |
+        #   |
+        line = Line(Point(mid2lx, mid2y), Point(mid2lx, mid1y))
+        line.setWidth(ARROW_WIDTH)
+        line.setFill(color)
+        self.lines.append(line)
+
+        line = Line(Point(mid2rx, mid2y), Point(mid2rx, p2y))
         line.setWidth(ARROW_WIDTH)
         line.setFill(color)
         self.lines.append(line)
