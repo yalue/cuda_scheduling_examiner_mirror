@@ -41,12 +41,12 @@ typedef struct {
   uint64_t walk_buffer_length;
   // Holds host-side times that are shared with the calling process.
   KernelTimes walk_kernel_times;
-} BenchmarkState;
+} TaskState;
 
 // Implements the cleanup function required by the library interface, but is
 // also called internally (only during Initialize()) to clean up after errors.
 static void Cleanup(void *data) {
-  BenchmarkState *state = (BenchmarkState *) data;
+  TaskState *state = (TaskState *) data;
   KernelTimes *host_times = &state->walk_kernel_times;
   // Free device memory.
   if (state->device_block_times) cudaFree(state->device_block_times);
@@ -66,7 +66,7 @@ static void Cleanup(void *data) {
 }
 
 // Allocates GPU and CPU memory. Returns 0 on error, 1 otherwise.
-static int AllocateMemory(BenchmarkState *state) {
+static int AllocateMemory(TaskState *state) {
   uint64_t block_times_size = state->block_count * sizeof(uint64_t) * 2;
   uint64_t block_smids_size = state->block_count * sizeof(uint32_t);
   KernelTimes *host_times = &state->walk_kernel_times;
@@ -102,7 +102,7 @@ static int AllocateMemory(BenchmarkState *state) {
 // If the given argument is a non-NULL, non-empty string, attempts to set
 // memory_access_count by parsing it. Otherwise, this function will set the
 // count to a default value. Returns 0 on error.
-static int SetMemoryAccessCount(const char *arg, BenchmarkState *state) {
+static int SetMemoryAccessCount(const char *arg, TaskState *state) {
   int64_t parsed_value;
   if (!arg || (strlen(arg) == 0)) {
     state->memory_access_count = DEFAULT_MEMORY_ACCESS_COUNT;
@@ -165,11 +165,11 @@ static __global__ void InitialWalk(uint32_t *walk_buffer,
 }
 
 static void* Initialize(InitializationParameters *params) {
-  BenchmarkState *state = NULL;
+  TaskState *state = NULL;
   uint64_t i;
   uint32_t *host_initial_buffer = NULL;
   // First allocate space for local data.
-  state = (BenchmarkState *) malloc(sizeof(*state));
+  state = (TaskState *) malloc(sizeof(*state));
   if (!state) return NULL;
   memset(state, 0, sizeof(*state));
   if (!CheckCUDAError(cudaSetDevice(params->cuda_device))) return NULL;
@@ -260,7 +260,7 @@ static __global__ void WalkKernel(uint64_t access_count,
 }
 
 static int Execute(void *data) {
-  BenchmarkState *state = (BenchmarkState *) data;
+  TaskState *state = (TaskState *) data;
   state->walk_kernel_times.cuda_launch_times[0] = CurrentSeconds();
   WalkKernel<<<state->block_count, state->thread_count, 0, state->stream>>>(
     state->memory_access_count, state->device_accumulator,
@@ -273,7 +273,7 @@ static int Execute(void *data) {
 }
 
 static int CopyOut(void *data, TimingInformation *times) {
-  BenchmarkState *state = (BenchmarkState *) data;
+  TaskState *state = (TaskState *) data;
   KernelTimes *host_times = &state->walk_kernel_times;
   uint64_t block_times_count = state->block_count * 2;
   uint64_t block_smids_count = state->block_count;

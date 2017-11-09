@@ -99,7 +99,8 @@ The layout of each configuration file is as follows:
       "additional_info": <A JSON object of any format. Optional. This can be
         used to pass additional benchmark-specific configuration parameters.>,
       "max_iterations": <Number. Optional. If specified, overrides the default
-        max_iterations for this benchmark alone. 0 = unlimited.>,
+        max_iterations for this benchmark alone. 0 = unlimited. If this is
+        provided for any benchmark, then sync_every_iteration must be false.>,
       "max_time": <Number. Optional. If specified, overrides the default
         max_time for this benchmark alone. 0 = unlimited.>,
       "release_time": <Number. Optional. If set, this benchmark will sleep for

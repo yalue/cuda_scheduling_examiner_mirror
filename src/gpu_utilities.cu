@@ -24,7 +24,8 @@
 static int InternalCUDAErrorCheck(cudaError_t result, const char *fn,
     const char *file, int line) {
   if (result == cudaSuccess) return 1;
-  printf("CUDA error %d in %s, line %d (%s)\n", (int) result, file, line, fn);
+  printf("CUDA error %d: %s. In %s, line %d (%s)\n", (int) result,
+    cudaGetErrorString(result), file, line, fn);
   return 0;
 }
 

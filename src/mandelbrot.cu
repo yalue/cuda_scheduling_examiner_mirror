@@ -56,11 +56,11 @@ typedef struct {
   int thread_count;
   // Holds host-side times that are shared with the calling process.
   KernelTimes mandelbrot_kernel_times;
-} ThreadInformation;
+} TaskState;
 
 // Implements the Cleanup() function required by the library interface.
 static void Cleanup(void *data) {
-  ThreadInformation *info = (ThreadInformation *) data;
+  TaskState *info = (TaskState *) data;
   KernelTimes *host_times = &info->mandelbrot_kernel_times;
   // Device memory
   if (info->device_points) cudaFree(info->device_points);
@@ -80,7 +80,7 @@ static void Cleanup(void *data) {
 }
 
 // Allocates GPU and CPU memory. Returns 0 on error, 1 otherwise.
-static int AllocateMemory(ThreadInformation *info) {
+static int AllocateMemory(TaskState *info) {
   uint64_t buffer_size = info->dimensions.w * info->dimensions.h;
   uint64_t block_times_size = info->block_count * sizeof(uint64_t) * 2;
   uint64_t block_smids_size = info->block_count * sizeof(uint32_t);
@@ -115,7 +115,7 @@ static int AllocateMemory(ThreadInformation *info) {
 // Checks the additional_info argument to see if it's non-empty and non-NULL,
 // in which case it can override the default max iterations if it's parsed into
 // a valid base-10 integer.
-static int SetMaxIterations(const char *arg, ThreadInformation *info) {
+static int SetMaxIterations(const char *arg, TaskState *info) {
   int64_t parsed_value;
   if (!arg || (strlen(arg) == 0)) {
     info->max_iterations = DEFAULT_MAX_ITERATIONS;
@@ -133,9 +133,9 @@ static int SetMaxIterations(const char *arg, ThreadInformation *info) {
 
 // Implements the Initialize() function required by the library interface.
 static void* Initialize(InitializationParameters *params) {
-  ThreadInformation *info = NULL;
+  TaskState *info = NULL;
   FractalDimensions *dimensions = NULL;
-  info = (ThreadInformation *) malloc(sizeof(*info));
+  info = (TaskState *) malloc(sizeof(*info));
   if (!info) {
     printf("Failed allocating library state variables.\n");
     return NULL;
@@ -234,7 +234,7 @@ static __global__ void BasicMandelbrot(uint8_t *data, uint64_t iterations,
 }
 
 static int Execute(void *data) {
-  ThreadInformation *info = (ThreadInformation *) data;
+  TaskState *info = (TaskState *) data;
   info->mandelbrot_kernel_times.cuda_launch_times[0] = CurrentSeconds();
   BasicMandelbrot<<<info->block_count, info->thread_count, 0, info->stream>>>(
     info->device_points, info->max_iterations, info->dimensions,
@@ -246,7 +246,7 @@ static int Execute(void *data) {
 }
 
 static int CopyOut(void *data, TimingInformation *times) {
-  ThreadInformation *info = (ThreadInformation *) data;
+  TaskState *info = (TaskState *) data;
   KernelTimes *host_times = &info->mandelbrot_kernel_times;
   uint64_t block_times_count = info->block_count * 2;
   uint64_t block_smids_count = info->block_count;
