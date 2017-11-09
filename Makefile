@@ -58,8 +58,8 @@ bin/sharedmem_timer_spin.so: src/sharedmem_timer_spin.cu \
 	nvcc --shared $(NVCCFLAGS) -o bin/sharedmem_timer_spin.so \
 		src/sharedmem_timer_spin.cu obj/benchmark_gpu_utilities.o obj/cjson.o
 
-bin/stream_action.so: src/stream_action.cu src/stream_action.h \
-		$(BENCHMARK_DEPENDENCIES) obj/cjson.o
+bin/stream_action.so: src/stream_action.cu $(BENCHMARK_DEPENDENCIES) \
+		obj/cjson.o
 	nvcc --shared $(NVCCFLAGS) -o bin/stream_action.so src/stream_action.cu \
 		obj/benchmark_gpu_utilities.o obj/cjson.o
 

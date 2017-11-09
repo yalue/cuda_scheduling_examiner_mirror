@@ -7,19 +7,19 @@
 // additional_info.
 //
 // The format of the necessary additional_info field is as follows. Each object
-// in the "actions" list must have a type that is one of "launchKernel",
-// "cudaMalloc", "cudaFree", "cudaMemset", "cudaMemcpy", or "synchronize".
-// Memory operations such as malloc, free memset, and memcpy operate on buffers
-// separate from each other. For example, a malloc doesn't need to precede a
-// memset, because memset buffers will be allocated during initialization.
-// "Free" can't come before a malloc, though. Any unfreed mallocs from these
-// actions will be freed during benchmark cleanup. Synchronization actions are
-// available solely to experiment with scheduling, and are not necessary for
-// the task. A stream-synchronization request will be issued at the end of all
-// actions regardless of whether an explicit, additional synchronization action
-// was carried out.
+// in the "actions" list must have a type that is one of "kernel", "malloc",
+// "free", "memset", "memcpy", or "synchronize". Memory operations such as
+// malloc, free memset, and memcpy operate on buffers separate from each other.
+// For example, a malloc doesn't need to precede a memset, because memset
+// buffers will be allocated during initialization. The only limitation is that
+// only a small number of unbalanced malloc and free operations are allowed.
+// Any unfreed mallocs from these actions will be freed during benchmark
+// cleanup. Synchronization actions are available solely to experiment with
+// scheduling, and are not necessary for the task. A stream-synchronization
+// request will be issued at the end of all actions regardless of whether an
+// explicit, additional synchronization action was carried out.
 
-// For more details about parameters for eac action, see the annotated JSON
+// For more details about parameters for each action, see the annotated JSON
 // structure below:
 /*
 "additional_info": {
@@ -34,7 +34,7 @@
       "parameters": <A JSON object with action-specific parameters.>
     },
     {
-      "type": "launchKernel",
+      "type": "kernel",
       "label": "Kernel 1",
       "parameters": {
         "type": <A string: "timer_spin" or "counter_spin". Defaults to
@@ -50,7 +50,7 @@
           the value given in the benchmark parameters.>
       },
       {
-        "type": "cudaMalloc",
+        "type": "malloc",
         "label": "Malloc 1",
         "parameters": {
           "host": <Boolean. Defaults to false. If true, will allocate host
@@ -59,7 +59,7 @@
         }
       },
       {
-        "type": "cudaFree",
+        "type": "free",
         "label": "Free 1",
         "parameters": {
           "host": <Boolean. Defaults to false. If true, will free host memory.
@@ -67,7 +67,7 @@
         }
       },
       {
-        "type": "cudaMemset",
+        "type": "memset",
         "label": "Memset 1",
         "parameters": {
           "async": <Boolean. Defaults to true. If false, will issue a
@@ -76,7 +76,7 @@
         }
       },
       {
-        "type": "cudaMemcpy",
+        "type": "memcpy",
         "label": Memcpy 1",
         "parameters": {
           "async": <Boolean. Defaults to true. If false, issues a null-stream
@@ -110,12 +110,214 @@
 #include "benchmark_gpu_utilities.h"
 #include "library_interface.h"
 #include "third_party/cJSON.h"
-#include "stream_action.h"
 
 // This specifies the maximum number of un-freed malloc actions that can occur
 // before further allocations return an error instead. Any list with this many
 // or fewer (balanced) malloc and free actions can run indefinitely.
 #define MAX_MEMORY_ALLOCATION_COUNT (10)
+
+// This specifies the number of pre-allocated buffers that are allocated during
+// initialization, so that a number of free actions can be used without a
+// preceding malloc. This can be at most MAX_MEMORY_ALLOCATION_COUNT.
+#define INITIAL_ALLOCATION_COUNT (4)
+
+// This speicifies the size, in bytes, of the pre-allocated buffers.
+#define INITIAL_ALLOCATION_SIZE (1024)
+
+// This macro is used to create functions that statically use predefined
+// amounts of shared memory. This is used by the GENERATE_KERNEL macro.
+#define GENERATE_SHARED_MEMORY_FUNCTION(amount) \
+  static __device__ uint32_t UseSharedMemory_##amount(void) { \
+    __shared__ uint32_t shared_array[(amount)]; \
+    uint32_t elements_per_thread, i; \
+    elements_per_thread = (amount) / blockDim.x; \
+    for (i = 0; i < elements_per_thread; i++) { \
+      shared_array[threadIdx.x * elements_per_thread + i] = threadIdx.x; \
+    } \
+    return shared_array[threadIdx.x * elements_per_thread]; \
+  }
+
+// Generates kernels that use the given amount of shared memory. Kernels have
+// names like SharedMemGPUSpin_<amount>, and take the following parameters:
+// (int counter, uint64_t duration, uint64_t *block_times,
+// uint32_t *block_smids, uint64_t *junk). If the "counter" parameter is
+// nonzero, then a constant amount of computation will be carried out rather
+// than waiting for a constant amount of time. The "junk" parameter is used to
+// prevent optimizations, and must be NULL. Otherwise, this kernel operates
+// similarly to the simpler GPUSpin kernel in stream_action.cu. This WILL NOT
+// work for 0 bytes of shared memory--that's what the plain GPUSpin in
+// stream_action.cu is for.
+#define GENERATE_SPIN_KERNEL(amount) \
+  /* Produce a function that uses shared memory */ \
+  GENERATE_SHARED_MEMORY_FUNCTION(amount) \
+  static __global__ void SharedMemGPUSpin_##amount(int use_counter, \
+    uint64_t duration, uint64_t *block_times, uint32_t *block_smids, \
+    uint64_t *junk) { \
+    uint32_t shared_mem_res; \
+    uint64_t i, accumulator; \
+    uint64_t start_time = GlobalTimer64(); \
+    if (threadIdx.x == 0) { \
+      block_times[blockIdx.x * 2] = start_time; \
+      block_smids[blockIdx.x] = GetSMID(); \
+    } \
+    __syncthreads(); \
+    /* shared_mem_res is our thread index */ \
+    shared_mem_res = UseSharedMemory_##amount(); \
+    if (use_counter) { \
+      for (i = 0; i < duration; i++) { \
+        accumulator += i; \
+      } \
+    } else { \
+      while ((GlobalTimer64() - start_time) < duration) { \
+        continue; \
+      } \
+    } \
+    if (junk) *junk = accumulator; \
+    if (shared_mem_res == 0) { \
+      block_times[blockIdx.x * 2 + 1] = GlobalTimer64(); \
+    } \
+  }
+
+// This holds parameters for the kernel action.
+typedef struct {
+  // The grid dimensions for this kernel.
+  int block_count;
+  int thread_count;
+  // The amount of shared memory used by this kernel.
+  int shared_memory_count;
+  // If this is nonzero, the counter_spin kernel will be used, which performs
+  // a constant amount of busywork computations. If this is zero, the
+  // timer_spin kernel will be used instead, which waits until a certain number
+  // of nanoseconds have elapsed.
+  int use_counter_spin;
+  // The number of either spin iterations or nanoseconds this kernel runs for
+  // (depending on whether it is a timer spin or counter spin kernel).
+  uint64_t duration;
+  // Hold the times needed for a CUDA kernel.
+  uint64_t *device_block_times;
+  uint64_t *host_block_times;
+  uint32_t *device_smids;
+  uint32_t *host_smids;
+} KernelParameters;
+
+// This holds parameters for the cudaMalloc action.
+typedef struct {
+  // This is the number of bytes to allocate.
+  uint64_t size;
+  // If nonzero, call cudaMallocHost rather than cudaMalloc.
+  int allocate_host_memory;
+} MallocParameters;
+
+// This holds parameters for the cudaFree action.
+typedef struct {
+  // If nonzero, call cudaFreeHost rather than cudaFree.
+  int free_host_memory;
+} FreeParameters;
+
+// This holds parameters for the cudaMemset action, which sets bytes to a
+// random 8-bit value.
+typedef struct {
+  // If nonzero, then cudaMemset will be called (associated with no stream),
+  // rather than cudaMemsetAsync, which will use the task's specified stream.
+  int synchronous;
+  // This contains the number of bytes to set.
+  uint64_t size;
+} MemsetParameters;
+
+// This holds parameters for the cudaMemcpy action, which copies data between
+// host and device, or two device buffers.
+typedef struct {
+  // One of the cudaMemcpyKind values. However, values 0 (host - host) and 4
+  // (unspecified) are not supported.
+  cudaMemcpyKind direction;
+  // If nonzero, then cudaMemcpy will be used. If 0, then cudaMemcpyAsync is
+  // used, associated with the task's stream.
+  int synchronous;
+  // The number of bytes to copy.
+  uint64_t size;
+} MemcpyParameters;
+
+// This holds parameters for the synchronize action.
+typedef struct {
+  // If this is nonzero, then cudaDeviceSynchronize will be called. Otherwise,
+  // cudaStreamSynchronize is called, associated with the task's stream.
+  int sync_device;
+} SyncParameters;
+
+// This is used as a tag to identify the parameters and behavior to carry out
+// for each action supported by the benchmark.
+typedef enum {
+  ACTION_UNINITIALIZED = 0,
+  ACTION_KERNEL,
+  ACTION_MALLOC,
+  ACTION_FREE,
+  ACTION_MEMSET,
+  ACTION_MEMCPY,
+  ACTION_SYNC,
+} ActionType;
+
+// This defines the behavior and parameters for all potential actions.
+typedef struct {
+  // The number of seconds to sleep after the current action's completion,
+  // before launching this one.
+  double delay;
+  // The label (typically a kernel name) to give this action.
+  char *label;
+  ActionType type;
+  union {
+    KernelParameters kernel;
+    MallocParameters malloc;
+    FreeParameters free;
+    MemsetParameters memset;
+    MemcpyParameters memcpy;
+    SyncParameters sync;
+  } parameters;
+} ActionConfig;
+
+// Holds local information for each instantiation of this benchmark.
+typedef struct {
+  // The CUDA stream with which all operations will be associated.
+  cudaStream_t stream;
+  // The CUDA stream with which copy_out operations will be associated. May
+  // differ from the regular stream, because this will never be the NULL
+  // stream.
+  cudaStream_t copy_out_stream;
+  // This will be set to 1 if the stream was created and must be closed during
+  // cleanup (it can remain 0 if the NULL stream is used).
+  int stream_created;
+  // The number of actions to perform per execution.
+  int action_count;
+  // The list of actions to perform.
+  ActionConfig *actions;
+  // The number of actions which are kernel launches.
+  int kernel_count;
+  // Information to provide to the host process about block start and end times
+  // for each kernel action.
+  KernelTimes *kernel_times;
+  // A buffer of host memory for copies and memsets. May be NULL if not needed.
+  // Is guaranteed to be the size of the largest copy or memset needed by any
+  // action.
+  uint8_t *host_copy_buffer;
+  // A buffer of device memory for copies and memsets. May be NULL if not
+  // needed. This is guaranteed to be the size of the largest copy or memset
+  // needed by any action.
+  uint8_t *device_copy_buffer;
+  // This will be a secondary device buffer, but will only be allocated if a
+  // device-to-device memory copy is used.
+  uint8_t *device_secondary_buffer;
+  // This is a stack of pointers to device memory allocated by cudaMalloc
+  // actions.
+  uint8_t **device_memory_allocations;
+  // Holds the number of pointers in the device_memory_allocations list. This
+  // increases with each cudaMalloc action and decreases with each cudaFree.
+  int device_memory_allocation_count;
+  // This is a stack of pointers to host memory allocated by cudaMallocHost.
+  // It works in the same way as device_memory_allocations.
+  uint8_t **host_memory_allocations;
+  // This is analagous to device_memory_allocation_count, but for host memory
+  // allocations.
+  int host_memory_allocation_count;
+} TaskState;
 
 // Use the macros defined in stream_action.h to generate a set of kernels using
 // various amounts of static shared memory.
@@ -554,15 +756,15 @@ static int ParseSingleAction(cJSON *object, ActionConfig *action,
     printf("Missing/invalid action type for stream_action.so.\n");
     return 0;
   }
-  if (strcmp(entry->valuestring, "launchKernel") == 0) {
+  if (strcmp(entry->valuestring, "kernel") == 0) {
     type = ACTION_KERNEL;
-  } else if (strcmp(entry->valuestring, "cudaMalloc") == 0) {
+  } else if (strcmp(entry->valuestring, "malloc") == 0) {
     type = ACTION_MALLOC;
-  } else if (strcmp(entry->valuestring, "cudaFree") == 0) {
+  } else if (strcmp(entry->valuestring, "free") == 0) {
     type = ACTION_FREE;
-  } else if (strcmp(entry->valuestring, "cudaMemset") == 0) {
+  } else if (strcmp(entry->valuestring, "memset") == 0) {
     type = ACTION_MEMSET;
-  } else if (strcmp(entry->valuestring, "cudaMemcpy") == 0) {
+  } else if (strcmp(entry->valuestring, "memcpy") == 0) {
     type = ACTION_MEMCPY;
   } else if (strcmp(entry->valuestring, "synchronize") == 0) {
     type = ACTION_SYNC;
@@ -579,6 +781,14 @@ static int ParseSingleAction(cJSON *object, ActionConfig *action,
   }
   action->label = strdup(entry->valuestring);
   if (!action->label) return 0;
+  entry = cJSON_GetObjectItem(object, "delay");
+  if (entry) {
+    if (entry->type != cJSON_Number) {
+      printf("Invalid delay for stream_action.so.\n");
+      return 0;
+    }
+    action->delay = entry->valuedouble;
+  }
   // Last, parse the action-specific parameters. Remember that additional
   // parameters are optional for some actions, so only ensure that the
   // parameters are an object if they're non-NULL.
@@ -670,7 +880,7 @@ static int ParseParameters(TaskState *state,
     goto ErrorCleanup;
   }
   state->stream_created = 1;
-  // If the NULL stream wasn't speicified, then use the user-defined stream
+  // If the NULL stream wasn't specified, then use the user-defined stream
   // for all other operations, too.
   if (use_null_stream) {
     state->stream = 0;
@@ -736,6 +946,28 @@ static int AllocateKernelActionMemory(KernelParameters *parameters) {
   return 1;
 }
 
+// Preallocates a set of buffers so that a limited number of free actions don't
+// necessarily need to follow malloc actions. Returns 0 on error.
+static int PreallocateFreeActionBuffers(TaskState *state) {
+  int i;
+  uint8_t **dest = NULL;
+  for (i = 0; i < INITIAL_ALLOCATION_COUNT; i++) {
+    dest = state->device_memory_allocations + i;
+    if (!CheckCUDAError(cudaMalloc(dest, INITIAL_ALLOCATION_SIZE))) {
+      return 0;
+    }
+    // Increment these values one step at a time, so they can be cleaned up
+    // properly if one of the later allocations fails.
+    state->device_memory_allocation_count++;
+    dest = state->host_memory_allocations + i;
+    if (!CheckCUDAError(cudaMallocHost(dest, INITIAL_ALLOCATION_SIZE))) {
+      return 0;
+    }
+    state->host_memory_allocation_count++;
+  }
+  return 1;
+}
+
 // Takes a TaskState after fully parsing InitializationParameters (i.e. the
 // actions list is populated). Allocates necessary buffers for kernel actions,
 // memory sets and copies, holding pointers for malloc actions, and buffers of
@@ -762,6 +994,8 @@ static int AllocateMemory(TaskState *state) {
       case ACTION_MALLOC:
         malloc_action_exists = 1;
         break;
+      case ACTION_FREE:
+        malloc_action_exists = 1;
       case ACTION_MEMSET:
         current_size = action->parameters.memset.size;
         if (current_size > max_size) max_size = current_size;
@@ -802,10 +1036,11 @@ static int AllocateMemory(TaskState *state) {
     }
     state->host_memory_allocations = (uint8_t**) calloc(
       MAX_MEMORY_ALLOCATION_COUNT, sizeof(uint8_t*));
-    if (state->host_memory_allocations) {
+    if (!state->host_memory_allocations) {
       printf("Failed allocating list of host memory allocation pointers.\n");
       return 0;
     }
+    if (!PreallocateFreeActionBuffers(state)) return 0;
   }
   // Any pointers contained in the individual KernelTimes entries are simply
   // copied from KernelParameters structs after execution--they don't need to
@@ -829,7 +1064,7 @@ static int InitializeKernelTimes(TaskState *state) {
   KernelTimes *current_times = NULL;
   ActionConfig *action = NULL;
   KernelParameters *params = NULL;
-  for (i = 0; i < state->kernel_count; i++) {
+  for (i = 0; i < state->action_count; i++) {
     action = state->actions + i;
     if (action->type != ACTION_KERNEL) continue;
     params = &(action->parameters.kernel);
@@ -840,6 +1075,7 @@ static int InitializeKernelTimes(TaskState *state) {
     current_times->shared_memory = params->shared_memory_count * 4;
     current_times->block_times = params->host_block_times;
     current_times->block_smids = params->host_smids;
+    kernel_index++;
   }
   return 1;
 }
@@ -883,7 +1119,7 @@ static int CopyIn(void *data) {
 static int CopyKernelActionMemoryOut(KernelParameters *kernel,
     cudaStream_t stream) {
   size_t block_times_size = 2 * kernel->block_count * sizeof(uint64_t);
-  size_t block_smids_size = 2 * kernel->block_count * sizeof(uint64_t);
+  size_t block_smids_size = kernel->block_count * sizeof(uint32_t);
   if (!CheckCUDAError(cudaMemcpyAsync(kernel->host_block_times,
     kernel->device_block_times, block_times_size, cudaMemcpyDeviceToHost,
     stream))) {
@@ -907,6 +1143,7 @@ static int CopyOut(void *data, TimingInformation *times) {
       return 0;
     }
   }
+  if (!CheckCUDAError(cudaStreamSynchronize(state->copy_out_stream))) return 0;
   // The kernel_times structs were already filled in with the correct pointers
   // during initialization, and the cuda_launch_times were filled in during the
   // execute phase. So now, all that needs to be done is provide the correct
@@ -923,7 +1160,8 @@ static int CopyOut(void *data, TimingInformation *times) {
 // times in the correct entry in the kernel_times array. Returns 0 on error.
 static int ExecuteKernelAction(TaskState *state, KernelParameters *params,
     int kernel_index) {
-  state->kernel_times[kernel_index].cuda_launch_times[0] = CurrentSeconds();
+  KernelTimes *kernel_time = state->kernel_times + kernel_index;
+  kernel_time->cuda_launch_times[0] = CurrentSeconds();
   switch (params->shared_memory_count) {
     case 0:
       GPUSpin<<<params->block_count, params->thread_count, 0, state->stream>>>(
@@ -952,8 +1190,8 @@ static int ExecuteKernelAction(TaskState *state, KernelParameters *params,
   }
   // Record the time after the kernel launch returns, but we don't know when
   // synchronization will complete in this benchmark, so set that entry to 0.
-  state->kernel_times[kernel_index].cuda_launch_times[1] = CurrentSeconds();
-  state->kernel_times[kernel_index].cuda_launch_times[2] = 0;
+  kernel_time->cuda_launch_times[1] = CurrentSeconds();
+  kernel_time->cuda_launch_times[2] = 0;
   return 1;
 }
 
@@ -972,12 +1210,12 @@ static int ExecuteMallocAction(TaskState *state, MallocParameters *params) {
     return 0;
   }
   if (params->allocate_host_memory) {
-    destination = &(state->host_memory_allocations[next_index]);
+    destination = state->host_memory_allocations + next_index;
     if (!CheckCUDAError(cudaMallocHost(destination, params->size))) return 0;
     state->host_memory_allocation_count++;
     return 1;
   }
-  destination = &(state->device_memory_allocations[next_index]);
+  destination = state->device_memory_allocations + next_index;
   if (!CheckCUDAError(cudaMalloc(destination, params->size))) return 0;
   state->device_memory_allocation_count++;
   return 1;
@@ -1088,9 +1326,6 @@ static int Execute(void *data) {
   for (i = 0; i < state->action_count; i++) {
     action = state->actions + i;
     if (action->delay > 0.0) {
-      // The delay is only applied after all of the previous stream work has
-      // completed.
-      if (!CheckCUDAError(cudaStreamSynchronize(state->stream))) return 0;
       SleepSeconds(state->actions[i].delay);
     }
     switch (action->type) {

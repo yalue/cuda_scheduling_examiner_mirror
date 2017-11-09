@@ -263,6 +263,16 @@ static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
       }
       // As with data_size, valuedouble provides a better range than valueint.
       benchmarks[i].max_iterations = entry->valuedouble;
+      // We can't sync every iteration if some benchmarks will never reach the
+      // barrier due to different numbers of iterations.
+      if (config->sync_every_iteration) {
+        printf("sync_every_iteration must be false if benchmark-specific "
+          "iteration counts are used.\n");
+        goto ErrorCleanup;
+      }
+      // We can't sync every iteration if different benchmarks run different
+      // numbers of iterations.
+      config->sync_every_iteration = 0;
     } else {
       // Remember, 0 means unlimited, negative means unset.
       benchmarks[i].max_iterations = -1;
@@ -427,7 +437,10 @@ GlobalConfiguration* ParseConfiguration(const char *filename) {
   } else {
     to_return->pin_cpus = 0;
   }
-  // The sync_every_iteration setting defaults to 0 (false)
+  // The sync_every_iteration setting defaults to 0 (false). This MUST be
+  // parsed before checking benchmark-specific configs, to ensure that no
+  // benchmark has a specific iteration count while sync_every_iteration is
+  // true.
   entry = cJSON_GetObjectItem(root, "sync_every_iteration");
   if (entry) {
     tmp = entry->type;
