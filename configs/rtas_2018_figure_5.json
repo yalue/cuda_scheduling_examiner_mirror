@@ -1,0 +1,68 @@
+{
+  "name": "RTAS 2018 Figure 5",
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "pin_cpus": true,
+  "benchmarks": [
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "rtas_2018_fig5_task1.json",
+      "label": "Task 1",
+      "thread_count": 512,
+      "block_count": 2,
+      "data_size": 0,
+      "additional_info": 1000000000
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "rtas_2018_fig5_task2.json",
+      "label": "Task 2",
+      "release_time": 0.2,
+      "thread_count": 512,
+      "block_count": 2,
+      "data_size": 0,
+      "additional_info": 2000000000
+    },
+    {
+      "filename": "./bin/stream_action.so",
+      "log_name": "rtas_2018_fig5_task3.json",
+      "label": "Task 3",
+      "release_time": 0.4,
+      "thread_count": 512,
+      "block_count": 2,
+      "data_size": 0,
+      "max_iterations": 1,
+      "additional_info": {
+        "use_null_stream": false,
+        "actions": [
+          {
+            "type": "synchronize",
+            "label": "Device Synchronize",
+            "parameters": {
+              "device": true
+            }
+          },
+          {
+            "delay": 0.2,
+            "type": "kernel",
+            "label": "K3",
+            "parameters": {
+              "duration": 250000000
+            }
+          }
+        ]
+      }
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "rtas_2018_fig5_task4.json",
+      "label": "Task 4",
+      "release_time": 0.8,
+      "thread_count": 512,
+      "block_count": 2,
+      "data_size": 0,
+      "additional_info": 2000000000
+    }
+  ]
+}
