@@ -43,7 +43,7 @@ typedef struct {
   int cpu_core;
   // The stream priority used to create the CUDA stream. Ignored if negative.
   int stream_priority;
-} SingleBenchmarkConfiguration;
+} BenchmarkConfiguration;
 
 // Holds default settings for all benchmarks, and a list of individual
 // benchmarks with their specific settings.
@@ -74,7 +74,7 @@ typedef struct {
   // The number of entries in the benchmarks list. Must never be 0.
   int benchmark_count;
   // The list of benchmarks to run.
-  SingleBenchmarkConfiguration *benchmarks;
+  BenchmarkConfiguration *benchmarks;
 } GlobalConfiguration;
 
 // Parses a JSON config file, and allocates and returns a GlobalConfiguration

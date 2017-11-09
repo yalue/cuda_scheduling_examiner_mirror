@@ -56,7 +56,7 @@ typedef struct {
   // This is used to force all threads or processes to wait until they are all
   // at the same point in execution.
   ProcessBarrier barrier;
-} ParentState;
+} SharedState;
 
 // Holds data about a given benchmark, in addition to configuration parameters.
 typedef struct {
@@ -78,8 +78,8 @@ typedef struct {
   // CPU affinity should be left as-is.
   int cpu_core;
   // Holds information shared between all benchmarks.
-  ParentState *parent_state;
-} ProcessConfig;
+  SharedState *shared_state;
+} TaskConfig;
 
 // Holds data about the CPU time taken to complete various phases of a
 // benchmark's iteration.
@@ -100,9 +100,9 @@ static pid_t GetThreadID(void) {
 
 // Converts the given GPU globaltimer value t to a number of seconds on the
 // CPU.
-static double GPUTimerToCPUTime(uint64_t t, ParentState *parent_state) {
-  uint64_t since_start = t - parent_state->starting_gpu_clock;
-  return (((double) since_start) / 1e9) * parent_state->gpu_time_scale;
+static double GPUTimerToCPUTime(uint64_t t, SharedState *shared_state) {
+  uint64_t since_start = t - shared_state->starting_gpu_clock;
+  return (((double) since_start) / 1e9) * shared_state->gpu_time_scale;
 }
 
 // Takes a standard string and fills the output buffer with a null-terminated
@@ -192,10 +192,10 @@ static int SleepSeconds(double seconds) {
 }
 
 // Sets the CPU affinity for the calling process or thread. Returns 0 on error
-// and nonzero on success. Requires a pointer to a ProcessConfig to determine
+// and nonzero on success. Requires a pointer to a TaskConfig to determine
 // whether the caller is a process or a thread. Does nothing if the process'
 // cpu_core is set to USE_DEFAULT_CPU_CORE.
-static int SetCPUAffinity(ProcessConfig *config) {
+static int SetCPUAffinity(TaskConfig *config) {
   cpu_set_t cpu_set;
   int result;
   int cpu_core = config->cpu_core;
@@ -204,7 +204,7 @@ static int SetCPUAffinity(ProcessConfig *config) {
   CPU_SET(cpu_core, &cpu_set);
   // Different functions are used for setting threads' and process' CPU
   // affinities.
-  if (config->parent_state->global_config->use_processes) {
+  if (config->shared_state->global_config->use_processes) {
     result = sched_setaffinity(0, sizeof(cpu_set), &cpu_set);
   } else {
     result = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set), &cpu_set);
@@ -217,7 +217,7 @@ static int SetCPUAffinity(ProcessConfig *config) {
 // floatig-point number of *seconds*, even though they are recorded in ns. This
 // code should not be included in benchmark timing measurements.
 static int WriteTimesToOutput(FILE *output, TimingInformation *times,
-    ParentState *parent_state) {
+    SharedState *shared_state) {
   // Times are printed relative to the program start time in order to make the
   // times smaller in the logs, rather than very large numbers.
   int i, j, block_time_count;
@@ -255,19 +255,19 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
       return 0;
     }
     // The time before the (CPU-side) kernel launch.
-    tmp = kernel_times->cuda_launch_times[0] - parent_state->starting_seconds;
+    tmp = kernel_times->cuda_launch_times[0] - shared_state->starting_seconds;
     if (fprintf(output, "%.9f, ", tmp) < 0) {
       return 0;
     }
     // The time after the kernel launch returned.
-    tmp = kernel_times->cuda_launch_times[1] - parent_state->starting_seconds;
+    tmp = kernel_times->cuda_launch_times[1] - shared_state->starting_seconds;
     if (fprintf(output, "%.9f, ", tmp) < 0) {
       return 0;
     }
     // The CPU time after the CUDA stream synchronize completed.
     if (kernel_times->cuda_launch_times[2] != 0) {
       tmp = kernel_times->cuda_launch_times[2] -
-        parent_state->starting_seconds;
+        shared_state->starting_seconds;
     } else {
       // The README states that this should be 0 if the time wasn't set.
       tmp = 0;
@@ -281,7 +281,7 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
     }
     block_time_count = kernel_times->block_count * 2;
     for (j = 0; j < block_time_count; j++) {
-      tmp = GPUTimerToCPUTime(kernel_times->block_times[j], parent_state);
+      tmp = GPUTimerToCPUTime(kernel_times->block_times[j], shared_state);
       // Print a comma after every block time except the last one.
       if (fprintf(output, "%.9f%s", tmp,
         j != (block_time_count - 1) ? "," : "") < 0) {
@@ -333,13 +333,13 @@ static int WriteCPUTimesToOutput(FILE *output, CPUTimes *t) {
 
 // Writes a block of metadata entries to the output JSON file. Returns 0 on
 // error.
-static int WriteOutputHeader(ProcessConfig *config) {
+static int WriteOutputHeader(TaskConfig *config) {
   FILE *output = config->output_file;
   char buffer[SANITIZE_JSON_BUFFER_SIZE];
   if (fprintf(output, "{\n") < 0) {
     return 0;
   }
-  SanitizeJSONString(config->parent_state->global_config->scenario_name,
+  SanitizeJSONString(config->shared_state->global_config->scenario_name,
     buffer, sizeof(buffer));
   if (fprintf(output, "\"scenario_name\": \"%s\",\n", buffer) < 0) {
     return 0;
@@ -355,7 +355,7 @@ static int WriteOutputHeader(ProcessConfig *config) {
     }
   }
   if (fprintf(output, "\"max_resident_threads\": %d,\n",
-    config->parent_state->max_resident_threads) < 0) {
+    config->shared_state->max_resident_threads) < 0) {
     return 0;
   }
   if (fprintf(output, "\"data_size\": %lld,\n",
@@ -369,7 +369,7 @@ static int WriteOutputHeader(ProcessConfig *config) {
     return 0;
   }
   // Only include the POSIX thread ID if threads are used.
-  if (!config->parent_state->global_config->use_processes) {
+  if (!config->shared_state->global_config->use_processes) {
     if (fprintf(output, "\"TID\": %d,\n", (int) GetThreadID()) < 0) {
       return 0;
     }
@@ -382,14 +382,14 @@ static int WriteOutputHeader(ProcessConfig *config) {
 }
 
 // Runs a single benchmark. This is usually called from a separate thread or
-// process. It takes a pointer to a ProcessConfig struct as an argument.
+// process. It takes a pointer to a TaskConfig struct as an argument.
 // It may print a message and return NULL on error. On success, it will simply
 // return some value. RegisterFunctions has already been called for this
 // benchmark, so the BenchmarkLibraryFunctions have been populated.
 static void* RunBenchmark(void *data) {
-  ProcessConfig *config = (ProcessConfig *) data;
+  TaskConfig *config = (TaskConfig *) data;
   BenchmarkLibraryFunctions *benchmark = &(config->benchmark);
-  ProcessBarrier *barrier = &(config->parent_state->barrier);
+  ProcessBarrier *barrier = &(config->shared_state->barrier);
   TimingInformation timing_info;
   void *user_data = NULL;
   const char *name = benchmark->get_name();
@@ -433,7 +433,7 @@ static void* RunBenchmark(void *data) {
     }
     // If sync_every_iteration is true, we'll wait here for previous iterations
     // of all benchmarks to complete.
-    if (config->parent_state->global_config->sync_every_iteration) {
+    if (config->shared_state->global_config->sync_every_iteration) {
       if (!BarrierWait(barrier, &local_sense)) {
         printf("Failed waiting to sync before an iteration.\n");
         return NULL;
@@ -441,7 +441,7 @@ static void* RunBenchmark(void *data) {
     }
     // Perform the copy_in phase of the benchmark.
     cpu_times.copy_in_start = CurrentSeconds() -
-      config->parent_state->starting_seconds;
+      config->shared_state->starting_seconds;
     // The copy_in, execute, and cleanup functions can be NULL. If so, ignore
     // them.
     if (benchmark->copy_in && !benchmark->copy_in(user_data)) {
@@ -452,25 +452,25 @@ static void* RunBenchmark(void *data) {
     // ever want to put something between copy_in and execute. Same goes for
     // the point between execute and copy_out.
     cpu_times.copy_in_end = CurrentSeconds() -
-      config->parent_state->starting_seconds;
+      config->shared_state->starting_seconds;
     // Perform the execute phase of the iteration.
     cpu_times.execute_start = CurrentSeconds() -
-      config->parent_state->starting_seconds;
+      config->shared_state->starting_seconds;
     if (benchmark->execute && !benchmark->execute(user_data)) {
       printf("Benchmark %s execute failed.\n", name);
       return NULL;
     }
     cpu_times.execute_end = CurrentSeconds() -
-      config->parent_state->starting_seconds;
+      config->shared_state->starting_seconds;
     // Perform the copy_out phase of the iteration.
     cpu_times.copy_out_start = CurrentSeconds() -
-      config->parent_state->starting_seconds;
+      config->shared_state->starting_seconds;
     if (!benchmark->copy_out(user_data, &timing_info)) {
       printf("Benchmark %s failed copying out.\n", name);
       return NULL;
     }
     cpu_times.copy_out_end = CurrentSeconds() -
-      config->parent_state->starting_seconds;
+      config->shared_state->starting_seconds;
     // Now, write the timing data we obtained the output file for this
     // instance.
     if (!WriteCPUTimesToOutput(config->output_file, &cpu_times)) {
@@ -478,7 +478,7 @@ static void* RunBenchmark(void *data) {
       return NULL;
     }
     if (!WriteTimesToOutput(config->output_file, &timing_info,
-      config->parent_state)) {
+      config->shared_state)) {
       printf("Benchmark %s failed writing to output file.\n", name);
       return NULL;
     }
@@ -501,7 +501,7 @@ static void* RunBenchmark(void *data) {
 // file. Returns NULL on error. The returned path should be freed once no
 // longer needed (e.g. the file has been opened).
 static char* GetLogFileName(GlobalConfiguration *config, int benchmark_index) {
-  SingleBenchmarkConfiguration *benchmark = config->benchmarks +
+  BenchmarkConfiguration *benchmark = config->benchmarks +
     benchmark_index;
   char temp_name[MAX_TEMP_FILENAME_SIZE];
   char *to_return = NULL;
@@ -549,26 +549,26 @@ static int CycleToNextCPU(int count, int current_cpu, cpu_set_t *cpu_set) {
 }
 
 // Takes the shared program state, then allocates and returns a list of
-// ProcessConfig structures, which can then be used to kick off the actual
-// benchmark processes. Returns 0 on error. The process_config_list will hold
+// TaskConfig structures, which can then be used to kick off the actual
+// benchmark processes. Returns 0 on error. The task_config_list will hold
 // exactly config->benchmark_count entries. FreeGlobalConfigruration must not
-// be called until after CleanupProcessConfigs has been called.
-static ProcessConfig* CreateProcessConfigs(ParentState *parent_state) {
+// be called until after CleanupTaskConfigs has been called.
+static TaskConfig* CreateTaskConfigs(SharedState *shared_state) {
   RegisterFunctionsFunction register_functions = NULL;
-  SingleBenchmarkConfiguration *benchmark = NULL;
+  BenchmarkConfiguration *benchmark = NULL;
   char *log_name;
   int i = 0;
   int cpu_count, current_cpu_core;
-  ProcessConfig *new_list = NULL;
-  GlobalConfiguration *config = parent_state->global_config;
+  TaskConfig *new_list = NULL;
+  GlobalConfiguration *config = shared_state->global_config;
   cpu_set_t cpu_set;
-  new_list = (ProcessConfig *) malloc(config->benchmark_count *
-    sizeof(ProcessConfig));
+  new_list = (TaskConfig *) malloc(config->benchmark_count *
+    sizeof(TaskConfig));
   if (!new_list) {
     printf("Failed allocating process config list.\n");
     return NULL;
   }
-  memset(new_list, 0, config->benchmark_count * sizeof(ProcessConfig));
+  memset(new_list, 0, config->benchmark_count * sizeof(TaskConfig));
   // This CPU count shouldn't be the number of available CPUs, but simply the
   // number at which our cyclic assignment to CPU cores rolls over.
   cpu_count = sysconf(_SC_NPROCESSORS_CONF);
@@ -620,7 +620,7 @@ static ProcessConfig* CreateProcessConfigs(ParentState *parent_state) {
       new_list[i].cpu_core = benchmark->cpu_core;
     }
     // Retain a pointer to the global configuration.
-    new_list[i].parent_state = parent_state;
+    new_list[i].shared_state = shared_state;
     // Now that all the easy information has been gathered, open the log file.
     log_name = GetLogFileName(config, i);
     if (!log_name) goto ErrorCleanup;
@@ -664,34 +664,32 @@ ErrorCleanup:
 
 // Cleans up and frees the list of configs. Each benchmark should have already
 // ended and been cleaned up by the time this is callsed.
-static void CleanupProcessConfigs(ProcessConfig *process_config_list,
-    int process_config_count) {
+static void CleanupTaskConfigs(TaskConfig *task_config_list,
+    int task_config_count) {
   int i;
-  for (i = 0; i < process_config_count; i++) {
-    fclose(process_config_list[i].output_file);
-    dlclose(process_config_list[i].library_handle);
+  for (i = 0; i < task_config_count; i++) {
+    fclose(task_config_list[i].output_file);
+    dlclose(task_config_list[i].library_handle);
   }
-  memset(process_config_list, 0, process_config_count * sizeof(ProcessConfig));
-  free(process_config_list);
+  memset(task_config_list, 0, task_config_count * sizeof(TaskConfig));
+  free(task_config_list);
 }
 
 // Runs the list of configurations as threads. Returns 0 on error.
-static int RunAsThreads(ParentState *parent_state,
-    ProcessConfig *process_configs) {
+static int RunAsThreads(SharedState *shared_state, TaskConfig *task_configs) {
   pthread_t *threads = NULL;
   int i, result, to_return;
   void *thread_result;
-  int process_config_count = parent_state->global_config->benchmark_count;
-  threads = (pthread_t *) malloc(process_config_count * sizeof(pthread_t));
+  int task_config_count = shared_state->global_config->benchmark_count;
+  threads = (pthread_t *) malloc(task_config_count * sizeof(pthread_t));
   if (!threads) {
     printf("Failed allocating space to hold thread IDs.\n");
     return 0;
   }
   to_return = 1;
-  memset(threads, 0, process_config_count * sizeof(pthread_t));
-  for (i = 0; i < process_config_count; i++) {
-    result = pthread_create(threads + i, NULL, RunBenchmark,
-      process_configs + i);
+  memset(threads, 0, task_config_count * sizeof(pthread_t));
+  for (i = 0; i < task_config_count; i++) {
+    result = pthread_create(threads + i, NULL, RunBenchmark, task_configs + i);
     if (result != 0) {
       printf("Failed starting a thread: %d\n", result);
       to_return = 0;
@@ -717,21 +715,21 @@ static int RunAsThreads(ParentState *parent_state,
 }
 
 // Like RunAsThreads, but runs benchmarks in separate processes instead.
-static int RunAsProcesses(ParentState *parent_state,
-    ProcessConfig *process_configs) {
+static int RunAsProcesses(SharedState *shared_state,
+    TaskConfig *task_configs) {
   pid_t *pids = NULL;
   int i;
   pid_t child_pid = 0;
   int child_status;
   int all_ok = 1;
-  int process_config_count = parent_state->global_config->benchmark_count;
-  pids = (pid_t *) malloc(process_config_count * sizeof(pid_t));
+  int task_config_count = shared_state->global_config->benchmark_count;
+  pids = (pid_t *) malloc(task_config_count * sizeof(pid_t));
   if (!pids) {
     printf("Failed allocating space to hold PIDs.\n");
     return 0;
   }
-  memset(pids, 0, process_config_count * sizeof(pid_t));
-  for (i = 0; i < process_config_count; i++) {
+  memset(pids, 0, task_config_count * sizeof(pid_t));
+  for (i = 0; i < task_config_count; i++) {
     child_pid = fork();
     // The parent process can keep generating child processes
     if (child_pid != 0) {
@@ -740,13 +738,13 @@ static int RunAsProcesses(ParentState *parent_state,
     }
     // The child process will run its benchmark and exit with a success if
     // everything went OK.
-    if (!RunBenchmark(process_configs + i)) {
+    if (!RunBenchmark(task_configs + i)) {
       exit(EXIT_FAILURE);
     }
     exit(EXIT_SUCCESS);
   }
   // As the parent, ensure that each child exited and exited with EXIT_SUCCESS.
-  for (i = 0; i < process_config_count; i++) {
+  for (i = 0; i < task_config_count; i++) {
     waitpid(pids[i], &child_status, 0);
     if (!WIFEXITED(child_status)) {
       printf("A child process ended without exiting properly.\n");
@@ -764,10 +762,10 @@ int main(int argc, char **argv) {
   int result;
   double host_start_seconds;
   uint64_t device_start_nanoseconds;
-  ParentState parent_state;
-  ProcessConfig *process_configs = NULL;
+  SharedState shared_state;
+  TaskConfig *task_configs = NULL;
   GlobalConfiguration *global_config = NULL;
-  memset(&parent_state, 0, sizeof(parent_state));
+  memset(&shared_state, 0, sizeof(shared_state));
   if (argc != 2) {
     printf("Usage: %s <config file.json>\n", argv[0]);
     return 1;
@@ -776,61 +774,61 @@ int main(int argc, char **argv) {
   global_config = ParseConfiguration(argv[1]);
   if (!global_config) return 1;
   printf("Config parsed: %s\n", argv[1]);
-  parent_state.global_config = global_config;
+  shared_state.global_config = global_config;
   // Next, get information about the GPU being used.
-  parent_state.max_resident_threads = GetMaxResidentThreads(
+  shared_state.max_resident_threads = GetMaxResidentThreads(
     global_config->cuda_device);
-  if (parent_state.max_resident_threads == 0) {
+  if (shared_state.max_resident_threads == 0) {
     printf("Error getting max number of resident threads.\n");
     FreeGlobalConfiguration(global_config);
     return 1;
   }
   // Next, create the structures that will be passed to each thread or process.
-  process_configs = CreateProcessConfigs(&parent_state);
-  if (!process_configs) {
+  task_configs = CreateTaskConfigs(&shared_state);
+  if (!task_configs) {
     FreeGlobalConfiguration(global_config);
     return 1;
   }
   printf("Process configs created.\n");
   // Next, calculate the difference in rates between the CPU clock and GPU
   // globaltimer.
-  parent_state.gpu_time_scale = GetGPUTimerScale(global_config->cuda_device);
-  if (parent_state.gpu_time_scale <= 0) {
+  shared_state.gpu_time_scale = GetGPUTimerScale(global_config->cuda_device);
+  if (shared_state.gpu_time_scale <= 0) {
     printf("Failed getting the GPU timer scale.\n");
-    CleanupProcessConfigs(process_configs, global_config->benchmark_count);
+    CleanupTaskConfigs(task_configs, global_config->benchmark_count);
     FreeGlobalConfiguration(global_config);
   }
   printf("1 GPU second is approximately %f CPU seconds.\n",
-    parent_state.gpu_time_scale);
+    shared_state.gpu_time_scale);
 
-  if (!BarrierCreate(&(parent_state.barrier),
+  if (!BarrierCreate(&(shared_state.barrier),
     global_config->benchmark_count)) {
     printf("Failed initializing synchronization barrier.\n");
-    CleanupProcessConfigs(process_configs, global_config->benchmark_count);
+    CleanupTaskConfigs(task_configs, global_config->benchmark_count);
     FreeGlobalConfiguration(global_config);
     return 1;
   }
-  parent_state.starting_seconds = CurrentSeconds();
+  shared_state.starting_seconds = CurrentSeconds();
   // After the heavy initialization work has been done, record an approximate
   // GPU time and system time.
   if (!GetHostDeviceTimeOffset(global_config->cuda_device, &host_start_seconds,
     &device_start_nanoseconds)) {
     printf("Failed reading GPU and CPU initial times.\n");
-    CleanupProcessConfigs(process_configs, global_config->benchmark_count);
+    CleanupTaskConfigs(task_configs, global_config->benchmark_count);
     FreeGlobalConfiguration(global_config);
     return 1;
   }
-  parent_state.starting_seconds = host_start_seconds;
-  parent_state.starting_gpu_clock = device_start_nanoseconds;
+  shared_state.starting_seconds = host_start_seconds;
+  shared_state.starting_gpu_clock = device_start_nanoseconds;
   // Finally, run the benchmarks in threads or processes
   if (global_config->use_processes) {
-    result = RunAsProcesses(&parent_state, process_configs);
+    result = RunAsProcesses(&shared_state, task_configs);
   } else {
-    result = RunAsThreads(&parent_state, process_configs);
+    result = RunAsThreads(&shared_state, task_configs);
   }
   // Last, clean up allocated state.
-  BarrierDestroy(&(parent_state.barrier));
-  CleanupProcessConfigs(process_configs, global_config->benchmark_count);
+  BarrierDestroy(&(shared_state.barrier));
+  CleanupTaskConfigs(task_configs, global_config->benchmark_count);
   FreeGlobalConfiguration(global_config);
   if (!result) {
     printf("An error occurred in one or more benchmarks.\n");

@@ -172,7 +172,7 @@ static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
   int benchmark_count = 1;
   int i;
   size_t benchmarks_size = 0;
-  SingleBenchmarkConfiguration *benchmarks = NULL;
+  BenchmarkConfiguration *benchmarks = NULL;
   // Start by counting the number of benchmarks in the array and allocating
   // memory.
   entry = list_start;
@@ -180,8 +180,8 @@ static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
     benchmark_count++;
     entry = entry->next;
   }
-  benchmarks_size = benchmark_count * sizeof(SingleBenchmarkConfiguration);
-  benchmarks = (SingleBenchmarkConfiguration *) malloc(benchmarks_size);
+  benchmarks_size = benchmark_count * sizeof(BenchmarkConfiguration);
+  benchmarks = (BenchmarkConfiguration *) malloc(benchmarks_size);
   if (!benchmarks) {
     printf("Failed allocating space for the benchmark list.\n");
     return 0;
@@ -479,7 +479,7 @@ ErrorCleanup:
 
 void FreeGlobalConfiguration(GlobalConfiguration *config) {
   int i;
-  SingleBenchmarkConfiguration *benchmarks = config->benchmarks;
+  BenchmarkConfiguration *benchmarks = config->benchmarks;
   for (i = 0; i < config->benchmark_count; i++) {
     free(benchmarks[i].filename);
     free(benchmarks[i].log_name);

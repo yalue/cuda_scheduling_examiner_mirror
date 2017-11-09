@@ -37,12 +37,12 @@ typedef struct {
   int sharedmem_count;
   // Holds host-side times that are shared with the calling process.
   KernelTimes spin_kernel_times;
-} BenchmarkState;
+} TaskState;
 
 // Implements the cleanup function required by the library interface, but is
 // also called internally (only during Initialize()) to clean up after errors.
 static void Cleanup(void *data) {
-  BenchmarkState *state = (BenchmarkState *) data;
+  TaskState *state = (TaskState *) data;
   KernelTimes *host_times = &state->spin_kernel_times;
   // Free device memory.
   if (state->device_block_times) cudaFree(state->device_block_times);
@@ -60,7 +60,7 @@ static void Cleanup(void *data) {
 }
 
 // Allocates GPU and CPU memory. Returns 0 on error, 1 otherwise.
-static int AllocateMemory(BenchmarkState *state) {
+static int AllocateMemory(TaskState *state) {
   uint64_t block_times_size = state->block_count * sizeof(uint64_t) * 2;
   uint64_t block_smids_size = state->block_count * sizeof(uint32_t);
   KernelTimes *host_times = &state->spin_kernel_times;
@@ -89,7 +89,7 @@ static int AllocateMemory(BenchmarkState *state) {
 // keys: "duration", the spin duration and "shared_memory_size", the shared
 // memory size. Returns nonzero on success. The shared memory size must be one
 // of [4096, 8192, 10240].
-static int InitializeKernelConfig(BenchmarkState *state, char *info) {
+static int InitializeKernelConfig(TaskState *state, char *info) {
   cJSON *parsed = NULL;
   cJSON *entry = NULL;
   parsed = cJSON_Parse(info);
@@ -131,9 +131,9 @@ static int InitializeKernelConfig(BenchmarkState *state, char *info) {
 }
 
 static void* Initialize(InitializationParameters *params) {
-  BenchmarkState *state = NULL;
+  TaskState *state = NULL;
   // First allocate space for local data.
-  state = (BenchmarkState *) malloc(sizeof(*state));
+  state = (TaskState *) malloc(sizeof(*state));
   memset(state, 0, sizeof(*state));
   if (!CheckCUDAError(cudaSetDevice(params->cuda_device))) return NULL;
   state->thread_count = params->thread_count;
@@ -270,7 +270,7 @@ static __global__ void SharedMem_GPUSpin10240(uint64_t spin_duration,
 }
 
 static int Execute(void *data) {
-  BenchmarkState *state = (BenchmarkState *) data;
+  TaskState *state = (TaskState *) data;
   state->spin_kernel_times.cuda_launch_times[0] = CurrentSeconds();
   if (state->sharedmem_count == 4096) {
     SharedMem_GPUSpin4096<<<state->block_count, state->thread_count, 0,
@@ -292,7 +292,7 @@ static int Execute(void *data) {
 }
 
 static int CopyOut(void *data, TimingInformation *times) {
-  BenchmarkState *state = (BenchmarkState *) data;
+  TaskState *state = (TaskState *) data;
   KernelTimes *host_times = &state->spin_kernel_times;
   uint64_t block_times_count = state->block_count * 2;
   uint64_t block_smids_count = state->block_count;

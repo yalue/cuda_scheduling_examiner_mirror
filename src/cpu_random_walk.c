@@ -22,10 +22,10 @@ typedef struct {
   // The sum from the random walk. Probably useless, but will prevent
   // optimization from removing our loop.
   uint64_t accumulator;
-} BenchmarkState;
+} TaskState;
 
 static void Cleanup(void *data) {
-  BenchmarkState *state = (BenchmarkState *) data;
+  TaskState *state = (TaskState *) data;
   if (state->buffer) free(state->buffer);
   state->buffer = NULL;
   state->buffer_length = 0;
@@ -64,8 +64,8 @@ static void ShuffleArray(uint32_t *buffer, uint64_t element_count) {
 
 static void* Initialize(InitializationParameters *params) {
   uint64_t buffer_length, i;
-  BenchmarkState *state = NULL;
-  state = (BenchmarkState *) malloc(sizeof(*state));
+  TaskState *state = NULL;
+  state = (TaskState *) malloc(sizeof(*state));
   if (!state) return NULL;
   memset(state, 0, sizeof(*state));
   buffer_length = params->data_size / 4;
@@ -96,7 +96,7 @@ static int CopyIn(void *data) {
 
 static int Execute(void *data) {
   uint64_t i, walk_index, accumulator;
-  BenchmarkState *state = (BenchmarkState *) data;
+  TaskState *state = (TaskState *) data;
   walk_index = 0;
   accumulator = 0;
   for (i = 0; i < state->memory_access_count; i++) {
@@ -108,7 +108,7 @@ static int Execute(void *data) {
 }
 
 static int CopyOut(void *data, TimingInformation *times) {
-  BenchmarkState *state = (BenchmarkState *) data;
+  TaskState *state = (TaskState *) data;
   times->kernel_count = 0;
   times->kernel_info = NULL;
   times->resulting_data_size = sizeof(state->accumulator);
