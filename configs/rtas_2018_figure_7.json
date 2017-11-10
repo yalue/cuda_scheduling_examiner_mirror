@@ -32,7 +32,6 @@
       "thread_count": 512,
       "block_count": 2,
       "data_size": 0,
-      "max_iterations": 1,
       "additional_info": {
         "use_null_stream": false,
         "actions": [
