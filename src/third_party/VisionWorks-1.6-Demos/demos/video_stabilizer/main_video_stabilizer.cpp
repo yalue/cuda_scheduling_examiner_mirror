@@ -48,6 +48,7 @@
 
 // for cuda_scheduling_examiner
 #include <library_interface.h>
+#include "third_party/cJSON.h"
 
 struct EventData
 {
@@ -69,6 +70,7 @@ typedef struct {
     std::unique_ptr<ovxio::Render> renderer;
     EventData eventData;
     nvx::VideoStabilizer *stabilizer;
+    bool shouldRender;
 } BenchmarkState;
 
 static void eventCallback(void* eventData, vx_char key, vx_uint32, vx_uint32)
@@ -95,7 +97,8 @@ static void displayState(ovxio::Render *renderer,
     txt << std::fixed << std::setprecision(1);
 
     const vx_int32 borderSize = 10;
-    ovxio::Render::TextBoxStyle style = {{255, 255, 255, 255}, {0, 0, 0, 127}, {renderWidth / 2 + borderSize, borderSize}};
+    ovxio::Render::TextBoxStyle style = {{255, 255, 255, 255}, {0, 0, 0, 127},
+        {renderWidth / 2 + borderSize, borderSize}};
 
     txt << "Source size: " << sourceParams.frameWidth << 'x' << sourceParams.frameHeight << std::endl;
     txt << "Algorithm: " << proc_ms << " ms / " << 1000.0 / proc_ms << " FPS" << std::endl;
@@ -145,12 +148,103 @@ static void Cleanup(void *data) {
     free(state);
 }
 
+static int initRender(BenchmarkState *state, vx_int32 demoImgHeight, vx_int32 demoImgWidth)
+{
+    ovxio::FrameSource::Parameters sourceParams = state->source->getConfiguration();
+
+    state->renderer = ovxio::createDefaultRender(*(state->context), "Video Stabilization Demo", demoImgWidth, demoImgHeight);
+
+    if (!state->renderer)
+    {
+        std::cerr << "Error: Can't create a state->renderer" << std::endl;
+        return 0;
+    }
+
+    state->eventData = EventData();
+    state->renderer->setOnKeyboardEventCallback(eventCallback, &state->eventData);
+    return 1;
+}
+
+static int initGraph(BenchmarkState *state, vx_int32 demoImgHeight, vx_int32 demoImgWidth,
+        unsigned numOfSmoothingFrames, float cropMargin)
+{
+    // Create VideoStabilizer instance
+    nvx::VideoStabilizer::VideoStabilizerParams vs_params;
+    vs_params.numOfSmoothingFrames_ = numOfSmoothingFrames;
+    vs_params.cropMargin_ = cropMargin;
+    state->stabilizer = nvx::VideoStabilizer::createImageBasedVStab(*(state->context), vs_params);
+
+    ovxio::FrameSource::FrameStatus frameStatus;
+
+    do
+    {
+        frameStatus = state->source->fetch(state->frame);
+    } while (frameStatus == ovxio::FrameSource::TIMEOUT);
+
+    if (frameStatus == ovxio::FrameSource::CLOSED)
+    {
+        std::cerr << "Error: Source has no frames" << std::endl;
+        return 0;
+    }
+
+    state->stabilizer->init(state->frame);
+
+    vx_rectangle_t leftRect;
+    NVXIO_SAFE_CALL( vxGetValidRegionImage(state->frame, &leftRect) );
+
+    vx_rectangle_t rightRect;
+    rightRect.start_x = leftRect.end_x;
+    rightRect.start_y = leftRect.start_y;
+    rightRect.end_x = 2 * leftRect.end_x;
+    rightRect.end_y = leftRect.end_y;
+
+    state->leftRoi = vxCreateImageFromROI(state->demoImg, &leftRect);
+    NVXIO_CHECK_REFERENCE(state->leftRoi);
+    state->rightRoi = vxCreateImageFromROI(state->demoImg, &rightRect);
+    NVXIO_CHECK_REFERENCE(state->rightRoi);
+    return 1;
+}
+
+static int processConfig(BenchmarkState *state, char *info)
+{
+    if (!info) // take the default setting
+    {
+        state->shouldRender = false;
+        return 1;
+    }
+    cJSON *parsed = cJSON_Parse(info);
+    cJSON *entry = NULL;
+    if (!parsed || (parsed->type != cJSON_Object))
+    {
+        std::cerr << "Error: Wrong format of additional_info in the configuration file" << std::endl;
+        goto ErrorCleanup;
+    }
+    entry = cJSON_GetObjectItem(parsed, "shouldRender");
+    if (!entry || (entry->type != cJSON_True && entry->type != cJSON_False))
+    {
+        state->shouldRender = false;
+    }
+    else
+    {
+        state->shouldRender = entry->type == cJSON_True;
+    }
+    return 1;
+ErrorCleanup:
+    if (parsed) cJSON_Delete(parsed);
+    return 0;
+}
+
 static void* Initialize(InitializationParameters *params) {
     BenchmarkState *state = NULL;
     state = (BenchmarkState *) malloc(sizeof(*state));
     if (!state) return NULL;
     memset(state, 0, sizeof(*state));
 
+    if (!processConfig(state, params->additional_info))
+    {
+        Cleanup(state);
+        return NULL;
+    }
     nvxio::Application &app =  nvxio::Application::get();
 
     // Parse command line arguments
@@ -171,80 +265,53 @@ static void* Initialize(InitializationParameters *params) {
     if (!state->source || !state->source->open())
     {
         std::cerr << "Error: Can't open state->source file: " << videoFilePath << std::endl;
+        Cleanup(state);
         return NULL;
     }
 
     if (state->source->getSourceType() == ovxio::FrameSource::SINGLE_IMAGE_SOURCE)
     {
         std::cerr << "Error: Can't work on a single image." << std::endl;
+        Cleanup(state);
         return NULL;
     }
 
     ovxio::FrameSource::Parameters sourceParams = state->source->getConfiguration();
-
     vx_int32 demoImgWidth = 2 * sourceParams.frameWidth;
     vx_int32 demoImgHeight = sourceParams.frameHeight;
 
-    state->renderer = ovxio::createDefaultRender(*(state->context), "Video Stabilization Demo", demoImgWidth, demoImgHeight);
-
-    if (!state->renderer)
+    if (!initRender(state, demoImgHeight, demoImgWidth))
     {
-        std::cerr << "Error: Can't create a state->renderer" << std::endl;
+        Cleanup(state);
         return NULL;
     }
-
-    state->eventData = EventData();
-    state->renderer->setOnKeyboardEventCallback(eventCallback, &state->eventData);
 
     // Create OpenVX Image to hold frames from video source
     state->demoImg = vxCreateImage(*(state->context), demoImgWidth, demoImgHeight, VX_DF_IMAGE_RGBX);
     NVXIO_CHECK_REFERENCE(state->demoImg);
 
-    vx_image frameExemplar = vxCreateImage(*(state->context), sourceParams.frameWidth, sourceParams.frameHeight, VX_DF_IMAGE_RGBX);
+    vx_image frameExemplar = vxCreateImage(*(state->context),
+            sourceParams.frameWidth, sourceParams.frameHeight,
+            VX_DF_IMAGE_RGBX);
     vx_size orig_frame_delay_size = numOfSmoothingFrames + 2; //must have such size to be synchronized with the stabilized frames
-    state->orig_frame_delay = vxCreateDelay(*(state->context), (vx_reference)frameExemplar, orig_frame_delay_size);
+    state->orig_frame_delay = vxCreateDelay(*(state->context),
+            (vx_reference)frameExemplar, orig_frame_delay_size);
     NVXIO_CHECK_REFERENCE(state->orig_frame_delay);
     NVXIO_SAFE_CALL( nvx::initDelayOfImages(*(state->context), state->orig_frame_delay) );
     NVXIO_SAFE_CALL(vxReleaseImage(&frameExemplar));
 
     state->frame = (vx_image)vxGetReferenceFromDelay(state->orig_frame_delay, 0);
-    state->lastFrame = (vx_image)vxGetReferenceFromDelay(state->orig_frame_delay, 1 - static_cast<vx_int32>(orig_frame_delay_size));
+    state->lastFrame =
+        (vx_image)vxGetReferenceFromDelay(state->orig_frame_delay, 1 -
+                static_cast<vx_int32>(orig_frame_delay_size));
 
-    // Create VideoStabilizer instance
-    nvx::VideoStabilizer::VideoStabilizerParams vs_params;
-    vs_params.numOfSmoothingFrames_ = numOfSmoothingFrames;
-    vs_params.cropMargin_ = cropMargin;
-    state->stabilizer = nvx::VideoStabilizer::createImageBasedVStab(*(state->context), vs_params);
-
-    ovxio::FrameSource::FrameStatus frameStatus;
-
-    do
+    if (!initGraph(state, demoImgHeight, demoImgWidth, numOfSmoothingFrames,
+                cropMargin))
     {
-        frameStatus = state->source->fetch(state->frame);
-    } while (frameStatus == ovxio::FrameSource::TIMEOUT);
-
-    if (frameStatus == ovxio::FrameSource::CLOSED)
-    {
-        std::cerr << "Error: Source has no frames" << std::endl;
+        std::cerr << "Graph init failed" << std::endl;
+        Cleanup(state);
         return NULL;
     }
-
-    state->stabilizer->init(state->frame);
-
-    vx_rectangle_t leftRect;
-    NVXIO_SAFE_CALL( vxGetValidRegionImage(state->frame, &leftRect) );
-
-    vx_rectangle_t rightRect;
-    rightRect.start_x = leftRect.end_x;
-    rightRect.start_y = leftRect.start_y;
-    rightRect.end_x = 2 * leftRect.end_x;
-    rightRect.end_y = leftRect.end_y;
-
-    state->leftRoi = vxCreateImageFromROI(state->demoImg, &leftRect);
-    NVXIO_CHECK_REFERENCE(state->leftRoi);
-    state->rightRoi = vxCreateImageFromROI(state->demoImg, &rightRect);
-    NVXIO_CHECK_REFERENCE(state->rightRoi);
-
     return state;
 }
 
@@ -262,7 +329,10 @@ static int Execute(void *data)
         ovxio::FrameSource::FrameStatus frameStatus;
 loop:
         // Run processing loop
-        if (!state->eventData.pause)
+        // When it's not rendered, pause isn't an option. The frame is processed
+        // as it goes.
+        // When it's rendered, need to check whether it's paused.
+        if (!state->shouldRender || (state->shouldRender && !state->eventData.pause))
         {
             // Process
             state->stabilizer->process(state->frame);
@@ -288,7 +358,8 @@ loop:
             }
         }
 
-        state->renderer->putImage(state->demoImg);
+        if (state->shouldRender && state->renderer)
+            state->renderer->putImage(state->demoImg);
 
         if (!state->renderer->flush())
         {

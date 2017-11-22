@@ -48,6 +48,7 @@
 
 // for cuda_scheduling_examiner
 #include <library_interface.h>
+#include "third_party/cJSON.h"
 
 namespace
 {
@@ -102,9 +103,11 @@ struct EventData
     bool stop;
     bool pause;
 };
+
 // Holds the local state for one instance of this benchmark.
 typedef struct
 {
+    bool shouldRender;
     ovxio::ContextGuard *context;
     std::unique_ptr<ovxio::FrameSource> frameSource;
     std::unique_ptr<ovxio::Render> renderer;
@@ -128,7 +131,7 @@ typedef struct
 } BenchmarkState;
 
 bool checkParams(vx_int32& CannyLowerThresh, vx_int32& CannyUpperThresh,
-                 vx_uint32& minRadius, vx_uint32& maxRadius, std::string & error)
+        vx_uint32& minRadius, vx_uint32& maxRadius, std::string & error)
 {
     if (CannyLowerThresh > CannyUpperThresh)
     {
@@ -149,65 +152,65 @@ bool read(const std::string &configFile, HoughTransformDemoParams &config, std::
     const std::unique_ptr<nvxio::ConfigParser> parser(nvxio::createConfigParser());
 
     parser->addParameter("switchPeriod", nvxio::OptionHandler::unsignedInteger(
-                                                                               &config.switchPeriod));
+                &config.switchPeriod));
     parser->addParameter("scaleFactor", nvxio::OptionHandler::real(
-                                                                   &config.scaleFactor,
-                                                                   nvxio::ranges::moreThan(0.f)
-                                                                   &
-                                                                   nvxio::ranges::atMost(1.f)));
+                &config.scaleFactor,
+                nvxio::ranges::moreThan(0.f)
+                &
+                nvxio::ranges::atMost(1.f)));
     parser->addParameter("scaleType", nvxio::OptionHandler::oneOf(
-                                                                  &config.scaleType,
-                                                                  { {"nearest",
-                                                                  VX_INTERPOLATION_TYPE_NEAREST_NEIGHBOR},
-                                                                  {"bilinear",
-                                                                  VX_INTERPOLATION_TYPE_BILINEAR},
-                                                                  {"area",
-                                                                  VX_INTERPOLATION_TYPE_AREA},
-                                                                  }));
+                &config.scaleType,
+                { {"nearest",
+                VX_INTERPOLATION_TYPE_NEAREST_NEIGHBOR},
+                {"bilinear",
+                VX_INTERPOLATION_TYPE_BILINEAR},
+                {"area",
+                VX_INTERPOLATION_TYPE_AREA},
+                }));
     parser->addParameter("CannyLowerThresh", nvxio::OptionHandler::integer(
-                                                                           &config.CannyLowerThresh,
-                                                                           nvxio::ranges::moreThan(0)));
+                &config.CannyLowerThresh,
+                nvxio::ranges::moreThan(0)));
     parser->addParameter("CannyUpperThresh", nvxio::OptionHandler::integer(
-                                                                           &config.CannyUpperThresh,
-                                                                           nvxio::ranges::moreThan(0)));
+                &config.CannyUpperThresh,
+                nvxio::ranges::moreThan(0)));
     parser->addParameter("dp", nvxio::OptionHandler::real( &config.dp,
-                                                           nvxio::ranges::atLeast(1.f)));
+                nvxio::ranges::atLeast(1.f)));
     parser->addParameter("minDist", nvxio::OptionHandler::real( &config.minDist,
-                                                                nvxio::ranges::moreThan(0.f)));
+                nvxio::ranges::moreThan(0.f)));
     parser->addParameter("minRadius", nvxio::OptionHandler::unsignedInteger(
-                                                                            &config.minRadius));
+                &config.minRadius));
     parser->addParameter("maxRadius", nvxio::OptionHandler::unsignedInteger(
-                                                                            &config.maxRadius,
-                                                                            nvxio::ranges::moreThan(0u)));
+                &config.maxRadius,
+                nvxio::ranges::moreThan(0u)));
     parser->addParameter("accThreshold", nvxio::OptionHandler::unsignedInteger(
-                                                                               &config.accThreshold,
-                                                                               nvxio::ranges::moreThan(0u)));
+                &config.accThreshold,
+                nvxio::ranges::moreThan(0u)));
     parser->addParameter("circlesCapacity",
-                         nvxio::OptionHandler::unsignedInteger(
-                                                               &config.circlesCapacity,
-                                                               nvxio::ranges::moreThan(0u)
-                                                               &
-                                                               nvxio::ranges::atMost(1000u)));
+            nvxio::OptionHandler::unsignedInteger(
+                &config.circlesCapacity,
+                nvxio::ranges::moreThan(0u)
+                &
+                nvxio::ranges::atMost(1000u)));
     parser->addParameter("rho", nvxio::OptionHandler::real( &config.rho,
-                                                            nvxio::ranges::moreThan(0.f)));
+                nvxio::ranges::moreThan(0.f)));
     parser->addParameter("theta", nvxio::OptionHandler::real( &config.theta,
-                                                              nvxio::ranges::moreThan(0.f)
-                                                              &
-                                                              nvxio::ranges::atMost(180.f)));
+                nvxio::ranges::moreThan(0.f)
+                &
+                nvxio::ranges::atMost(180.f)));
     parser->addParameter("votesThreshold",
-                         nvxio::OptionHandler::unsignedInteger(
-                                                               &config.votesThreshold,
-                                                               nvxio::ranges::moreThan(0u)));
+            nvxio::OptionHandler::unsignedInteger(
+                &config.votesThreshold,
+                nvxio::ranges::moreThan(0u)));
     parser->addParameter("minLineLength", nvxio::OptionHandler::unsignedInteger(
-                                                                                &config.minLineLength,
-                                                                                nvxio::ranges::moreThan(0u)));
+                &config.minLineLength,
+                nvxio::ranges::moreThan(0u)));
     parser->addParameter("maxLineGap", nvxio::OptionHandler::unsignedInteger(
-                                                                             &config.maxLineGap));
+                &config.maxLineGap));
     parser->addParameter("linesCapacity", nvxio::OptionHandler::unsignedInteger(
-                                                                                &config.linesCapacity,
-                                                                                nvxio::ranges::moreThan(0u)
-                                                                                &
-                                                                                nvxio::ranges::atMost(1000u)));
+                &config.linesCapacity,
+                nvxio::ranges::moreThan(0u)
+                &
+                nvxio::ranges::atMost(1000u)));
 
     error = parser->parse(configFile);
 
@@ -217,7 +220,7 @@ bool read(const std::string &configFile, HoughTransformDemoParams &config, std::
     }
 
     return checkParams(config.CannyLowerThresh, config.CannyUpperThresh,
-                       config.minRadius, config.maxRadius, error);
+            config.minRadius, config.maxRadius, error);
 }
 
 
@@ -264,91 +267,66 @@ static void Cleanup(void *data)
     free(state);
 }
 
-static void* Initialize(InitializationParameters *params)
+static int initFrameSource(BenchmarkState *state, std::string sourceUri)
 {
-    BenchmarkState *state = NULL;
-    state = (BenchmarkState *) malloc(sizeof(*state));
-    if (!state) return NULL;
-    memset(state, 0, sizeof(*state));
-
-    nvxio::Application &app = nvxio::Application::get();
-
-    // Parse command line arguments
-
-    std::string sourceUri = app.findSampleFilePath("signs.avi");
-
-    std::string configFile = app.findSampleFilePath("hough_transform_demo_config.ini");
-
-    app.init(1, NULL);
-
-    state->ht_params = HoughTransformDemoParams();
-    // Read and check input parameters
-    std::string error;
-    if (!read(configFile, state->ht_params, error))
-    {
-        std::cerr << error << std::endl;
-        return NULL;
-    }
-
-    state->ht_params.theta *= ovxio::PI_F / 180.0f; // convert to radians
-
-    // NVXIO-based renderer object and frame source are instantiated
-    // and attached to the OpenVX context object. NVXIO ContextGuard
-    // object is used to automatically manage the OpenVX context
-    // creation and destruction.
-
-    state->context = new ovxio::ContextGuard;
-    vxDirective(*(state->context), VX_DIRECTIVE_ENABLE_PERFORMANCE);
-
-    // Messages generated by the OpenVX framework will be given
-    // to ovxio::stdoutLogCallback
-    vxRegisterLogCallback(*(state->context), &ovxio::stdoutLogCallback, vx_false_e);
-
     // Create a NVXIO-based frame source
-
     state->frameSource = ovxio::createDefaultFrameSource(*(state->context), sourceUri);
 
     if (!state->frameSource || !state->frameSource->open())
     {
         std::cerr << "Error: Can't open source URI " << sourceUri << std::endl;
-        return NULL;
+        return 0;
     }
 
     ovxio::FrameSource::Parameters frameConfig = state->frameSource->getConfiguration();
 
     if ((frameConfig.frameWidth * state->ht_params.scaleFactor < 16) ||
-        (frameConfig.frameHeight * state->ht_params.scaleFactor < 16))
+            (frameConfig.frameHeight * state->ht_params.scaleFactor < 16))
     {
         std::cerr << "Error: Scale factor is too small" << std::endl;
-        return NULL;
+        return 0;
     }
+    return 1;
+}
 
+static int initRender(BenchmarkState *state)
+{
+    if (!state->shouldRender)
+    {
+        return 1;
+    }
+    ovxio::FrameSource::Parameters frameConfig = state->frameSource->getConfiguration();
     // Create a NVXIO-based render
-
-    state->renderer = ovxio::createDefaultRender(*(state->context), "Hough Transform Demo", frameConfig.frameWidth, frameConfig.frameHeight);
+    state->renderer = ovxio::createDefaultRender(*(state->context),
+            "Hough Transform Demo", frameConfig.frameWidth, frameConfig.frameHeight);
 
     if (!state->renderer)
     {
         std::cerr << "Error: Cannot create render!" << std::endl;
-        return NULL;
+        return 0;
     }
 
     // The application recieves the keyboard events via the
     // keyboardEventCallback() function registered via the renderer object
 
-    state->eventData.pause = false;
-    state->eventData.stop = false;
-    state->eventData.showSource = true;
+    state->eventData = EventData();
     state->renderer->setOnKeyboardEventCallback(keyboardEventCallback, &state->eventData);
+    return 1;
+}
 
+static int initGraph(BenchmarkState *state)
+{
+    ovxio::FrameSource::Parameters frameConfig = state->frameSource->getConfiguration();
     // Create OpenVX objects
     // frame and edges vx_image objects are created to hold the frames from
     // the video source and the output of the Canny edge detector respectively
 
-    state->frame = vxCreateImage(*(state->context), frameConfig.frameWidth, frameConfig.frameHeight, VX_DF_IMAGE_RGBX);
+    state->frame = vxCreateImage(*(state->context), frameConfig.frameWidth,
+            frameConfig.frameHeight, VX_DF_IMAGE_RGBX);
     NVXIO_CHECK_REFERENCE(state->frame);
 
-    state->edges = vxCreateImage(*(state->context), frameConfig.frameWidth, frameConfig.frameHeight, VX_DF_IMAGE_U8);
+    state->edges = vxCreateImage(*(state->context), frameConfig.frameWidth,
+            frameConfig.frameHeight, VX_DF_IMAGE_U8);
     NVXIO_CHECK_REFERENCE(state->edges);
 
     // Similary the lines and circles vx_array objects are created to hold
@@ -364,10 +342,14 @@ static void* Initialize(InitializationParameters *params)
 
     vx_threshold CannyThreshold = vxCreateThreshold(*(state->context), VX_THRESHOLD_TYPE_RANGE, VX_TYPE_INT32);
     NVXIO_CHECK_REFERENCE(CannyThreshold);
-    NVXIO_SAFE_CALL( vxSetThresholdAttribute(CannyThreshold, VX_THRESHOLD_ATTRIBUTE_THRESHOLD_LOWER,
-                                             &state->ht_params.CannyLowerThresh, sizeof(state->ht_params.CannyLowerThresh)) );
-    NVXIO_SAFE_CALL( vxSetThresholdAttribute(CannyThreshold, VX_THRESHOLD_ATTRIBUTE_THRESHOLD_UPPER,
-                                             &state->ht_params.CannyUpperThresh, sizeof(state->ht_params.CannyUpperThresh)) );
+    NVXIO_SAFE_CALL( vxSetThresholdAttribute(CannyThreshold,
+                VX_THRESHOLD_ATTRIBUTE_THRESHOLD_LOWER,
+                &state->ht_params.CannyLowerThresh,
+                sizeof(state->ht_params.CannyLowerThresh)) );
+    NVXIO_SAFE_CALL( vxSetThresholdAttribute(CannyThreshold,
+                VX_THRESHOLD_ATTRIBUTE_THRESHOLD_UPPER,
+                &state->ht_params.CannyUpperThresh,
+                sizeof(state->ht_params.CannyUpperThresh)) );
 
     // vxCreateGraph() instantiates the pipeline
 
@@ -379,8 +361,11 @@ static void* Initialize(InitializationParameters *params)
     vx_image virt_U8 = vxCreateVirtualImage(state->graph, 0, 0, VX_DF_IMAGE_U8);
     NVXIO_CHECK_REFERENCE(virt_U8);
 
-    vx_image virt_scaled = vxCreateVirtualImage(state->graph, static_cast<vx_uint32>(frameConfig.frameWidth * state->ht_params.scaleFactor),
-                                                static_cast<vx_uint32>(frameConfig.frameHeight * state->ht_params.scaleFactor), VX_DF_IMAGE_U8);
+    vx_image virt_scaled = vxCreateVirtualImage(state->graph,
+            static_cast<vx_uint32>(frameConfig.frameWidth *
+                state->ht_params.scaleFactor),
+            static_cast<vx_uint32>(frameConfig.frameHeight *
+                state->ht_params.scaleFactor), VX_DF_IMAGE_U8);
     NVXIO_CHECK_REFERENCE(virt_scaled);
 
     vx_image virt_blurred = vxCreateVirtualImage(state->graph, 0, 0, VX_DF_IMAGE_U8);
@@ -411,7 +396,8 @@ static void* Initialize(InitializationParameters *params)
     state->cvtNode = vxColorConvertNode(state->graph, state->frame, virt_U8);
     NVXIO_CHECK_REFERENCE(state->cvtNode);
 
-    state->scaleDownNode = vxScaleImageNode(state->graph, virt_U8, virt_scaled, state->ht_params.scaleType);
+    state->scaleDownNode = vxScaleImageNode(state->graph, virt_U8, virt_scaled,
+            state->ht_params.scaleType);
     NVXIO_CHECK_REFERENCE(state->scaleDownNode);
 
     state->median3x3Node = vxMedian3x3Node(state->graph, virt_scaled, virt_blurred);
@@ -420,23 +406,26 @@ static void* Initialize(InitializationParameters *params)
     state->equalizeHistNode = vxEqualizeHistNode(state->graph, virt_blurred, virt_equalized);
     NVXIO_CHECK_REFERENCE(state->equalizeHistNode);
 
-    state->CannyNode = vxCannyEdgeDetectorNode(state->graph, virt_equalized, CannyThreshold, 3, VX_NORM_L1, virt_edges);
+    state->CannyNode = vxCannyEdgeDetectorNode(state->graph, virt_equalized,
+            CannyThreshold, 3, VX_NORM_L1, virt_edges);
     NVXIO_CHECK_REFERENCE(state->CannyNode);
 
-    state->scaleUpNode = vxScaleImageNode(state->graph, virt_edges, state->edges, state->ht_params.scaleType);
+    state->scaleUpNode = vxScaleImageNode(state->graph, virt_edges,
+            state->edges, state->ht_params.scaleType);
     NVXIO_CHECK_REFERENCE(state->scaleUpNode);
 
     state->Sobel3x3Node = vxSobel3x3Node(state->graph, virt_equalized, virt_dx, virt_dy);
     NVXIO_CHECK_REFERENCE(state->Sobel3x3Node);
 
     state->HoughCirclesNode = nvxHoughCirclesNode(state->graph, virt_edges, virt_dx, virt_dy,
-                                                  state->circles, nullptr,  state->ht_params.dp, state->ht_params.minDist,
-                                                  state->ht_params.minRadius, state->ht_params.maxRadius, state->ht_params.accThreshold);
+            state->circles, nullptr,  state->ht_params.dp, state->ht_params.minDist,
+            state->ht_params.minRadius, state->ht_params.maxRadius, state->ht_params.accThreshold);
     NVXIO_CHECK_REFERENCE(state->HoughCirclesNode);
 
-    state->HoughSegmentsNode = nvxHoughSegmentsNode(state->graph, virt_edges, state->lines, state->ht_params.rho, state->ht_params.theta,
-                                                    state->ht_params.votesThreshold, state->ht_params.minLineLength,
-                                                    state->ht_params.maxLineGap, nullptr);
+    state->HoughSegmentsNode = nvxHoughSegmentsNode(state->graph, virt_edges,
+            state->lines, state->ht_params.rho, state->ht_params.theta,
+            state->ht_params.votesThreshold, state->ht_params.minLineLength,
+            state->ht_params.maxLineGap, nullptr);
     NVXIO_CHECK_REFERENCE(state->HoughSegmentsNode);
 
     // Release virtual images (the graph will hold references internally)
@@ -464,6 +453,99 @@ static void* Initialize(InitializationParameters *params)
     if (verify_status != VX_SUCCESS)
     {
         std::cerr << "Error: Graph verification failed. See the NVX LOG for explanation." << std::endl;
+        return 0;
+    }
+    return 1;
+}
+
+static int processConfig(BenchmarkState *state, char *info)
+{
+    if (!info) // take the default setting
+    {
+        state->shouldRender = false;
+        return 1;
+    }
+    cJSON *parsed = cJSON_Parse(info);
+    cJSON *entry = NULL;
+    if (!parsed || (parsed->type != cJSON_Object))
+    {
+        std::cerr << "Error: Wrong format of additional_info in the configuration file" << std::endl;
+        goto ErrorCleanup;
+    }
+    entry = cJSON_GetObjectItem(parsed, "shouldRender");
+    if (!entry || (entry->type != cJSON_True && entry->type != cJSON_False))
+    {
+        state->shouldRender = false;
+    }
+    else
+    {
+        state->shouldRender = entry->type == cJSON_True;
+    }
+    return 1;
+ErrorCleanup:
+    if (parsed) cJSON_Delete(parsed);
+    return 0;
+}
+
+static void* Initialize(InitializationParameters *params)
+{
+    BenchmarkState *state = NULL;
+    state = (BenchmarkState *) malloc(sizeof(*state));
+    if (!state) return NULL;
+    memset(state, 0, sizeof(*state));
+
+    if (!processConfig(state, params->additional_info))
+    {
+        Cleanup(state);
+        return NULL;
+    }
+
+    nvxio::Application &app = nvxio::Application::get();
+
+    // Parse command line arguments
+    std::string sourceUri = app.findSampleFilePath("signs.avi");
+    std::string configFile = app.findSampleFilePath("hough_transform_demo_config.ini");
+
+    app.init(1, NULL);
+
+    state->ht_params = HoughTransformDemoParams();
+    // Read and check input parameters
+    std::string error;
+    if (!read(configFile, state->ht_params, error))
+    {
+        std::cerr << error << std::endl;
+        Cleanup(state);
+        return NULL;
+    }
+
+    state->ht_params.theta *= ovxio::PI_F / 180.0f; // convert to radians
+
+    // NVXIO-based renderer object and frame source are instantiated
+    // and attached to the OpenVX context object. NVXIO ContextGuard
+    // object is used to automatically manage the OpenVX context
+    // creation and destruction.
+    state->context = new ovxio::ContextGuard;
+    vxDirective(*(state->context), VX_DIRECTIVE_ENABLE_PERFORMANCE);
+
+    // Messages generated by the OpenVX framework will be given
+    // to ovxio::stdoutLogCallback
+    vxRegisterLogCallback(*(state->context), &ovxio::stdoutLogCallback, vx_false_e);
+
+    if (!initFrameSource(state, sourceUri))
+    {
+        Cleanup(state);
+        return NULL;
+    }
+
+    if (!initRender(state))
+    {
+        Cleanup(state);
+        return NULL;
+    }
+
+    if (!initGraph(state))
+    {
+        Cleanup(state);
         return NULL;
     }
 
@@ -485,8 +567,12 @@ static int Execute(void *data)
     {
         BenchmarkState *state = (BenchmarkState *)data;
 
+loop:
         // Main loop
-        if (!state->eventData.pause)
+        // When it's not rendered, pause isn't an option. The frame is processed
+        // as it goes.
+        // When it's rendered, need to check whether it's paused.
+        if (!state->shouldRender || (state->shouldRender && !state->eventData.pause))
         {
             // The main processing loop simply reads the input frames using
             // the source->fetch(). The rendering code in the main loop decides
@@ -498,7 +584,7 @@ static int Execute(void *data)
             if (frameStatus == ovxio::FrameSource::TIMEOUT)
             {
                 std::cerr << "Error: frame source featch TIMEOUT" << std::endl;
-                return 0;
+                goto loop;
             }
 
             if (frameStatus == ovxio::FrameSource::CLOSED)
@@ -508,13 +594,7 @@ static int Execute(void *data)
                     std::cerr << "Error: Failed to reopen the source" << std::endl;
                     return 0;
                 }
-                frameStatus = state->frameSource->fetch(state->frame);
-                if (frameStatus == ovxio::FrameSource::TIMEOUT ||
-                    frameStatus == ovxio::FrameSource::CLOSED)
-                {
-                    std::cerr << "Error: frame source featch TIMEOUT or CLOSED" << std::endl;
-                    return 0;
-                }
+                goto loop;
             }
 
             // Process
@@ -579,27 +659,30 @@ static int Execute(void *data)
         }
 
         // Show original image or detected edges
-        if (state->eventData.showSource)
+        if (state->shouldRender && state->renderer)
         {
-            state->renderer->putImage(state->frame);
-        }
-        else
-        {
-            state->renderer->putImage(state->edges);
-        }
+            if (state->eventData.showSource)
+            {
+                state->renderer->putImage(state->frame);
+            }
+            else
+            {
+                state->renderer->putImage(state->edges);
+            }
 
-        // Draw detected circles
-        ovxio::Render::CircleStyle circleStyle = { { 255u, 0u, 255u, 255u}, 2 };
-        state->renderer->putCircles(state->circles, circleStyle);
+            // Draw detected circles
+            ovxio::Render::CircleStyle circleStyle = { { 255u, 0u, 255u, 255u}, 2 };
+            state->renderer->putCircles(state->circles, circleStyle);
 
-        // Draw detected lines
-        ovxio::Render::LineStyle lineStyle = { { 0u, 255u, 255u, 255u}, 2 };
-        state->renderer->putLines(state->lines, lineStyle);
+            // Draw detected lines
+            ovxio::Render::LineStyle lineStyle = { { 0u, 255u, 255u, 255u}, 2 };
+            state->renderer->putLines(state->lines, lineStyle);
 
-        // Flush all rendering commands
-        if (!state->renderer->flush())
-        {
-            state->eventData.stop = true;
+            // Flush all rendering commands
+            if (!state->renderer->flush())
+            {
+                state->eventData.stop = true;
+            }
         }
     }
     catch (const std::exception& e)

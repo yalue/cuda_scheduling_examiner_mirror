@@ -49,6 +49,7 @@
 
 // for cuda_scheduling_examiner
 #include <library_interface.h>
+#include "third_party/cJSON.h"
 
 // Process events
 struct EventData
@@ -70,6 +71,7 @@ typedef struct {
     vx_delay frame_delay;
     vx_image prevFrame;
     vx_image currFrame;
+    bool shouldRender;
 } BenchmarkState;
 
 static void keyboardEventCallback(void* eventData, vx_char key, vx_uint32, vx_uint32)
@@ -88,22 +90,22 @@ static void keyboardEventCallback(void* eventData, vx_char key, vx_uint32, vx_ui
 
 // Parse configuration file
 static bool read(const std::string& configFile,
-                 IterativeMotionEstimator::Params& params,
-                 std::string& message)
+        IterativeMotionEstimator::Params& params,
+        std::string& message)
 {
     std::unique_ptr<nvxio::ConfigParser> parser(nvxio::createConfigParser());
 
     parser->addParameter("biasWeight",
-                         nvxio::OptionHandler::real(&params.biasWeight,
-                                                    nvxio::ranges::atLeast(0.0f)));
+            nvxio::OptionHandler::real(&params.biasWeight,
+                nvxio::ranges::atLeast(0.0f)));
     parser->addParameter("mvDivFactor",
-                         nvxio::OptionHandler::integer(&params.mvDivFactor,
-                                                       nvxio::ranges::atLeast(0)
-                                                       &
-                                                       nvxio::ranges::atMost(16)));
+            nvxio::OptionHandler::integer(&params.mvDivFactor,
+                nvxio::ranges::atLeast(0)
+                &
+                nvxio::ranges::atMost(16)));
     parser->addParameter("smoothnessFactor",
-                         nvxio::OptionHandler::real(&params.smoothnessFactor,
-                                                    nvxio::ranges::atLeast(0.0f)));
+            nvxio::OptionHandler::real(&params.smoothnessFactor,
+                nvxio::ranges::atLeast(0.0f)));
 
     message = parser->parse(configFile);
 
@@ -122,12 +124,106 @@ static void Cleanup(void *data) {
     free(state);
 }
 
+static int initFrameSource(BenchmarkState *state, std::string sourceUri)
+{
+    // Create a Frame Source
+    state->frameSource = ovxio::createDefaultFrameSource(*(state->context), sourceUri);
 
-static void* Initialize(InitializationParameters *params) {
+    if (!state->frameSource || !state->frameSource->open())
+    {
+        std::cerr << "Error: cannot open frame source!" << std::endl;
+        return 0;
+    }
+
+    if (state->frameSource->getSourceType() == ovxio::FrameSource::SINGLE_IMAGE_SOURCE)
+    {
+        std::cerr << "Can't work on a single image." << std::endl;
+        return 0;
+    }
+    return 1;
+}
+static int initRender(BenchmarkState *state)
+{
+    if (!state->shouldRender)
+    {
+        return 1;
+    }
+
+    ovxio::FrameSource::Parameters frameConfig = state->frameSource->getConfiguration();
+
+    // Create a Render
+    state->renderer = ovxio::createDefaultRender(*(state->context), "Motion Estimation Demo",
+            frameConfig.frameWidth, frameConfig.frameHeight);
+
+    if (!state->renderer)
+    {
+        std::cerr << "Error: Cannot create state->renderer!" << std::endl;
+        return 0;
+    }
+
+    state->renderer->setOnKeyboardEventCallback(keyboardEventCallback, &state->eventData);
+    return 1;
+}
+
+static int processConfig(BenchmarkState *state, char *info)
+{
+    if (!info) // take the default setting
+    {
+        state->shouldRender = false;
+        return 1;
+    }
+    cJSON *parsed = cJSON_Parse(info);
+    cJSON *entry = NULL;
+    if (!parsed || (parsed->type != cJSON_Object))
+    {
+        std::cerr << "Error: Wrong format of additional_info in the configuration file" << std::endl;
+        goto ErrorCleanup;
+    }
+    entry = cJSON_GetObjectItem(parsed, "shouldRender");
+    if (!entry || (entry->type != cJSON_True && entry->type != cJSON_False))
+    {
+        state->shouldRender = false;
+    }
+    else
+    {
+        state->shouldRender = entry->type == cJSON_True;
+    }
+    return 1;
+ErrorCleanup:
+    if (parsed) cJSON_Delete(parsed);
+    return 0;
+}
+
+static int initIME(BenchmarkState *state)
+{
+    // Create algorithm
+    state->ime = new IterativeMotionEstimator(*(state->context));
+    ovxio::FrameSource::FrameStatus frameStatus;
+    do
+    {
+        frameStatus = state->frameSource->fetch(state->prevFrame);
+    } while (frameStatus == ovxio::FrameSource::TIMEOUT);
+    if (frameStatus == ovxio::FrameSource::CLOSED)
+    {
+        std::cerr << "Source has no frames" << std::endl;
+        return 0;
+    }
+    state->ime->init(state->prevFrame, state->currFrame, state->me_params);
+    return 1;
+}
+
+static void* Initialize(InitializationParameters *params)
+{
     BenchmarkState *state = NULL;
     state = (BenchmarkState *) malloc(sizeof(*state));
     if (!state) return NULL;
     memset(state, 0, sizeof(*state));
+
+    if (!processConfig(state, params->additional_info))
+    {
+        Cleanup(state);
+        return NULL;
+    }
 
     nvxio::Application &app = nvxio::Application::get();
 
@@ -143,6 +239,7 @@ static void* Initialize(InitializationParameters *params) {
     if (!read(configFile, state->me_params, error))
     {
         std::cout << error;
+        Cleanup(state);
         return NULL;
     }
 
@@ -153,39 +250,23 @@ static void* Initialize(InitializationParameters *params) {
     // Messages generated by the OpenVX framework will be processed by ovxio::stdoutLogCallback
     vxRegisterLogCallback(*(state->context), &ovxio::stdoutLogCallback, vx_false_e);
 
-    // Create a Frame Source
-    state->frameSource = ovxio::createDefaultFrameSource(*(state->context), sourceUri);
-
-    if (!state->frameSource || !state->frameSource->open())
+    if (!initFrameSource(state, sourceUri))
     {
-        std::cerr << "Error: cannot open frame source!" << std::endl;
+        Cleanup(state);
         return NULL;
     }
 
-    if (state->frameSource->getSourceType() == ovxio::FrameSource::SINGLE_IMAGE_SOURCE)
+    if (!initRender(state))
     {
-        std::cerr << "Can't work on a single image." << std::endl;
+        Cleanup(state);
         return NULL;
     }
 
     ovxio::FrameSource::Parameters frameConfig = state->frameSource->getConfiguration();
 
-    // Create a Render
-    state->renderer = ovxio::createDefaultRender(*(state->context), "Motion Estimation Demo",
-                                                 frameConfig.frameWidth, frameConfig.frameHeight);
-
-    if (!state->renderer)
-    {
-        std::cerr << "Error: Cannot create state->renderer!" << std::endl;
-        return NULL;
-    }
-
-    state->renderer->setOnKeyboardEventCallback(keyboardEventCallback, &state->eventData);
-
-
     // Create OpenVX Image to hold frames from video source
     vx_image frameExemplar = vxCreateImage(*(state->context),
-                                           frameConfig.frameWidth, frameConfig.frameHeight, VX_DF_IMAGE_RGBX);
+            frameConfig.frameWidth, frameConfig.frameHeight, VX_DF_IMAGE_RGBX);
     NVXIO_CHECK_REFERENCE(frameExemplar);
     state->frame_delay = vxCreateDelay(*(state->context), (vx_reference)frameExemplar, 2);
     NVXIO_CHECK_REFERENCE(state->frame_delay);
@@ -194,21 +275,11 @@ static void* Initialize(InitializationParameters *params) {
     state->prevFrame = (vx_image)vxGetReferenceFromDelay(state->frame_delay, -1);
     state->currFrame = (vx_image)vxGetReferenceFromDelay(state->frame_delay, 0);
 
-    // Create algorithm
-    state->ime = new IterativeMotionEstimator(*(state->context));
-
-    ovxio::FrameSource::FrameStatus frameStatus;
-    do
+    if (!initIME(state))
     {
-        frameStatus = state->frameSource->fetch(state->prevFrame);
-    } while (frameStatus == ovxio::FrameSource::TIMEOUT);
-    if (frameStatus == ovxio::FrameSource::CLOSED)
-    {
-        std::cerr << "Source has no frames" << std::endl;
+        Cleanup(state);
         return NULL;
     }
-
-    state->ime->init(state->prevFrame, state->currFrame, state->me_params);
 
     return state;
 }
@@ -217,19 +288,20 @@ static int CopyIn(void *data) {
     return 1;
 }
 
-// main - Application entry point
-//int main(int argc, char* argv[])
 static int Execute(void *data)
 {
     try
     {
         BenchmarkState *state = (BenchmarkState *)data;
         ovxio::FrameSource::FrameStatus frameStatus;
-loop: // in case state->ime is re-inited
-        if (!state->eventData.pause)
+loop:   // in case state->ime is re-inited
+
+        // When it's not rendered, pause isn't an option. The frame is processed
+        // as it goes.
+        // When it's rendered, need to check whether it's paused.
+        if (!state->shouldRender || (state->shouldRender && !state->eventData.pause))
         {
             // Grab next frame
-
             frameStatus = state->frameSource->fetch(state->currFrame);
 
             if (frameStatus == ovxio::FrameSource::TIMEOUT)
@@ -266,19 +338,21 @@ loop: // in case state->ime is re-inited
         }
 
         // state->renderer
-        state->renderer->putImage(state->prevFrame);
-
-        ovxio::Render::MotionFieldStyle mfStyle = {
-            {  0u, 255u, 255u, 255u} // color
-        };
-
-        state->renderer->putMotionField(state->ime->getMotionField(), mfStyle);
-
-        if (!state->renderer->flush())
+        if (state->shouldRender && state->renderer)
         {
-            state->eventData.stop = true;
-        }
+            state->renderer->putImage(state->prevFrame);
 
+            ovxio::Render::MotionFieldStyle mfStyle = {
+                {  0u, 255u, 255u, 255u} // color
+            };
+
+            state->renderer->putMotionField(state->ime->getMotionField(), mfStyle);
+
+            if (!state->renderer->flush())
+            {
+                state->eventData.stop = true;
+            }
+        }
         if (!state->eventData.pause)
         {
             vxAgeDelay(state->frame_delay);
@@ -295,7 +369,7 @@ loop: // in case state->ime is re-inited
 }
 
 static int CopyOut(void *data, TimingInformation *times) {
-    times->kernel_info = NULL;
+    times->kernel_count = 0;
     return 1;
 }
 

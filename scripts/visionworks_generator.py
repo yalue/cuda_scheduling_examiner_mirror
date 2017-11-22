@@ -14,21 +14,23 @@ import argparse
 
 def generate_multikernel_benchmark(filename, log_name):
     """ Returns a dict that, when converted to JSON, will work as a benchmark
-    configuration for the multikernel.so benchmark. The multikernel.so
-    benchmark will submit a number of kernels given by kernel_count, with
-    random thread and block counts in the given ranges (thread counts will
-    always be rounded up to the nearest multiple of 32)."""
+    configuration for the visionworks benchmark. """
 
 
     to_return = {}
     to_return["filename"] = filename
     to_return["log_name"] = log_name
     to_return["label"] = log_name
-    # Only additional_info is used for multikernel.so
     to_return["thread_count"] = 0
     to_return["block_count"] = 0
     to_return["data_size"] = 0
-    # to_return["additional_info"] = kernel_config_list
+    # Running multiple instances of one or different demos in a common address
+    # space is not supported yet. Global status shared for multiple instances
+    # does not support multiple entry
+    #
+    # WARNING: comment this line when generating config file for multiple
+    # instances while -p is not turned on.
+    to_return["additional_info"] = {"shouldRender" : True};
     return to_return
 
 def generate_overall_config(benchmarks, filename, log_name, count):
@@ -48,7 +50,7 @@ def generate_overall_config(benchmarks, filename, log_name, count):
 if __name__ == "__main__":
     config = {}
     config["name"] = "VisionWorks demos"
-    config["max_iterations"] = 1000
+    config["max_iterations"] = 500
     config["max_time"] = 0
     config["cuda_device"] = 0
     config["pin_cpus"] = False

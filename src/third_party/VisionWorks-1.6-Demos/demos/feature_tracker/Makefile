@@ -109,6 +109,7 @@ ifneq ($(PKG_CONFIG_SYSROOT_DIR),)
 		LDFLAGS += -Wl,-rpath-link="$(PKG_CONFIG_SYSROOT_DIR)/lib/arm-linux-gnueabihf"
 		LDFLAGS += -Wl,-rpath-link="$(PKG_CONFIG_SYSROOT_DIR)/usr/lib"
 		LDFLAGS += -Wl,-rpath-link="$(PKG_CONFIG_SYSROOT_DIR)/usr/lib/arm-linux-gnueabihf"
+  }
 	endif
 endif
 
@@ -123,8 +124,10 @@ LDFLAGS += -Wl,-rpath=$(CUDA_LIB_PATH)
 CPP_FILES := $(wildcard *.cpp)
 OBJ_DIR := obj/$(TARGET)
 OBJ_FILES_CPP := $(addprefix $(OBJ_DIR)/,$(notdir $(CPP_FILES:.cpp=.o)))
+ROOT_DIR := ../../../../..
+CJSON_OBJ := $(ROOT_DIR)/obj/cjson.o
 
-OUTPUT_DIR := ../../../../../bin
+OUTPUT_DIR := $(ROOT_DIR)/bin
 
 ################################################################################
 
@@ -142,7 +145,7 @@ $(OBJ_DIR)/%.o: %.cpp | $(OBJ_DIR)
 $(OUTPUT_DIR):
 	mkdir -p $(OUTPUT_DIR)
 
-$(OUTPUT_DIR)/nvx_demo_feature_tracker.so: $(OBJ_FILES_CPP) $(OVXIO_LIBS) | $(OUTPUT_DIR)
+$(OUTPUT_DIR)/nvx_demo_feature_tracker.so: $(CJSON_OBJ) $(OBJ_FILES_CPP) $(OVXIO_LIBS) | $(OUTPUT_DIR)
 	$(CXX) -shared $(LDFLAGS) $(CCFLAGS) $(CXXFLAGS) -o $@ $^ $(LIBRARIES)
 
 run: build

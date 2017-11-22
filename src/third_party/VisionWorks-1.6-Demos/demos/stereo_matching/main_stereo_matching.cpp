@@ -50,11 +50,12 @@
 
 // for cuda_scheduling_examiner
 #include <library_interface.h>
+#include "third_party/cJSON.h"
 
 // Utility functions
 static void displayState(ovxio::Render *renderer,
-                         const ovxio::FrameSource::Parameters &sourceParams,
-                         double proc_ms, double total_ms)
+        const ovxio::FrameSource::Parameters &sourceParams,
+        double proc_ms, double total_ms)
 {
     std::ostringstream txt;
 
@@ -76,61 +77,61 @@ static void displayState(ovxio::Render *renderer,
 }
 
 static bool read(const std::string &nf, StereoMatching::StereoMatchingParams
-                 &config, std::string &message) {
+        &config, std::string &message) {
     std::unique_ptr<nvxio::ConfigParser> parser(nvxio::createConfigParser());
     parser->addParameter("min_disparity", nvxio::OptionHandler::integer(
-                                                                        &config.min_disparity,
-                                                                        nvxio::ranges::atLeast(0)
-                                                                        &
-                                                                        nvxio::ranges::atMost(256)));
+                &config.min_disparity,
+                nvxio::ranges::atLeast(0)
+                &
+                nvxio::ranges::atMost(256)));
     parser->addParameter("max_disparity", nvxio::OptionHandler::integer(
-                                                                        &config.max_disparity,
-                                                                        nvxio::ranges::atLeast(0)
-                                                                        &
-                                                                        nvxio::ranges::atMost(256)));
+                &config.max_disparity,
+                nvxio::ranges::atLeast(0)
+                &
+                nvxio::ranges::atMost(256)));
     parser->addParameter("P1", nvxio::OptionHandler::integer( &config.P1,
-                                                              nvxio::ranges::atLeast(0)
-                                                              &
-                                                              nvxio::ranges::atMost(256)));
+                nvxio::ranges::atLeast(0)
+                &
+                nvxio::ranges::atMost(256)));
     parser->addParameter("P2", nvxio::OptionHandler::integer( &config.P2,
-                                                              nvxio::ranges::atLeast(0)
-                                                              &
-                                                              nvxio::ranges::atMost(256)));
+                nvxio::ranges::atLeast(0)
+                &
+                nvxio::ranges::atMost(256)));
     parser->addParameter("sad", nvxio::OptionHandler::integer( &config.sad,
-                                                               nvxio::ranges::atLeast(0)
-                                                               &
-                                                               nvxio::ranges::atMost(31)));
+                nvxio::ranges::atLeast(0)
+                &
+                nvxio::ranges::atMost(31)));
     parser->addParameter("bt_clip_value", nvxio::OptionHandler::integer(
-                                                                        &config.bt_clip_value,
-                                                                        nvxio::ranges::atLeast(15)
-                                                                        &
-                                                                        nvxio::ranges::atMost(95)));
+                &config.bt_clip_value,
+                nvxio::ranges::atLeast(15)
+                &
+                nvxio::ranges::atMost(95)));
     parser->addParameter("max_diff", nvxio::OptionHandler::integer(
-                                                                   &config.max_diff));
+                &config.max_diff));
     parser->addParameter("uniqueness_ratio", nvxio::OptionHandler::integer(
-                                                                           &config.uniqueness_ratio,
-                                                                           nvxio::ranges::atLeast(0)
-                                                                           &
-                                                                           nvxio::ranges::atMost(100)));
+                &config.uniqueness_ratio,
+                nvxio::ranges::atLeast(0)
+                &
+                nvxio::ranges::atMost(100)));
     parser->addParameter("scanlines_mask", nvxio::OptionHandler::integer(
-                                                                         &config.scanlines_mask,
-                                                                         nvxio::ranges::atLeast(0)
-                                                                         &
-                                                                         nvxio::ranges::atMost(256)));
+                &config.scanlines_mask,
+                nvxio::ranges::atLeast(0)
+                &
+                nvxio::ranges::atMost(256)));
     parser->addParameter("flags", nvxio::OptionHandler::integer( &config.flags,
-                                                                 nvxio::ranges::atLeast(0)
-                                                                 &
-                                                                 nvxio::ranges::atMost(3)));
+                nvxio::ranges::atLeast(0)
+                &
+                nvxio::ranges::atMost(3)));
     parser->addParameter("ct_win_size", nvxio::OptionHandler::integer(
-                                                                      &config.ct_win_size,
-                                                                      nvxio::ranges::atLeast(0)
-                                                                      &
-                                                                      nvxio::ranges::atMost(5)));
+                &config.ct_win_size,
+                nvxio::ranges::atLeast(0)
+                &
+                nvxio::ranges::atMost(5)));
     parser->addParameter("hc_win_size", nvxio::OptionHandler::integer(
-                                                                      &config.hc_win_size,
-                                                                      nvxio::ranges::atLeast(0)
-                                                                      &
-                                                                      nvxio::ranges::atMost(5)));
+                &config.hc_win_size,
+                nvxio::ranges::atLeast(0)
+                &
+                nvxio::ranges::atMost(5)));
 
     message = parser->parse(nf);
 
@@ -166,17 +167,17 @@ static void eventCallback(void* eventData, vx_char key, vx_uint32, vx_uint32)
     {
         switch (data->outputImg)
         {
-        case ORIG_FRAME:
-            data->outputImg = ORIG_DISPARITY;
-            break;
+            case ORIG_FRAME:
+                data->outputImg = ORIG_DISPARITY;
+                break;
 
-        case ORIG_DISPARITY:
-            data->outputImg = COLOR_OUTPUT;
-            break;
+            case ORIG_DISPARITY:
+                data->outputImg = COLOR_OUTPUT;
+                break;
 
-        case COLOR_OUTPUT:
-            data->outputImg = ORIG_FRAME;
-            break;
+            case COLOR_OUTPUT:
+                data->outputImg = ORIG_FRAME;
+                break;
         }
     }
     else if (key == 32)
@@ -198,6 +199,7 @@ typedef struct {
     vx_image color_output;
     std::unique_ptr<StereoMatching> stereo;
     ColorDisparityGraph *color_disp_graph;
+    bool shouldRender;
 } BenchmarkState;
 
 static void Cleanup(void *data) {
@@ -216,73 +218,32 @@ static void Cleanup(void *data) {
     free(state);
 }
 
-
-static void* Initialize(InitializationParameters *params) {
-    BenchmarkState *state = NULL;
-    state = (BenchmarkState *) malloc(sizeof(*state));
-    if (!state) return NULL;
-    memset(state, 0, sizeof(*state));
-
-    nvxio::Application &app = nvxio::Application::get();
-
-    // Parse command line arguments
-    std::string sourceUri  = app.findSampleFilePath("left_right.mp4");
-    std::string configFile = app.findSampleFilePath("stereo_matching_demo_config.ini");
-
-    StereoMatching::StereoMatchingParams sm_params;
-    StereoMatching::ImplementationType implementationType = StereoMatching::HIGH_LEVEL_API;
-
-    app.init(1, NULL);
-
-    // Read and check input parameters
-    std::string error;
-    if (!read(configFile, sm_params, error))
+static int initRender(BenchmarkState *state)
+{
+    if (!state->shouldRender)
     {
-        std::cerr << error;
-        return NULL;
+        return 1;
     }
-
-    // Create OpenVX context
-    state->context = new ovxio::ContextGuard;
-    vxDirective(*(state->context), VX_DIRECTIVE_ENABLE_PERFORMANCE);
-
-    // Messages generated by the OpenVX framework will be processed by
-    // ovxio::stdoutLogCallback
-    vxRegisterLogCallback(*(state->context), &ovxio::stdoutLogCallback, vx_false_e);
-
-    // Create a NVXIO-based frame source
-    state->source = ovxio::createDefaultFrameSource(*(state->context), sourceUri);
-
-    if (!state->source || !state->source->open())
-    {
-        std::cerr << "Error: Can't open source URI " << sourceUri << std::endl;
-        return NULL;
-    }
-
     ovxio::FrameSource::Parameters sourceParams = state->source->getConfiguration();
-
-    if (sourceParams.frameHeight % 2 != 0)
-    {
-        std::cerr << "\"" << sourceUri.c_str()
-            << "\" has odd height (" << sourceParams.frameHeight
-            << "). This demo requires the source's height to be even." << std::endl;
-        return NULL;
-    }
-
     // Create a NVXIO-based renderer
     state->renderer = ovxio::createDefaultRender(*(state->context), "Stereo Matching Demo", sourceParams.frameWidth, sourceParams.frameHeight / 2);
 
     if (!state->renderer)
     {
         std::cerr << "Error: Can't create a state->renderer" << std::endl;
-        return NULL;
+        return 0;
     }
 
     // Application recieves the keyboard events via the eventCallback()
     // function registered via the renderer object
     state->eventData = EventData();
     state->renderer->setOnKeyboardEventCallback(eventCallback, &state->eventData);
+    return 1;
+}
 
+static int initGraph(BenchmarkState *state, StereoMatching::StereoMatchingParams sm_params)
+{
+    ovxio::FrameSource::Parameters sourceParams = state->source->getConfiguration();
     // Create OpenVX Image to hold frames from the video source. Since the
     // input stream consists of the left and right frames in the top-bottom
     // layout, they are separated out in the vx_image left and vx_image right
@@ -295,7 +256,8 @@ static void* Initialize(InitializationParameters *params) {
     vx_rectangle_t left_rect { 0, 0, sourceParams.frameWidth, sourceParams.frameHeight / 2 };
     state->left  = vxCreateImageFromROI(state->top_bottom, &left_rect);
     NVXIO_CHECK_REFERENCE(state->left);
-    vx_rectangle_t right_rect { 0, sourceParams.frameHeight / 2, sourceParams.frameWidth, sourceParams.frameHeight };
+    vx_rectangle_t right_rect { 0, sourceParams.frameHeight / 2,
+        sourceParams.frameWidth, sourceParams.frameHeight };
     state->right = vxCreateImageFromROI(state->top_bottom, &right_rect);
     NVXIO_CHECK_REFERENCE(state->right);
 
@@ -320,12 +282,120 @@ static void* Initialize(InitializationParameters *params) {
     // file parameters (to be used by the SGM pipeline), the desired
     // implementation type and the previously created left, right and
     // disparity vx_image objects
-    state->stereo = std::unique_ptr<StereoMatching>(StereoMatching::createStereoMatching( *(state->context), sm_params, implementationType, state->left, state->right, state->disparity));
+    StereoMatching::ImplementationType implementationType = StereoMatching::HIGH_LEVEL_API;
+    state->stereo =
+        std::unique_ptr<StereoMatching>(StereoMatching::createStereoMatching(
+                    *(state->context), sm_params, implementationType,
+                    state->left, state->right, state->disparity));
 
     // The output of the SGM pipeline (disparity vx_image) is then passed to the
     // auxiliary pipeline, managed by ColorDisparityGraph class. The result of the
     // auxiliary pipeline is stored in the color_output vx_image
-    state->color_disp_graph = new ColorDisparityGraph(*(state->context), state->disparity, state->color_output, sm_params.max_disparity);
+    state->color_disp_graph = new ColorDisparityGraph(*(state->context),
+            state->disparity, state->color_output, sm_params.max_disparity);
+    return 1;
+}
+
+static int processConfig(BenchmarkState *state, char *info)
+{
+    if (!info) // take the default setting
+    {
+        state->shouldRender = false;
+        return 1;
+    }
+    cJSON *parsed = cJSON_Parse(info);
+    cJSON *entry = NULL;
+    if (!parsed || (parsed->type != cJSON_Object))
+    {
+        std::cerr << "Error: Wrong format of additional_info in the configuration file" << std::endl;
+        goto ErrorCleanup;
+    }
+    entry = cJSON_GetObjectItem(parsed, "shouldRender");
+    if (!entry || (entry->type != cJSON_True && entry->type != cJSON_False))
+    {
+        state->shouldRender = false;
+    }
+    else
+    {
+        state->shouldRender = entry->type == cJSON_True;
+    }
+    return 1;
+ErrorCleanup:
+    if (parsed) cJSON_Delete(parsed);
+    return 0;
+}
+static void* Initialize(InitializationParameters *params)
+{
+    BenchmarkState *state = NULL;
+    state = (BenchmarkState *) malloc(sizeof(*state));
+    if (!state) return NULL;
+    memset(state, 0, sizeof(*state));
+
+    if (!processConfig(state, params->additional_info))
+    {
+        Cleanup(state);
+        return NULL;
+    }
+
+    nvxio::Application &app = nvxio::Application::get();
+
+    // Parse command line arguments
+    std::string sourceUri  = app.findSampleFilePath("left_right.mp4");
+    std::string configFile = app.findSampleFilePath("stereo_matching_demo_config.ini");
+
+    StereoMatching::StereoMatchingParams sm_params;
+
+    app.init(1, NULL);
+
+    // Read and check input parameters
+    std::string error;
+    if (!read(configFile, sm_params, error))
+    {
+        std::cerr << error;
+        Cleanup(state);
+        return NULL;
+    }
+
+    // Create OpenVX context
+    state->context = new ovxio::ContextGuard;
+    vxDirective(*(state->context), VX_DIRECTIVE_ENABLE_PERFORMANCE);
+
+    // Messages generated by the OpenVX framework will be processed by
+    // ovxio::stdoutLogCallback
+    vxRegisterLogCallback(*(state->context), &ovxio::stdoutLogCallback, vx_false_e);
+
+    // Create a NVXIO-based frame source
+    state->source = ovxio::createDefaultFrameSource(*(state->context), sourceUri);
+
+    if (!state->source || !state->source->open())
+    {
+        std::cerr << "Error: Can't open source URI " << sourceUri << std::endl;
+        Cleanup(state);
+        return NULL;
+    }
+
+    ovxio::FrameSource::Parameters sourceParams = state->source->getConfiguration();
+
+    if (sourceParams.frameHeight % 2 != 0)
+    {
+        std::cerr << "\"" << sourceUri.c_str()
+            << "\" has odd height (" << sourceParams.frameHeight
+            << "). This demo requires the source's height to be even." << std::endl;
+        Cleanup(state);
+        return NULL;
+    }
+
+    if (!initRender(state))
+    {
+        Cleanup(state);
+        return NULL;
+    }
+
+    if (!initGraph(state, sm_params))
+    {
+        Cleanup(state);
+        return NULL;
+    }
 
     return state;
 }
@@ -355,7 +425,10 @@ static int Execute(void *data)
         // code in the main loop decides whether to display orignal (unprocessed)
         // image, plain disparity (U8) or the colored disparity based on user input
 loop:
-        if (!state->eventData.pause)
+        // When it's not rendered, pause isn't an option. The frame is processed
+        // as it goes.
+        // When it's rendered, need to check whether it's paused.
+        if (!state->shouldRender || (state->shouldRender && !state->eventData.pause))
         {
             ovxio::FrameSource::FrameStatus frameStatus;
 
@@ -382,27 +455,30 @@ loop:
             color_disp_update = true;
         }
 
-        switch (state->eventData.outputImg)
+        if (state->shouldRender && state->renderer)
         {
-        case ORIG_FRAME:
-            state->renderer->putImage(state->left);
-            break;
-        case ORIG_DISPARITY:
-            state->renderer->putImage(state->disparity);
-            break;
-        case COLOR_OUTPUT:
-            if (color_disp_update)
+            switch (state->eventData.outputImg)
             {
-                state->color_disp_graph->process();
-                color_disp_update = false;
+                case ORIG_FRAME:
+                    state->renderer->putImage(state->left);
+                    break;
+                case ORIG_DISPARITY:
+                    state->renderer->putImage(state->disparity);
+                    break;
+                case COLOR_OUTPUT:
+                    if (color_disp_update)
+                    {
+                        state->color_disp_graph->process();
+                        color_disp_update = false;
+                    }
+                    state->renderer->putImage(state->color_output);
+                    break;
             }
-            state->renderer->putImage(state->color_output);
-            break;
-        }
 
-        if (!state->renderer->flush())
-        {
-            state->eventData.shouldStop = true;
+            if (!state->renderer->flush())
+            {
+                state->eventData.shouldStop = true;
+            }
         }
     }
     catch (const std::exception& e)

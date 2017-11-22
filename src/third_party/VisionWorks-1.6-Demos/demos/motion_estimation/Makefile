@@ -123,8 +123,10 @@ LDFLAGS += -Wl,-rpath=$(CUDA_LIB_PATH)
 CPP_FILES := $(wildcard *.cpp)
 OBJ_DIR := obj/$(TARGET)
 OBJ_FILES_CPP := $(addprefix $(OBJ_DIR)/,$(notdir $(CPP_FILES:.cpp=.o)))
+ROOT_DIR := ../../../../..
+CJSON_OBJ := $(ROOT_DIR)/obj/cjson.o
 
-OUTPUT_DIR := ../../../../../bin
+OUTPUT_DIR := $(ROOT_DIR)/bin
 
 ################################################################################
 
@@ -142,7 +144,7 @@ $(OBJ_DIR)/%.o: %.cpp | $(OBJ_DIR)
 $(OUTPUT_DIR):
 	mkdir -p $(OUTPUT_DIR)
 
-$(OUTPUT_DIR)/nvx_demo_motion_estimation.so: $(OBJ_FILES_CPP) $(OVXIO_LIBS) | $(OUTPUT_DIR)
+$(OUTPUT_DIR)/nvx_demo_motion_estimation.so: $(CJSON_OBJ) $(OBJ_FILES_CPP) $(OVXIO_LIBS) | $(OUTPUT_DIR)
 	$(CXX) -shared $(LDFLAGS) $(CCFLAGS) $(CXXFLAGS) -o $@ $^ $(LIBRARIES)
 
 run: build

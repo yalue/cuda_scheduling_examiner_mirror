@@ -48,6 +48,7 @@
 
 // for cuda_scheduling_examiner
 #include <library_interface.h>
+#include "third_party/cJSON.h"
 
 // Process events
 struct EventData
@@ -70,6 +71,7 @@ typedef struct
     vx_image mask;
     nvx::FeatureTracker *tracker;
     ovxio::ContextGuard *context;
+    bool shouldRender;
 } BenchmarkState;
 
 static void eventCallback(void* eventData, vx_char key, vx_uint32, vx_uint32)
@@ -87,9 +89,9 @@ static void eventCallback(void* eventData, vx_char key, vx_uint32, vx_uint32)
 }
 
 static void displayState(ovxio::Render *renderer,
-                         const ovxio::FrameSource::Parameters &sourceParams,
-                         nvx::FeatureTracker::Params &config,
-                         double proc_ms, double total_ms)
+        const ovxio::FrameSource::Parameters &sourceParams,
+        nvx::FeatureTracker::Params &config,
+        double proc_ms, double total_ms)
 {
     std::ostringstream txt;
 
@@ -116,43 +118,43 @@ static bool read(const std::string & nf, nvx::FeatureTracker::Params &config, st
     std::unique_ptr<nvxio::ConfigParser> ftparser(nvxio::createConfigParser());
 
     ftparser->addParameter("pyr_levels", nvxio::OptionHandler::unsignedInteger(&config.pyr_levels,
-                                                                               nvxio::ranges::atLeast(1u)
-                                                                               &
-                                                                               nvxio::ranges::atMost(8u)));
+                nvxio::ranges::atLeast(1u)
+                &
+                nvxio::ranges::atMost(8u)));
     ftparser->addParameter("lk_win_size",
-                           nvxio::OptionHandler::unsignedInteger(&config.lk_win_size,
-                                                                 nvxio::ranges::atLeast(3u)
-                                                                 &
-                                                                 nvxio::ranges::atMost(32u)));
+            nvxio::OptionHandler::unsignedInteger(&config.lk_win_size,
+                nvxio::ranges::atLeast(3u)
+                &
+                nvxio::ranges::atMost(32u)));
     ftparser->addParameter("lk_num_iters",
-                           nvxio::OptionHandler::unsignedInteger(&config.lk_num_iters,
-                                                                 nvxio::ranges::atLeast(1u)
-                                                                 &
-                                                                 nvxio::ranges::atMost(100u)));
+            nvxio::OptionHandler::unsignedInteger(&config.lk_num_iters,
+                nvxio::ranges::atLeast(1u)
+                &
+                nvxio::ranges::atMost(100u)));
     ftparser->addParameter("array_capacity",
-                           nvxio::OptionHandler::unsignedInteger(&config.array_capacity,
-                                                                 nvxio::ranges::atLeast(1u)));
+            nvxio::OptionHandler::unsignedInteger(&config.array_capacity,
+                nvxio::ranges::atLeast(1u)));
     ftparser->addParameter("detector_cell_size",
-                           nvxio::OptionHandler::unsignedInteger(&config.detector_cell_size,
-                                                                 nvxio::ranges::atLeast(1u)));
+            nvxio::OptionHandler::unsignedInteger(&config.detector_cell_size,
+                nvxio::ranges::atLeast(1u)));
     ftparser->addParameter("detector",
-                           nvxio::OptionHandler::oneOf(&config.use_harris_detector,
-                                                       { {"harris", true},
-                                                       {"fast", false} }));
+            nvxio::OptionHandler::oneOf(&config.use_harris_detector,
+                { {"harris", true},
+                {"fast", false} }));
     ftparser->addParameter("harris_k",
-                           nvxio::OptionHandler::real(&config.harris_k,
-                                                      nvxio::ranges::moreThan(0.0f)));
+            nvxio::OptionHandler::real(&config.harris_k,
+                nvxio::ranges::moreThan(0.0f)));
     ftparser->addParameter("harris_thresh",
-                           nvxio::OptionHandler::real(&config.harris_thresh,
-                                                      nvxio::ranges::moreThan(0.0f)));
+            nvxio::OptionHandler::real(&config.harris_thresh,
+                nvxio::ranges::moreThan(0.0f)));
     ftparser->addParameter("fast_type",
-                           nvxio::OptionHandler::unsignedInteger(&config.fast_type,
-                                                                 nvxio::ranges::atLeast(9u)
-                                                                 &
-                                                                 nvxio::ranges::atMost(12u)));
+            nvxio::OptionHandler::unsignedInteger(&config.fast_type,
+                nvxio::ranges::atLeast(9u)
+                &
+                nvxio::ranges::atMost(12u)));
     ftparser->addParameter("fast_thresh",
-                           nvxio::OptionHandler::unsignedInteger(&config.fast_thresh,
-                                                                 nvxio::ranges::lessThan(255u)));
+            nvxio::OptionHandler::unsignedInteger(&config.fast_thresh,
+                nvxio::ranges::lessThan(255u)));
 
     message = ftparser->parse(nf);
 
@@ -172,12 +174,139 @@ static void Cleanup(void *data)
     free(state);
 }
 
+static int initFrameSource(BenchmarkState *state, std::string sourceUri)
+{
+    // Create a OVXIO-based frame source
+    state->source = ovxio::createDefaultFrameSource(*(state->context), sourceUri);
+
+    if (!state->source || !state->source->open())
+    {
+        std::cerr << "Error: Can't open source URI " << sourceUri << std::endl;
+        return 0;
+    }
+
+    if (state->source->getSourceType() == ovxio::FrameSource::SINGLE_IMAGE_SOURCE)
+    {
+        std::cerr << "Error: Can't work on a single image." << std::endl;
+        return 0;
+    }
+    return 1;
+}
+
+static int initTracker(BenchmarkState *state, std::string maskFile, nvx::FeatureTracker::Params ft_params)
+{
+    // Load optional mask image if needed. To be used later by tracker
+
+    state->mask = NULL;
+
+#if defined USE_OPENCV || defined USE_GSTREAMER
+    if (!maskFile.empty())
+    {
+        state->mask = ovxio::loadImageFromFile(*(state->context), maskFile, VX_DF_IMAGE_U8);
+
+        vx_uint32 mask_width = 0, mask_height = 0;
+        NVXIO_SAFE_CALL( vxQueryImage(state->mask, VX_IMAGE_ATTRIBUTE_WIDTH, &mask_width, sizeof(mask_width)) );
+        NVXIO_SAFE_CALL( vxQueryImage(state->mask, VX_IMAGE_ATTRIBUTE_HEIGHT, &mask_height, sizeof(mask_height)) );
+
+        ovxio::FrameSource::Parameters sourceParams = state->source->getConfiguration();
+        if (mask_width != sourceParams.frameWidth || mask_height != sourceParams.frameHeight)
+        {
+            std::cerr << "Error: The mask must have the same size as the input source." << std::endl;
+            return 0;
+        }
+    }
+#endif
+    // Create FeatureTracker instance
+    state->tracker = nvx::FeatureTracker::create(*(state->context), ft_params);
+
+    ovxio::FrameSource::FrameStatus frameStatus;
+
+    // The first frame is read to initialize the tracker (tracker->init())
+    // and immediately "age" the delay. See the FeatureTrackerPyrLK::init()
+    // call in the file feature_tracker.cpp for further details
+    do
+    {
+        frameStatus = state->source->fetch(state->frame);
+    } while (frameStatus == ovxio::FrameSource::TIMEOUT);
+
+    if (frameStatus == ovxio::FrameSource::CLOSED)
+    {
+        std::cerr << "Error: Source has no frames" << std::endl;
+        return 0;
+    }
+
+    state->tracker->init(state->frame, state->mask);
+
+    vxAgeDelay(state->frame_delay);
+    return 1;
+}
+
+static int initRender(BenchmarkState *state)
+{
+    if (!state->shouldRender)
+    {
+        return 1;
+    }
+
+    ovxio::FrameSource::Parameters sourceParams = state->source->getConfiguration();
+
+    // Create a OVXIO-based render
+    state->renderer = ovxio::createDefaultRender( *(state->context), "Feature Tracker Demo",
+            sourceParams.frameWidth,
+            sourceParams.frameHeight);
+
+    if (!state->renderer)
+    {
+        std::cerr << "Error: Can't create a renderer" << std::endl;
+        return 0;
+    }
+
+    state->eventData = EventData();
+    state->renderer->setOnKeyboardEventCallback(eventCallback, &state->eventData);
+    return 1;
+}
+
+static int processConfig(BenchmarkState *state, char *info)
+{
+    if (!info) // take the default setting
+    {
+        state->shouldRender = false;
+        return 1;
+    }
+    cJSON *parsed = cJSON_Parse(info);
+    cJSON *entry = NULL;
+    if (!parsed || (parsed->type != cJSON_Object))
+    {
+        std::cerr << "Error: Wrong format of additional_info in the configuration file" << std::endl;
+        goto ErrorCleanup;
+    }
+    entry = cJSON_GetObjectItem(parsed, "shouldRender");
+    if (!entry || (entry->type != cJSON_True && entry->type != cJSON_False))
+    {
+        state->shouldRender = false;
+    }
+    else
+    {
+        state->shouldRender = entry->type == cJSON_True;
+    }
+    return 1;
+ErrorCleanup:
+    if (parsed) cJSON_Delete(parsed);
+    return 0;
+}
+
 static void* Initialize(InitializationParameters *params)
 {
     BenchmarkState *state = NULL;
     state = (BenchmarkState *) malloc(sizeof(*state));
     if (!state) return NULL;
     memset(state, 0, sizeof(*state));
+
+    if (!processConfig(state, params->additional_info))
+    {
+        Cleanup(state);
+        return NULL;
+    }
 
     nvxio::Application &app = nvxio::Application::get();
 
@@ -209,44 +338,26 @@ static void* Initialize(InitializationParameters *params)
     if (!read(configFile, ft_params, error))
     {
         std::cout<<error;
+        Cleanup(state);
         return NULL;
     }
 
-    // Create a OVXIO-based frame source
-    state->source = ovxio::createDefaultFrameSource(*(state->context), sourceUri);
-
-    if (!state->source || !state->source->open())
+    if (!initFrameSource(state, sourceUri))
     {
-        std::cerr << "Error: Can't open source URI " << sourceUri << std::endl;
+        Cleanup(state);
         return NULL;
     }
 
-    if (state->source->getSourceType() == ovxio::FrameSource::SINGLE_IMAGE_SOURCE)
+    if (!initRender(state))
     {
-        std::cerr << "Error: Can't work on a single image." << std::endl;
+        Cleanup(state);
         return NULL;
     }
 
     ovxio::FrameSource::Parameters sourceParams = state->source->getConfiguration();
-
-    // Create a OVXIO-based render
-    state->renderer = ovxio::createDefaultRender( *(state->context), "Feature Tracker Demo",
-                                                  sourceParams.frameWidth,
-                                                  sourceParams.frameHeight);
-
-    if (!state->renderer)
-    {
-        std::cerr << "Error: Can't create a renderer" << std::endl;
-        return NULL;
-    }
-
-    state->eventData.shouldStop = false;
-    state->eventData.pause = false;
-    state->renderer->setOnKeyboardEventCallback(eventCallback, &state->eventData);
-
     // Create OpenVX Image to hold frames from video source
     vx_image frameExemplar = vxCreateImage(*(state->context),
-                                           sourceParams.frameWidth, sourceParams.frameHeight, VX_DF_IMAGE_RGBX);
+            sourceParams.frameWidth, sourceParams.frameHeight, VX_DF_IMAGE_RGBX);
     NVXIO_CHECK_REFERENCE(frameExemplar);
     state->frame_delay = vxCreateDelay(*(state->context), (vx_reference)frameExemplar, 2);
     NVXIO_CHECK_REFERENCE(state->frame_delay);
@@ -257,54 +368,11 @@ static void* Initialize(InitializationParameters *params)
     state->prevFrame = (vx_image)vxGetReferenceFromDelay(state->frame_delay, -1);
     state->frame = (vx_image)vxGetReferenceFromDelay(state->frame_delay, 0);
 
-    // Load optional mask image if needed. To be used later by tracker
-
-    state->mask = NULL;
-
-#if defined USE_OPENCV || defined USE_GSTREAMER
-    if (!maskFile.empty())
+    if (!initTracker(state, maskFile, ft_params))
     {
-        state->mask = ovxio::loadImageFromFile(*(state->context), maskFile, VX_DF_IMAGE_U8);
-
-        vx_uint32 mask_width = 0, mask_height = 0;
-        NVXIO_SAFE_CALL( vxQueryImage(state->mask, VX_IMAGE_ATTRIBUTE_WIDTH, &mask_width, sizeof(mask_width)) );
-        NVXIO_SAFE_CALL( vxQueryImage(state->mask, VX_IMAGE_ATTRIBUTE_HEIGHT, &mask_height, sizeof(mask_height)) );
-
-        if (mask_width != sourceParams.frameWidth || mask_height != sourceParams.frameHeight)
-        {
-            std::cerr << "Error: The mask must have the same size as the input source." << std::endl;
-            return NULL;
-        }
-    }
-#endif
-
-    // Create FeatureTracker instance
-
-    state->tracker = nvx::FeatureTracker::create(*(state->context), ft_params);
-
-    ovxio::FrameSource::FrameStatus frameStatus;
-
-    // The first frame is read to initialize the tracker (tracker->init())
-    // and immediately "age" the delay. See the FeatureTrackerPyrLK::init()
-    // call in the file feature_tracker.cpp for further details
-
-    do
-    {
-        frameStatus = state->source->fetch(state->frame);
-    } while (frameStatus == ovxio::FrameSource::TIMEOUT);
-
-    if (frameStatus == ovxio::FrameSource::CLOSED)
-    {
-        std::cerr << "Error: Source has no frames" << std::endl;
+        Cleanup(state);
         return NULL;
     }
-
-    state->tracker->init(state->frame, state->mask);
-
-    vxAgeDelay(state->frame_delay);
-
-    //std::unique_ptr<nvxio::SyncTimer> syncTimer = nvxio::createSyncTimer();
-    //syncTimer->arm(1. / app.getFPSLimit());
 
     return state;
 }
@@ -316,6 +384,7 @@ static int CopyIn(void *data)
 
 static int Execute(void *data)
 {
+    BenchmarkState *state = (BenchmarkState *)data;
     try
     {
 
@@ -325,26 +394,30 @@ static int Execute(void *data)
         // details. The aging mechanism allows the algorithm to access current
         // and previous frame. The tracker gets the featureList from the prevoius
         // frame and the CurrentFrame and draws the arrows between them
-        BenchmarkState *state = (BenchmarkState *)data;
 
         ovxio::FrameSource::FrameStatus frameStatus;
-        if (!state->eventData.pause)
+loop:
+        // When it's not rendered, pause isn't an option. The frame is processed
+        // as it goes.
+        // When it's rendered, need to check whether it's paused.
+        if (!state->shouldRender || (state->shouldRender && !state->eventData.pause))
         {
             nvx::Timer procTimer;
             frameStatus = state->source->fetch(state->frame);
 
             if (frameStatus == ovxio::FrameSource::TIMEOUT)
             {
-                return 1;
+                goto loop;
             }
             if (frameStatus == ovxio::FrameSource::CLOSED)
             {
                 if (!state->source->open())
                 {
                     std::cerr << "Error: Failed to reopen the source" << std::endl;
+                    Cleanup(state);
                     return 0;
                 }
-                return 1;
+                goto loop;
             }
 
             // Process
@@ -352,21 +425,24 @@ static int Execute(void *data)
         }
 
         // Show the previous frame
-        state->renderer->putImage(state->prevFrame);
-
-        // Draw arrows & state
-        ovxio::Render::FeatureStyle featureStyle = { { 255, 0, 0, 255 }, 4.0f };
-        ovxio::Render::LineStyle arrowStyle = {{0, 255, 0, 255}, 1};
-
-        vx_array old_points = state->tracker->getPrevFeatures();
-        vx_array new_points = state->tracker->getCurrFeatures();
-
-        state->renderer->putArrows(old_points, new_points, arrowStyle);
-        state->renderer->putFeatures(old_points, featureStyle);
-
-        if (!state->renderer->flush())
+        if (state->shouldRender && state->renderer)
         {
-            state->eventData.shouldStop = true;
+            state->renderer->putImage(state->prevFrame);
+
+            // Draw arrows & state
+            ovxio::Render::FeatureStyle featureStyle = { { 255, 0, 0, 255 }, 4.0f };
+            ovxio::Render::LineStyle arrowStyle = {{0, 255, 0, 255}, 1};
+
+            vx_array old_points = state->tracker->getPrevFeatures();
+            vx_array new_points = state->tracker->getCurrFeatures();
+
+            state->renderer->putArrows(old_points, new_points, arrowStyle);
+            state->renderer->putFeatures(old_points, featureStyle);
+
+            if (!state->renderer->flush())
+            {
+                state->eventData.shouldStop = true;
+            }
         }
         if (!state->eventData.pause)
         {
@@ -376,6 +452,7 @@ static int Execute(void *data)
     catch (const std::exception& e)
     {
         std::cerr << "Error: " << e.what() << std::endl;
+        Cleanup(state);
         return 0;
     }
     return 1;
