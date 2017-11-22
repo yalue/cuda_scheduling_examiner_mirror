@@ -13,12 +13,15 @@ NVCCFLAGS := -g --ptxas-options=-v --compiler-options="$(CFLAGS)" \
 BENCHMARK_DEPENDENCIES := src/library_interface.h \
 	src/benchmark_gpu_utilities.h obj/benchmark_gpu_utilities.o
 
-all: directories benchmarks bin/runner
+all: directories benchmarks visionworks bin/runner
 
 benchmarks: bin/mandelbrot.so bin/timer_spin.so bin/multikernel.so \
 	bin/cpu_inorder_walk.so bin/cpu_random_walk.so bin/inorder_walk.so \
 	bin/random_walk.so bin/sharedmem_timer_spin.so bin/counter_spin.so \
 	bin/timer_spin_default_stream.so bin/stream_action.so
+
+visionworks:
+	$(MAKE) -C ./src/third_party/VisionWorks-1.6-Demos
 
 directories:
 	mkdir -p bin/
