@@ -379,6 +379,27 @@ static void* Initialize(InitializationParameters *params)
 
 static int CopyIn(void *data)
 {
+    BenchmarkState *state = (BenchmarkState *)data;
+    ovxio::FrameSource::FrameStatus frameStatus;
+    if (!state->shouldRender || (state->shouldRender && !state->eventData.pause))
+    {
+        frameStatus = state->source->fetch(state->frame);
+
+        if (frameStatus == ovxio::FrameSource::TIMEOUT)
+        {
+            return 1;
+        }
+        if (frameStatus == ovxio::FrameSource::CLOSED)
+        {
+            if (!state->source->open())
+            {
+                std::cerr << "Error: Failed to reopen the source" << std::endl;
+                Cleanup(state);
+                return 0;
+            }
+            return 1;
+        }
+    }
     return 1;
 }
 
@@ -396,58 +417,15 @@ static int Execute(void *data)
         // frame and the CurrentFrame and draws the arrows between them
 
         ovxio::FrameSource::FrameStatus frameStatus;
-loop:
         // When it's not rendered, pause isn't an option. The frame is processed
         // as it goes.
         // When it's rendered, need to check whether it's paused.
         if (!state->shouldRender || (state->shouldRender && !state->eventData.pause))
         {
-            nvx::Timer procTimer;
-            frameStatus = state->source->fetch(state->frame);
-
-            if (frameStatus == ovxio::FrameSource::TIMEOUT)
-            {
-                goto loop;
-            }
-            if (frameStatus == ovxio::FrameSource::CLOSED)
-            {
-                if (!state->source->open())
-                {
-                    std::cerr << "Error: Failed to reopen the source" << std::endl;
-                    Cleanup(state);
-                    return 0;
-                }
-                goto loop;
-            }
-
             // Process
             state->tracker->track(state->frame, state->mask);
         }
 
-        // Show the previous frame
-        if (state->shouldRender && state->renderer)
-        {
-            state->renderer->putImage(state->prevFrame);
-
-            // Draw arrows & state
-            ovxio::Render::FeatureStyle featureStyle = { { 255, 0, 0, 255 }, 4.0f };
-            ovxio::Render::LineStyle arrowStyle = {{0, 255, 0, 255}, 1};
-
-            vx_array old_points = state->tracker->getPrevFeatures();
-            vx_array new_points = state->tracker->getCurrFeatures();
-
-            state->renderer->putArrows(old_points, new_points, arrowStyle);
-            state->renderer->putFeatures(old_points, featureStyle);
-
-            if (!state->renderer->flush())
-            {
-                state->eventData.shouldStop = true;
-            }
-        }
-        if (!state->eventData.pause)
-        {
-            vxAgeDelay(state->frame_delay);
-        }
     }
     catch (const std::exception& e)
     {
@@ -461,6 +439,31 @@ loop:
 static int CopyOut(void *data, TimingInformation *times)
 {
     times->kernel_count = 0;
+    BenchmarkState *state = (BenchmarkState *)data;
+    // Show the previous frame
+    if (state->shouldRender && state->renderer)
+    {
+        state->renderer->putImage(state->prevFrame);
+
+        // Draw arrows & state
+        ovxio::Render::FeatureStyle featureStyle = { { 255, 0, 0, 255 }, 4.0f };
+        ovxio::Render::LineStyle arrowStyle = {{0, 255, 0, 255}, 1};
+
+        vx_array old_points = state->tracker->getPrevFeatures();
+        vx_array new_points = state->tracker->getCurrFeatures();
+
+        state->renderer->putArrows(old_points, new_points, arrowStyle);
+        state->renderer->putFeatures(old_points, featureStyle);
+
+        if (!state->renderer->flush())
+        {
+            state->eventData.shouldStop = true;
+        }
+    }
+    if (!state->eventData.pause)
+    {
+        vxAgeDelay(state->frame_delay);
+    }
     return 1;
 }
 

@@ -5,6 +5,7 @@ import matplotlib.pyplot as plot
 import numpy
 import re
 import sys
+import argparse
 
 def convert_values_to_cdf(values):
     """Takes a 1-D list of values and converts it to a CDF representation."""
@@ -169,12 +170,10 @@ def show_plots(filenames, times_key="block_times"):
     plot.show()
 
 if __name__ == "__main__":
-    base_directory = "./results"
-    if len(sys.argv) > 2:
-        print "Usage: python %s [directory containing results (./results)]" % (
-            sys.argv[0])
-        exit(1)
-    if len(sys.argv) == 2:
-        base_directory = sys.argv[1]
-    filenames = glob.glob(base_directory + "/*.json")
-    show_plots(filenames)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", "--directory", help="directory containing results.", default='./results')
+    parser.add_argument("-k", "--times_key", help="key name for the time property to be plotted.",
+            default="block_times")
+    args = parser.parse_args()
+    filenames = glob.glob(args.directory + "/*.json")
+    show_plots(filenames, args.times_key)
