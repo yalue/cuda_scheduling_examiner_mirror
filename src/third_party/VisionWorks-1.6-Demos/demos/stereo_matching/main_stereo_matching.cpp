@@ -401,6 +401,28 @@ static void* Initialize(InitializationParameters *params)
 }
 
 static int CopyIn(void *data) {
+    BenchmarkState *state = (BenchmarkState *)data;
+
+    if (!state->shouldRender || (state->shouldRender && !state->eventData.pause))
+    {
+        ovxio::FrameSource::FrameStatus frameStatus;
+
+        do
+        {
+            frameStatus = state->source->fetch(state->top_bottom);
+        }
+        while(frameStatus == ovxio::FrameSource::TIMEOUT);
+
+        if (frameStatus == ovxio::FrameSource::CLOSED)
+        {
+            if (!state->source->open())
+            {
+                std::cerr << "Error: Failed to reopen the source" << std::endl;
+                return 0;
+            }
+            return 1;
+        }
+    }
     return 1;
 }
 
@@ -417,14 +439,13 @@ static int Execute(void *data)
     try
     {
         BenchmarkState *state = (BenchmarkState *)data;
-        bool color_disp_update = true;
 
         // Run processing loop
         // The main processing loop simply reads the input frames using fetch()
         // and passing the control to the StereoMatching::run() function. The rendering
         // code in the main loop decides whether to display orignal (unprocessed)
         // image, plain disparity (U8) or the colored disparity based on user input
-loop:
+        //
         // When it's not rendered, pause isn't an option. The frame is processed
         // as it goes.
         // When it's rendered, need to check whether it's paused.
@@ -432,54 +453,10 @@ loop:
         {
             ovxio::FrameSource::FrameStatus frameStatus;
 
-            do
-            {
-                frameStatus = state->source->fetch(state->top_bottom);
-            }
-            while(frameStatus == ovxio::FrameSource::TIMEOUT);
-
-            if (frameStatus == ovxio::FrameSource::CLOSED)
-            {
-                if (!state->source->open())
-                {
-                    std::cerr << "Error: Failed to reopen the source" << std::endl;
-                    return 0;
-                }
-                goto loop;
-            }
-
             // Process
             state->stereo->run();
-
-            // Print performance results
-            color_disp_update = true;
         }
 
-        if (state->shouldRender && state->renderer)
-        {
-            switch (state->eventData.outputImg)
-            {
-                case ORIG_FRAME:
-                    state->renderer->putImage(state->left);
-                    break;
-                case ORIG_DISPARITY:
-                    state->renderer->putImage(state->disparity);
-                    break;
-                case COLOR_OUTPUT:
-                    if (color_disp_update)
-                    {
-                        state->color_disp_graph->process();
-                        color_disp_update = false;
-                    }
-                    state->renderer->putImage(state->color_output);
-                    break;
-            }
-
-            if (!state->renderer->flush())
-            {
-                state->eventData.shouldStop = true;
-            }
-        }
     }
     catch (const std::exception& e)
     {
@@ -492,6 +469,28 @@ loop:
 
 static int CopyOut(void *data, TimingInformation *times) {
     times->kernel_count = 0;
+    BenchmarkState *state = (BenchmarkState *)data;
+    if (state->shouldRender && state->renderer)
+    {
+        switch (state->eventData.outputImg)
+        {
+            case ORIG_FRAME:
+                state->renderer->putImage(state->left);
+                break;
+            case ORIG_DISPARITY:
+                state->renderer->putImage(state->disparity);
+                break;
+            case COLOR_OUTPUT:
+                state->color_disp_graph->process();
+                state->renderer->putImage(state->color_output);
+                break;
+        }
+
+        if (!state->renderer->flush())
+        {
+            state->eventData.shouldStop = true;
+        }
+    }
     return 1;
 }
 

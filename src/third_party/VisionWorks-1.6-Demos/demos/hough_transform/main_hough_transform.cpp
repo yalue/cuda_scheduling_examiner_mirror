@@ -554,6 +554,33 @@ static void* Initialize(InitializationParameters *params)
 
 static int CopyIn(void *data)
 {
+    BenchmarkState *state = (BenchmarkState *)data;
+
+    if (!state->shouldRender || (state->shouldRender && !state->eventData.pause))
+    {
+        // The main processing loop simply reads the input frames using
+        // the source->fetch(). The rendering code in the main loop decides
+        // whether to display orignal (unprocessed) source image or edges
+        // overlayed with detected lines and circles based on user input
+
+        ovxio::FrameSource::FrameStatus frameStatus = state->frameSource->fetch(state->frame);
+
+        if (frameStatus == ovxio::FrameSource::TIMEOUT)
+        {
+            std::cerr << "Error: frame source featch TIMEOUT" << std::endl;
+            return 1;
+        }
+
+        if (frameStatus == ovxio::FrameSource::CLOSED)
+        {
+            if (!state->frameSource->open())
+            {
+                std::cerr << "Error: Failed to reopen the source" << std::endl;
+                return 0;
+            }
+            return 1;
+        }
+    }
     return 1;
 }
 
@@ -567,123 +594,17 @@ static int Execute(void *data)
     {
         BenchmarkState *state = (BenchmarkState *)data;
 
-loop:
         // Main loop
         // When it's not rendered, pause isn't an option. The frame is processed
         // as it goes.
         // When it's rendered, need to check whether it's paused.
         if (!state->shouldRender || (state->shouldRender && !state->eventData.pause))
         {
-            // The main processing loop simply reads the input frames using
-            // the source->fetch(). The rendering code in the main loop decides
-            // whether to display orignal (unprocessed) source image or edges
-            // overlayed with detected lines and circles based on user input
-
-            ovxio::FrameSource::FrameStatus frameStatus = state->frameSource->fetch(state->frame);
-
-            if (frameStatus == ovxio::FrameSource::TIMEOUT)
-            {
-                std::cerr << "Error: frame source featch TIMEOUT" << std::endl;
-                goto loop;
-            }
-
-            if (frameStatus == ovxio::FrameSource::CLOSED)
-            {
-                if (!state->frameSource->open())
-                {
-                    std::cerr << "Error: Failed to reopen the source" << std::endl;
-                    return 0;
-                }
-                goto loop;
-            }
-
             // Process
             NVXIO_SAFE_CALL( vxProcessGraph(state->graph) );
 
-            // Scale detected circles
-            vx_size num_circles = 0;
-            NVXIO_SAFE_CALL( vxQueryArray(state->circles, VX_ARRAY_ATTRIBUTE_NUMITEMS, &num_circles, sizeof(num_circles)) );
-
-            if (num_circles > 0)
-            {
-                vx_map_id map_id;
-                void *ptr;
-                vx_size stride;
-                NVXIO_SAFE_CALL( vxMapArrayRange(state->circles, 0, num_circles, &map_id, &stride, &ptr, VX_READ_AND_WRITE, VX_MEMORY_TYPE_HOST, 0) );
-
-                for (vx_size i = 0; i < num_circles; ++i)
-                {
-                    nvx_point3f_t *c = (nvx_point3f_t *)vxFormatArrayPointer(ptr, i, stride);
-                    c->x /= state->ht_params.scaleFactor;
-                    c->y /= state->ht_params.scaleFactor;
-                    c->z /= state->ht_params.scaleFactor;
-                }
-
-                NVXIO_SAFE_CALL( vxUnmapArrayRange(state->circles, map_id) );
-            }
-
-            // Scale detected lines (convert it to array with start and end coordinates)
-            vx_size lines_count = 0;
-            NVXIO_SAFE_CALL( vxQueryArray(state->lines, VX_ARRAY_ATTRIBUTE_NUMITEMS, &lines_count, sizeof(lines_count)) );
-
-            if (lines_count > 0)
-            {
-                vx_map_id map_id;
-                vx_size stride;
-                void *ptr;
-                NVXIO_SAFE_CALL( vxMapArrayRange(state->lines, 0, lines_count, &map_id, &stride, &ptr, VX_READ_AND_WRITE, VX_MEMORY_TYPE_HOST, 0) );
-
-                for (vx_size i = 0; i < lines_count; ++i)
-                {
-                    nvx_point4f_t *coord = (nvx_point4f_t *)vxFormatArrayPointer(ptr, i, stride);
-
-                    coord->x /= state->ht_params.scaleFactor;
-                    coord->y /= state->ht_params.scaleFactor;
-                    coord->z /= state->ht_params.scaleFactor;
-                    coord->w /= state->ht_params.scaleFactor;
-                }
-
-                NVXIO_SAFE_CALL( vxUnmapArrayRange(state->lines, map_id) );
-            }
-
-            // switch image/edges view every switchPeriod-th frame
-            if (state->ht_params.switchPeriod > 0)
-            {
-                state->numFrames++;
-                if (state->numFrames % state->ht_params.switchPeriod == 0)
-                {
-                    state->eventData.showSource = !state->eventData.showSource;
-                }
-            }
-
         }
 
-        // Show original image or detected edges
-        if (state->shouldRender && state->renderer)
-        {
-            if (state->eventData.showSource)
-            {
-                state->renderer->putImage(state->frame);
-            }
-            else
-            {
-                state->renderer->putImage(state->edges);
-            }
-
-            // Draw detected circles
-            ovxio::Render::CircleStyle circleStyle = { { 255u, 0u, 255u, 255u}, 2 };
-            state->renderer->putCircles(state->circles, circleStyle);
-
-            // Draw detected lines
-            ovxio::Render::LineStyle lineStyle = { { 0u, 255u, 255u, 255u}, 2 };
-            state->renderer->putLines(state->lines, lineStyle);
-
-            // Flush all rendering commands
-            if (!state->renderer->flush())
-            {
-                state->eventData.stop = true;
-            }
-        }
     }
     catch (const std::exception& e)
     {
@@ -697,6 +618,101 @@ loop:
 static int CopyOut(void *data, TimingInformation *times)
 {
     times->kernel_count = 0;
+    BenchmarkState *state = (BenchmarkState *)data;
+
+    if (!state->shouldRender || (state->shouldRender && !state->eventData.pause))
+    {
+        // Scale detected circles
+        vx_size num_circles = 0;
+        NVXIO_SAFE_CALL( vxQueryArray(state->circles,
+                    VX_ARRAY_ATTRIBUTE_NUMITEMS, &num_circles,
+                    sizeof(num_circles)) );
+
+        if (num_circles > 0)
+        {
+            vx_map_id map_id;
+            void *ptr;
+            vx_size stride;
+            NVXIO_SAFE_CALL( vxMapArrayRange(state->circles, 0, num_circles,
+                        &map_id, &stride, &ptr, VX_READ_AND_WRITE,
+                        VX_MEMORY_TYPE_HOST, 0) );
+
+            for (vx_size i = 0; i < num_circles; ++i)
+            {
+                nvx_point3f_t *c = (nvx_point3f_t *)vxFormatArrayPointer(ptr, i, stride);
+                c->x /= state->ht_params.scaleFactor;
+                c->y /= state->ht_params.scaleFactor;
+                c->z /= state->ht_params.scaleFactor;
+            }
+
+            NVXIO_SAFE_CALL( vxUnmapArrayRange(state->circles, map_id) );
+        }
+
+        // Scale detected lines (convert it to array with start and end coordinates)
+        vx_size lines_count = 0;
+        NVXIO_SAFE_CALL( vxQueryArray(state->lines,
+                    VX_ARRAY_ATTRIBUTE_NUMITEMS, &lines_count,
+                    sizeof(lines_count)) );
+
+        if (lines_count > 0)
+        {
+            vx_map_id map_id;
+            vx_size stride;
+            void *ptr;
+            NVXIO_SAFE_CALL( vxMapArrayRange(state->lines, 0, lines_count,
+                        &map_id, &stride, &ptr, VX_READ_AND_WRITE,
+                        VX_MEMORY_TYPE_HOST, 0) );
+
+            for (vx_size i = 0; i < lines_count; ++i)
+            {
+                nvx_point4f_t *coord = (nvx_point4f_t *)vxFormatArrayPointer(ptr, i, stride);
+
+                coord->x /= state->ht_params.scaleFactor;
+                coord->y /= state->ht_params.scaleFactor;
+                coord->z /= state->ht_params.scaleFactor;
+                coord->w /= state->ht_params.scaleFactor;
+            }
+
+            NVXIO_SAFE_CALL( vxUnmapArrayRange(state->lines, map_id) );
+        }
+
+        // switch image/edges view every switchPeriod-th frame
+        if (state->ht_params.switchPeriod > 0)
+        {
+            state->numFrames++;
+            if (state->numFrames % state->ht_params.switchPeriod == 0)
+            {
+                state->eventData.showSource = !state->eventData.showSource;
+            }
+        }
+    }
+    // Show original image or detected edges
+    if (state->shouldRender && state->renderer)
+    {
+        if (state->eventData.showSource)
+        {
+            state->renderer->putImage(state->frame);
+        }
+        else
+        {
+            state->renderer->putImage(state->edges);
+        }
+
+        // Draw detected circles
+        ovxio::Render::CircleStyle circleStyle = { { 255u, 0u, 255u, 255u}, 2 };
+        state->renderer->putCircles(state->circles, circleStyle);
+
+        // Draw detected lines
+        ovxio::Render::LineStyle lineStyle = { { 0u, 255u, 255u, 255u}, 2 };
+        state->renderer->putLines(state->lines, lineStyle);
+
+        // Flush all rendering commands
+        if (!state->renderer->flush())
+        {
+            state->eventData.stop = true;
+        }
+    }
+
     return 1;
 }
 

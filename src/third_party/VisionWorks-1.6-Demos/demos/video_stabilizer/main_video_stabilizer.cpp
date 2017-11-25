@@ -150,6 +150,10 @@ static void Cleanup(void *data) {
 
 static int initRender(BenchmarkState *state, vx_int32 demoImgHeight, vx_int32 demoImgWidth)
 {
+    if (!state->shouldRender)
+    {
+        return 1;
+    }
     ovxio::FrameSource::Parameters sourceParams = state->source->getConfiguration();
 
     state->renderer = ovxio::createDefaultRender(*(state->context), "Video Stabilization Demo", demoImgWidth, demoImgHeight);
@@ -259,7 +263,7 @@ static void* Initialize(InitializationParameters *params) {
     vxRegisterLogCallback(*(state->context), &ovxio::stdoutLogCallback, vx_false_e);
     vxDirective(*(state->context), VX_DIRECTIVE_ENABLE_PERFORMANCE);
 
-    // Create FrameSource and Render
+    // Create FrameSource
     state->source = ovxio::createDefaultFrameSource(*(state->context), videoFilePath);
 
     if (!state->source || !state->source->open())
@@ -326,8 +330,6 @@ static int Execute(void *data)
     try
     {
         BenchmarkState *state = (BenchmarkState *)data;
-        ovxio::FrameSource::FrameStatus frameStatus;
-loop:
         // Run processing loop
         // When it's not rendered, pause isn't an option. The frame is processed
         // as it goes.
@@ -336,34 +338,6 @@ loop:
         {
             // Process
             state->stabilizer->process(state->frame);
-
-            NVXIO_SAFE_CALL( vxAgeDelay(state->orig_frame_delay) );
-
-            vx_image stabImg = state->stabilizer->getStabilizedFrame();
-            NVXIO_SAFE_CALL( nvxuCopyImage(*(state->context), stabImg, state->rightRoi) );
-            NVXIO_SAFE_CALL( nvxuCopyImage(*(state->context), state->lastFrame, state->leftRoi) );
-
-            // Read frame
-            frameStatus = state->source->fetch(state->frame);
-
-            if (frameStatus == ovxio::FrameSource::TIMEOUT)
-                goto loop;
-            else if (frameStatus == ovxio::FrameSource::CLOSED)
-            {
-                if (!state->source->open())
-                {
-                    std::cerr << "Error: Failed to reopen the state->source" << std::endl;
-                    return 0;
-                }
-            }
-        }
-
-        if (state->shouldRender && state->renderer)
-            state->renderer->putImage(state->demoImg);
-
-        if (!state->renderer->flush())
-        {
-            state->eventData.shouldStop = true;
         }
     }
     catch (const std::exception& e)
@@ -376,7 +350,41 @@ loop:
 }
 
 static int CopyOut(void *data, TimingInformation *times) {
+    BenchmarkState *state = (BenchmarkState *)data;
     times->kernel_count = 0;
+    ovxio::FrameSource::FrameStatus frameStatus;
+    if (!state->shouldRender || (state->shouldRender && !state->eventData.pause))
+    {
+        NVXIO_SAFE_CALL( vxAgeDelay(state->orig_frame_delay) );
+
+        vx_image stabImg = state->stabilizer->getStabilizedFrame();
+        NVXIO_SAFE_CALL( nvxuCopyImage(*(state->context), stabImg, state->rightRoi) );
+        NVXIO_SAFE_CALL( nvxuCopyImage(*(state->context), state->lastFrame, state->leftRoi) );
+
+        // Read frame
+        frameStatus = state->source->fetch(state->frame);
+
+        if (frameStatus == ovxio::FrameSource::TIMEOUT)
+            return 1;
+        else if (frameStatus == ovxio::FrameSource::CLOSED)
+        {
+            if (!state->source->open())
+            {
+                std::cerr << "Error: Failed to reopen the state->source" << std::endl;
+                return 0;
+            }
+        }
+    }
+
+    if (state->shouldRender && state->renderer)
+    {
+        state->renderer->putImage(state->demoImg);
+
+        if (!state->renderer->flush())
+        {
+            state->eventData.shouldStop = true;
+        }
+    }
     return 1;
 }
 

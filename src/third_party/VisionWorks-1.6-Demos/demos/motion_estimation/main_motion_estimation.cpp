@@ -285,6 +285,42 @@ static void* Initialize(InitializationParameters *params)
 }
 
 static int CopyIn(void *data) {
+    BenchmarkState *state = (BenchmarkState *)data;
+    ovxio::FrameSource::FrameStatus frameStatus;
+    if (!state->shouldRender || (state->shouldRender && !state->eventData.pause))
+    {
+        // Grab next frame
+        frameStatus = state->frameSource->fetch(state->currFrame);
+
+        if (frameStatus == ovxio::FrameSource::TIMEOUT)
+        {
+            std::cerr << "Error: frame source featch TIMEOUT" << std::endl;
+            return 0;
+        }
+
+        if (frameStatus == ovxio::FrameSource::CLOSED)
+        {
+            if (!state->frameSource->open())
+            {
+                std::cerr << "Failed to reopen the source" << std::endl;
+                return 0;
+            }
+
+            do
+            {
+                frameStatus = state->frameSource->fetch(state->prevFrame);
+            } while (frameStatus == ovxio::FrameSource::TIMEOUT);
+
+            if (frameStatus == ovxio::FrameSource::CLOSED)
+            {
+                std::cerr << "Source has no frames" << std::endl;
+                return 0;
+            }
+
+            state->ime->init(state->prevFrame, state->currFrame, state->me_params);
+            return 1;
+        }
+    }
     return 1;
 }
 
@@ -293,70 +329,16 @@ static int Execute(void *data)
     try
     {
         BenchmarkState *state = (BenchmarkState *)data;
-        ovxio::FrameSource::FrameStatus frameStatus;
-loop:   // in case state->ime is re-inited
 
         // When it's not rendered, pause isn't an option. The frame is processed
         // as it goes.
         // When it's rendered, need to check whether it's paused.
         if (!state->shouldRender || (state->shouldRender && !state->eventData.pause))
         {
-            // Grab next frame
-            frameStatus = state->frameSource->fetch(state->currFrame);
-
-            if (frameStatus == ovxio::FrameSource::TIMEOUT)
-            {
-                std::cerr << "Error: frame source featch TIMEOUT" << std::endl;
-                return 0;
-            }
-
-            if (frameStatus == ovxio::FrameSource::CLOSED)
-            {
-                if (!state->frameSource->open())
-                {
-                    std::cerr << "Failed to reopen the source" << std::endl;
-                    return 0;
-                }
-
-                do
-                {
-                    frameStatus = state->frameSource->fetch(state->prevFrame);
-                } while (frameStatus == ovxio::FrameSource::TIMEOUT);
-
-                if (frameStatus == ovxio::FrameSource::CLOSED)
-                {
-                    std::cerr << "Source has no frames" << std::endl;
-                    return 0;
-                }
-
-                state->ime->init(state->prevFrame, state->currFrame, state->me_params);
-                goto loop;
-            }
-
             // Process
             state->ime->process();
         }
 
-        // state->renderer
-        if (state->shouldRender && state->renderer)
-        {
-            state->renderer->putImage(state->prevFrame);
-
-            ovxio::Render::MotionFieldStyle mfStyle = {
-                {  0u, 255u, 255u, 255u} // color
-            };
-
-            state->renderer->putMotionField(state->ime->getMotionField(), mfStyle);
-
-            if (!state->renderer->flush())
-            {
-                state->eventData.stop = true;
-            }
-        }
-        if (!state->eventData.pause)
-        {
-            vxAgeDelay(state->frame_delay);
-        }
 
     }
     catch (const std::exception& e)
@@ -369,7 +351,28 @@ loop:   // in case state->ime is re-inited
 }
 
 static int CopyOut(void *data, TimingInformation *times) {
+    BenchmarkState *state = (BenchmarkState *)data;
     times->kernel_count = 0;
+    // state->renderer
+    if (state->shouldRender && state->renderer)
+    {
+        state->renderer->putImage(state->prevFrame);
+
+        ovxio::Render::MotionFieldStyle mfStyle = {
+            {  0u, 255u, 255u, 255u} // color
+        };
+
+        state->renderer->putMotionField(state->ime->getMotionField(), mfStyle);
+
+        if (!state->renderer->flush())
+        {
+            state->eventData.stop = true;
+        }
+    }
+    if (!state->eventData.pause)
+    {
+        vxAgeDelay(state->frame_delay);
+    }
     return 1;
 }
 
