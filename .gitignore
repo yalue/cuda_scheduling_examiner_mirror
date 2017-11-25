@@ -2,4 +2,4 @@ bin/
 obj/
 results/*.json
 *.pyc
-
+*.sw*
