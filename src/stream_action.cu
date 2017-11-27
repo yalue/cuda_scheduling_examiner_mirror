@@ -49,51 +49,51 @@
         "thread_count": <The number of threads per block to use. Defaults to
           the value given in the benchmark parameters.>
       },
-      {
-        "type": "malloc",
-        "label": "Malloc 1",
-        "parameters": {
-          "host": <Boolean. Defaults to false. If true, will allocate host
-            memory.>,
-          "size": <Number of bytes to allocate>
-        }
-      },
-      {
-        "type": "free",
-        "label": "Free 1",
-        "parameters": {
-          "host": <Boolean. Defaults to false. If true, will free host memory.
-            The entire "parameters" block can be omitted here for the default.>
-        }
-      },
-      {
-        "type": "memset",
-        "label": "Memset 1",
-        "parameters": {
-          "async": <Boolean. Defaults to true. If false, will issue a
-            null-stream memset regardless of use_null_stream's value.>,
-          "size": <Number of bytes to set to 0>
-        }
-      },
-      {
-        "type": "memcpy",
-        "label": Memcpy 1",
-        "parameters": {
-          "async": <Boolean. Defaults to true. If false, issues a null-stream
-            memcpy regardless of use_null_stream's value.>,
-          "size": <Number of byte to copy>,
-          "direction": <Either "deviceToDevice", "deviceToHost", or
-            "hostToDevice">
-        }
-      },
-      {
-        "type": "synchronize",
-        "label": "Sync 1",
-        "parameters": {
-          "device": <Boolean. Defaults to false (parameters can be omitted here
-            entirely, too). If true, runs a cudaDeviceSynchronize rather than
-            cudaStreamSynchronize.>
-        }
+    }
+    {
+      "type": "malloc",
+      "label": "Malloc 1",
+      "parameters": {
+        "host": <Boolean. Defaults to false. If true, will allocate host
+          memory.>,
+        "size": <Number of bytes to allocate>
+      }
+    },
+    {
+      "type": "free",
+      "label": "Free 1",
+      "parameters": {
+        "host": <Boolean. Defaults to false. If true, will free host memory.
+          The entire "parameters" block can be omitted here for the default.>
+      }
+    },
+    {
+      "type": "memset",
+      "label": "Memset 1",
+      "parameters": {
+        "async": <Boolean. Defaults to true. If false, will issue a
+          null-stream memset regardless of use_null_stream's value.>,
+        "size": <Number of bytes to set to 0>
+      }
+    },
+    {
+      "type": "memcpy",
+      "label": Memcpy 1",
+      "parameters": {
+        "async": <Boolean. Defaults to true. If false, issues a null-stream
+          memcpy regardless of use_null_stream's value.>,
+        "size": <Number of byte to copy>,
+        "direction": <Either "deviceToDevice", "deviceToHost", or
+          "hostToDevice">
+      }
+    },
+    {
+      "type": "synchronize",
+      "label": "Sync 1",
+      "parameters": {
+        "device": <Boolean. Defaults to false (parameters can be omitted here
+          entirely, too). If true, runs a cudaDeviceSynchronize rather than
+          cudaStreamSynchronize.>
       }
     }
   ]
@@ -624,7 +624,7 @@ static int ParseFreeParameters(cJSON *json_parameters,
 static int ParseMemsetParameters(cJSON *json_parameters,
     MemsetParameters *memset_config) {
   cJSON *entry = NULL;
-  int async = 0;
+  int async = 1;
   static const char* const valid_keys[] = {
     "async",
     "size",
@@ -656,7 +656,7 @@ static int ParseMemsetParameters(cJSON *json_parameters,
 static int ParseMemcpyParameters(cJSON *json_parameters,
     MemcpyParameters *memcpy_config) {
   cJSON *entry = NULL;
-  int async = 0;
+  int async = 1;
   static const char* const valid_keys[] = {
     "async",
     "size",

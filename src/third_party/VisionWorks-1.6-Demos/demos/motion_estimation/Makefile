@@ -24,6 +24,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+ROOT_DIR := ../../../../..
 # OS info
 OSLOWER := $(shell uname -s 2>/dev/null | tr "[:upper:]" "[:lower:]")
 
@@ -83,7 +84,7 @@ NVXIO_CFLAGS := -I../../nvxio/include -I../../nvxio/src/ -I../../nvxio/src/NVX/
 OVXIO_LIBS := ../../libs/$(OS_ARCH)/$(OSLOWER)/$(TARGET)$(if $(abi),/$(abi))/libovx.a
 
 INCLUDES := $(EXTERNAL_CFLAGS)
-INCLUDES += -I/home/yang/cuda_scheduling_examiner_mirror/src
+INCLUDES += -I$(ROOT_DIR)/src
 INCLUDES += $(NVXIO_CFLAGS)
 INCLUDES +=  -I../../3rdparty/opengl -I../../3rdparty/glfw3/include  $(shell pkg-config --cflags freetype2)
 INCLUDES += $(EIGEN_CFLAGS)
@@ -123,7 +124,6 @@ LDFLAGS += -Wl,-rpath=$(CUDA_LIB_PATH)
 CPP_FILES := $(wildcard *.cpp)
 OBJ_DIR := obj/$(TARGET)
 OBJ_FILES_CPP := $(addprefix $(OBJ_DIR)/,$(notdir $(CPP_FILES:.cpp=.o)))
-ROOT_DIR := ../../../../..
 CJSON_OBJ := $(ROOT_DIR)/obj/cjson.o
 
 OUTPUT_DIR := $(ROOT_DIR)/bin
