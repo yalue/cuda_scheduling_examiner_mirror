@@ -355,9 +355,6 @@ static int CopyOut(void *data, TimingInformation *times) {
     ovxio::FrameSource::FrameStatus frameStatus;
     if (!state->shouldRender || (state->shouldRender && !state->eventData.pause))
     {
-        // Process
-        state->stabilizer->process(state->frame);
-
         NVXIO_SAFE_CALL( vxAgeDelay(state->orig_frame_delay) );
 
         vx_image stabImg = state->stabilizer->getStabilizedFrame();
