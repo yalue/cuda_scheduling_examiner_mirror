@@ -1,0 +1,87 @@
+{
+  "name": "Task host example",
+  "comment": "This is an example of how task_host.so can be used to define a",
+  "comment": "hierarchy containing both processes and threads.",
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "use_processes": true,
+  "benchmarks": [
+    {
+      "filename": "./bin/task_host.so",
+      "log_name": "task_host_1.json",
+      "label": "Task host 1",
+      "thread_count": 0,
+      "block_count": 0,
+      "data_size": 0,
+      "additional_info": {
+        "name": "Task host example",
+        "max_iterations": 1,
+        "max_time": 0,
+        "cuda_device": 0,
+        "use_processes": false,
+        "benchmarks": [
+          {
+            "filename": "./bin/timer_spin.so",
+            "log_name": "timer_spin_p1_t1.json",
+            "label": "Process 1, Task 1",
+            "cpu_core": 1,
+            "thread_count": 1024,
+            "block_count": 2,
+            "data_size": 0,
+            "additional_info": 500000000
+          },
+          {
+            "filename": "./bin/timer_spin.so",
+            "log_name": "timer_spin_p1_t2.json",
+            "label": "Process 1, Task 2",
+            "cpu_core": 2,
+            "thread_count": 1024,
+            "block_count": 2,
+            "data_size": 0,
+            "additional_info": 500000000
+          }
+        ]
+      }
+    },
+    {
+      "filename": "./bin/task_host.so",
+      "log_name": "task_host_2.json",
+      "label": "Task host 2",
+      "thread_count": 0,
+      "block_count": 0,
+      "data_size": 0,
+      "additional_info": {
+        "name": "Task host example",
+        "max_iterations": 1,
+        "max_time": 0,
+        "cuda_device": 0,
+        "use_processes": false,
+        "benchmarks": [
+          {
+            "filename": "./bin/timer_spin.so",
+            "log_name": "timer_spin_p2_t1.json",
+            "label": "Process 2, Task 1",
+            "cpu_core": 3,
+            "thread_count": 1024,
+            "block_count": 2,
+            "data_size": 0,
+            "additional_info": 500000000,
+            "release_time": 0.25
+          },
+          {
+            "filename": "./bin/timer_spin.so",
+            "log_name": "timer_spin_p2_t2.json",
+            "label": "Process 2, Task 2",
+            "cpu_core": 4,
+            "thread_count": 1024,
+            "block_count": 2,
+            "data_size": 0,
+            "additional_info": 500000000,
+            "release_time": 0.25
+          }
+        ]
+      }
+    }
+  ]
+}
