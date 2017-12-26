@@ -134,6 +134,27 @@ this script, run the following command (after running `make`):
 python scripts/multikernel_generator.py | ./bin/runner -
 ```
 
+VisionWorks Demos Benchmark
+---------------------------
+
+NVIDIA's VisionWorks demos are imported as benchmarks. These demos are
+real-world autonomous driving applications such as stereo matching, feature
+tracking, hough transforming, and motion stabilizing. The source code of these
+demos are modified so they can be run as normal benchmarks and be configured.
+The code is located in `src/third_party/VisionWorks-1.6-Demos`.
+
+To compile VisionWorks benchmarks, use `make visionworks`. VisionWorks library
+is required.
+
+Script `scripts/visionworks_generator.py` is provided to generate configuration
+files for VisionWorks demos. Check out detailed help information using `python
+scripts/visionworks_generator.py -h`. Here is an example running one feature
+tracker instance:
+
+```bash
+python scripts/visionworks_generator.py --ft 1 | ./bin/runner -
+```
+
 Output File Format
 ------------------
 

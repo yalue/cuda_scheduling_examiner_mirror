@@ -13,7 +13,7 @@ NVCCFLAGS := -g --ptxas-options=-v --compiler-options="$(CFLAGS)" \
 BENCHMARK_DEPENDENCIES := src/library_interface.h \
 	src/benchmark_gpu_utilities.h obj/benchmark_gpu_utilities.o
 
-all: directories benchmarks visionworks bin/runner
+all: directories benchmarks bin/runner
 
 benchmarks: bin/mandelbrot.so bin/timer_spin.so bin/multikernel.so \
 	bin/cpu_inorder_walk.so bin/cpu_random_walk.so bin/inorder_walk.so \
