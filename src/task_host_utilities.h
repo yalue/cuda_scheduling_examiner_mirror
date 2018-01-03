@@ -1,7 +1,8 @@
-// In order to keep runner.c free from CUDA code, any direct interaction
-// between runner.c and the GPU will go through functions defined in this file.
-#ifndef GPU_UTILITIES_H
-#define GPU_UTILITIES_H
+// In order to keep task_host.c free from CUDA code, any direct interaction
+// between task_host.c and the GPU will go through functions defined in this
+// file.
+#ifndef TASK_HOST_UTILITIES_H
+#define TASK_HOST_UTILITIES_H
 #include <stdint.h>
 #ifdef __cplusplus
 extern "C" {
@@ -27,5 +28,5 @@ double GetGPUTimerScale(int cuda_device);
 #ifdef __cplusplus
 }  // extern "C"
 #endif
-#endif  // GPU_UTILITIES_H
+#endif  // TASK_HOST_UTILITIES_H
 

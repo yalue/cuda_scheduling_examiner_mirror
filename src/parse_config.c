@@ -17,81 +17,6 @@
 
 #define DEFAULT_BASE_RESULT_DIRECTORY "./results"
 
-// Wraps realloc, and attempts to resize the given buffer to the new_size.
-// Returns 0 on error and leaves buffer unchanged. Returns 1 on success. If
-// buffer is NULL, this will allocate memory. If new_size is 0, this wil free
-// memory and set buffer to NULL.
-static int SetBufferSize(void **buffer, size_t new_size) {
-  void *new_pointer = NULL;
-  if (new_size == 0) {
-    free(*buffer);
-    *buffer = NULL;
-    return 1;
-  }
-  new_pointer = realloc(*buffer, new_size);
-  if (!new_pointer) return 0;
-  *buffer = new_pointer;
-  return 1;
-}
-
-// Takes the name of the configuration file and returns a pointer to a buffer
-// containing its content. This will return NULL on error. On success, the
-// returned buffer must be passed to free(...) when no longer needed. May print
-// a message to stdout if an error occurs.
-static uint8_t* GetConfigFileContent(const char *filename) {
-  FILE *config_file = NULL;
-  uint8_t *raw_content = NULL;
-  uint8_t *current_chunk_start = NULL;
-  size_t total_bytes_read = 0;
-  size_t last_bytes_read = 0;
-  // Remember that a filename of "-" indicates to use stdin.
-  if (strncmp(filename, "-", 2) == 0) {
-    config_file = stdin;
-  } else {
-    config_file = fopen(filename, "rb");
-    if (!config_file) {
-      printf("Failed opening config file.\n");
-      return NULL;
-    }
-  }
-  if (!SetBufferSize((void **) (&raw_content), FILE_CHUNK_SIZE)) {
-    printf("Failed allocating buffer for config file content.\n");
-    if (config_file != stdin) fclose(config_file);
-    return NULL;
-  }
-  // It would be far nicer to just allocate a chunk of memory at once, but then
-  // there's no way to use stdin, since we don't know the size ahead of time.
-  // Also, we need to full buffer in order to parse the JSON.
-  while (1) {
-    current_chunk_start = raw_content + total_bytes_read;
-    last_bytes_read = fread(current_chunk_start, 1, FILE_CHUNK_SIZE,
-      config_file);
-    // If we failed to read an entire chunk, we're either at the end of the
-    // file or we encountered an error.
-    if (last_bytes_read != FILE_CHUNK_SIZE) {
-      if (!feof(config_file) || ferror(config_file)) {
-        printf("Error reading the config.\n");
-        free(raw_content);
-        if (config_file != stdin) fclose(config_file);
-        return NULL;
-      }
-      total_bytes_read += last_bytes_read;
-      break;
-    }
-    // Allocate space for another chunk of the file to be read.
-    total_bytes_read += FILE_CHUNK_SIZE;
-    if (!SetBufferSize((void **) (&raw_content), total_bytes_read +
-      FILE_CHUNK_SIZE)) {
-      printf("Failed obtaining more memory for the config file.\n");
-      free(raw_content);
-      if (config_file != stdin) fclose(config_file);
-      return NULL;
-    }
-  }
-  if (config_file != stdin) fclose(config_file);
-  return raw_content;
-}
-
 // Returns 0 if any key in the given cJSON config isn't in the given list of
 // valid keys, and nonzero otherwise. The cJSON object must refer to the first
 // sibling.
@@ -336,24 +261,20 @@ ErrorCleanup:
   return 0;
 }
 
-GlobalConfiguration* ParseConfiguration(const char *filename) {
+GlobalConfiguration* ParseConfiguration(const char *config) {
   GlobalConfiguration *to_return = NULL;
   cJSON *root = NULL;
   cJSON *entry = NULL;
-  uint8_t *raw_content = GetConfigFileContent(filename);
   int tmp;
-  if (!raw_content) return NULL;
   to_return = (GlobalConfiguration *) malloc(sizeof(*to_return));
   if (!to_return) {
     printf("Failed allocating config memory.\n");
-    free(raw_content);
     return NULL;
   }
   memset(to_return, 0, sizeof(*to_return));
-  root = cJSON_Parse((char *) raw_content);
+  root = cJSON_Parse(config);
   if (!root) {
     printf("Failed parsing JSON.\n");
-    free(raw_content);
     free(to_return);
     return NULL;
   }
@@ -398,7 +319,7 @@ GlobalConfiguration* ParseConfiguration(const char *filename) {
   }
   to_return->cuda_device = entry->valueint;
   // Any string entries will be copied--we have to assume that freeing cJSON
-  // and/or the raw_content will free them otherwise.
+  // and/or the config content will free them otherwise.
   entry = cJSON_GetObjectItem(root, "name");
   if (!entry || (entry->type != cJSON_String)) {
     printf("Missing scenario name in config.\n");
@@ -463,15 +384,12 @@ GlobalConfiguration* ParseConfiguration(const char *filename) {
   if (!ParseBenchmarkList(to_return, entry)) {
     goto ErrorCleanup;
   }
-  // Clean up the raw content and JSON--we don't need them anymore since all
-  // the data was copied.
-  free(raw_content);
+  // Clean up the JSON, we don't need it anymore since all the data was copied.
   cJSON_Delete(root);
   return to_return;
 ErrorCleanup:
   if (to_return->base_result_directory) free(to_return->base_result_directory);
   if (to_return->scenario_name) free(to_return->scenario_name);
-  free(raw_content);
   free(to_return);
   cJSON_Delete(root);
   return NULL;

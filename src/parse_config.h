@@ -77,11 +77,11 @@ typedef struct {
   BenchmarkConfiguration *benchmarks;
 } GlobalConfiguration;
 
-// Parses a JSON config file, and allocates and returns a GlobalConfiguration
-// struct. Returns NULL on error. When no longer needed, the returned pointer
-// must be passed to FreeGlobalConfiguration(...) to free resources. May print
-// a message to stdout on error.
-GlobalConfiguration* ParseConfiguration(const char *filename);
+// Parses a JSON configuration string, and allocates and returns a
+// GlobalConfiguration struct. Returns NULL on error. When no longer needed,
+// the returned pointer must be passed to FreeGlobalConfiguration. May print to
+// stdout on error.
+GlobalConfiguration* ParseConfiguration(const char *content);
 
 void FreeGlobalConfiguration(GlobalConfiguration *config);
 
