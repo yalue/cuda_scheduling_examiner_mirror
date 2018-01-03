@@ -1048,7 +1048,9 @@ class Stream(object):
 
         self.scenarioName = benchmark["scenario_name"]
         self.label = benchmark.get("label", "") # string
-        self.tid = benchmark["TID"] # string
+        self.tid = 0
+        if "TID" in benchmark:
+            self.tid = benchmark["TID"] # string
         self.releaseTime = benchmark["release_time"] # float
         self.maxResidentThreads = benchmark["max_resident_threads"] # int
 
