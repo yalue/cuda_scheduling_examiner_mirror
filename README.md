@@ -137,19 +137,19 @@ python scripts/multikernel_generator.py | ./bin/runner -
 VisionWorks Demos Benchmark
 ---------------------------
 
-NVIDIA's VisionWorks demos are imported as benchmarks. These demos are
+NVIDIA's VisionWorks demos are available to use as benchmarks. These demos are
 real-world autonomous driving applications such as stereo matching, feature
-tracking, hough transforming, and motion stabilizing. The source code of these
-demos are modified so they can be run as normal benchmarks and be configured.
-The code is located in `src/third_party/VisionWorks-1.6-Demos`.
+tracking, the Hough transform, and motion stabilization. The source code of
+these demos was modified to fit the benchmark interface. The modified source
+code is located in `src/third_party/VisionWorks-1.6-Demos`.
 
-To compile VisionWorks benchmarks, use `make visionworks`. VisionWorks library
-is required.
+To compile VisionWorks benchmarks, use `make visionworks`. The VisionWorks
+library must be installed for this to complete.
 
-Script `scripts/visionworks_generator.py` is provided to generate configuration
-files for VisionWorks demos. Check out detailed help information using `python
-scripts/visionworks_generator.py -h`. Here is an example running one feature
-tracker instance:
+The `scripts/visionworks_generator.py` script is provided to generate
+configuration files for VisionWorks demos. Check out detailed help information
+using `python scripts/visionworks_generator.py -h`. Here is an example running
+one feature tracker instance:
 
 ```bash
 python scripts/visionworks_generator.py --ft 1 | ./bin/runner -
@@ -269,24 +269,6 @@ Benchmark libraries are invoked by the master process as follows:
  5. When enough time has elapsed or the maximum number of iterations has been
     reached, the benchmark's `cleanup` function will be called, to allow for
     the benchmark to clean up and free its local state.
-
-
-Basic Testing
--------------
-
-If any changes are made to the `runner` tool, or that somehow affect all
-benchmarks, a script exists that automatically runs all `.so` files in the
-`bin/` directory. To use it, run:
-
-```bash
-python scripts/test_all_benchmarks.py
-```
-
-In the best case, you shouldn't see any error messages while this test runs.
-
-This script automatically generates a config file for each benchmark with
-minimal default parameters. Ideally, any new benchmark should have sane
-defaults which enable it to be tested using this script.
 
 Coding Style
 ------------
