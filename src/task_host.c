@@ -841,7 +841,7 @@ static void *Initialize(InitializationParameters *params) {
     Cleanup(shared_state);
     return NULL;
   }
-  printf("Task configs created.\n");
+  printf("Task configuration loaded.\n");
   // Next, calculate the difference in rates between the CPU clock and GPU
   // globaltimer.
   shared_state->gpu_time_scale = GetGPUTimerScale(cuda_device);
