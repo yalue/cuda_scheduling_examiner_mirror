@@ -249,11 +249,29 @@ def benchmark_sort_key(benchmark):
         return ""
     return benchmark["label"]
 
+def benchmark_has_block_times(benchmark):
+    """Returns true only if the benchmark includes some block times."""
+    if len(benchmark["times"]) < 2:
+        return False
+    for t in benchmark["times"][1:]:
+        # Return true only if the benchmark contains at least 1 block time.
+        if "block_times" not in t:
+            continue
+        if len(t["block_times"]) >= 1:
+            return True
+    return False
+
 def plot_scenario(benchmarks, name):
     """Takes a list of parsed benchmark results and a scenario name and
     generates a plot showing the timeline of benchmark behaviors for the
     specific scenario. Returns a matplotlib Figure object."""
     benchmarks = sorted(benchmarks, key = benchmark_sort_key)
+    # Remove any benchmarks that don't have any block times.
+    tmp = []
+    for b in benchmarks:
+        if benchmark_has_block_times(b):
+            tmp.append(b)
+    benchmarks = tmp
     figure = plot.figure()
     figure.suptitle(name)
     total_timeline = get_total_timeline(benchmarks)

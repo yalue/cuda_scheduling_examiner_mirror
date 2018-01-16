@@ -1,5 +1,5 @@
 // This file contains the implementation of the functions defined in
-// gpu_utilities.h--used by runner.c to work with the GPU.
+// task_host_utilities.h--used by task_host_utilities.c to work with the GPU.
 #include <cuda_runtime.h>
 #include <errno.h>
 #include <stdint.h>
@@ -10,7 +10,7 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
-#include "gpu_utilities.h"
+#include "task_host_utilities.h"
 
 // The number of GPU nanoseconds to spin for GetGPUTimerScale. Increasing this
 // will both increase the accuracy and the time the function takes to return.
