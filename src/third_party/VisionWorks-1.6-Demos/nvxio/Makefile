@@ -68,7 +68,8 @@ $(error You must put directory containing visionworks.pc to the PKG_CONFIG_PATH 
 endif
 
 VISION_WORKS_CFLAGS := $(shell pkg-config --cflags visionworks)
-CUDA_CFLAGS := $(shell pkg-config --cflags cudart-8.0)
+CUDA_CFLAGS := -I/usr/local/cuda/include/
+
 
 EIGEN_CFLAGS := -I../3rdparty/eigen
 NVXIO_CFLAGS := -DCUDA_API_PER_THREAD_DEFAULT_STREAM -DUSE_GUI=1 -DUSE_GLFW=1  -DUSE_GSTREAMER=1

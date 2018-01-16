@@ -13,8 +13,6 @@ import random
 import argparse
 import sys
 
-withMPS = False
-
 def generate_benchmark(filename, log_name, label_name):
     """ Returns a dict that, when converted to JSON, will work as a benchmark
     configuration for the visionworks benchmark. """
@@ -24,7 +22,7 @@ def generate_benchmark(filename, log_name, label_name):
     to_return = {}
     to_return["filename"] = filename
     to_return["log_name"] = log_name
-    to_return["label"] = label_name 
+    to_return["label"] = label_name
     to_return["thread_count"] = 0
     to_return["block_count"] = 0
     to_return["data_size"] = 0
@@ -46,8 +44,16 @@ def generate_app_config(benchmarks, filename, log_name, count):
 
     # Generate individual benchmark configs
     for i in range(count):
-        benchmark = generate_benchmark(filename, log_name + ("_MPS" if withMPS else "_MT") + "_x" + str(count) + "_" + str(i) + ".json",
-                "x" + str(count) + (" (MPS)" if withMPS else ""))
+        benchmark = generate_benchmark(filename,
+                log_name +  # log file name starts ---
+                ("_MP" if withMP else "_MT") +
+                ("_MPS" if withMPS else "") +
+                "_x" + str(count) +
+                "_" + str(i) +
+                ".json", # --- log file name ends
+                "x" + str(count) + # label name starts ---
+                (" MP" if withMP else " MT") +
+                (" (MPS)" if withMPS else "")) # --- label name ends
         benchmarks.append(benchmark)
 
     # Return the config as a JSON string.
@@ -63,15 +69,17 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--name", help="scenario name", default="VisionWorks demo")
     parser.add_argument("-i", "--iter", help="max iterations number", type=int, default=1000)
     parser.add_argument("-p", "--process", action="store_true")
+    parser.add_argument("-m", "--mps", action="store_true")
     args = parser.parse_args()
     config = {}
     # Generate the top-level global config
     config["use_processes"] = args.process
-    #config["use_processes"] = True
-    # For now, if each instance is a process, by default we have MPS set up.
-    withMPS = args.process
-    if withMPS and args.process:
+    withMPS = args.mps
+    withMP = args.process
+    if withMPS and args.mps:
         sys.stderr.write("MPS is used.\n")
+    if withMP and args.process:
+        sys.stderr.write("MP is used.\n")
 
     config["name"] = args.name
     config["max_iterations"] = args.iter

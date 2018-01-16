@@ -155,6 +155,15 @@ tracker instance:
 python scripts/visionworks_generator.py --ft 1 | ./bin/runner -
 ```
 
+To run VisionWorks case study, use:
+
+```bash
+./scripts/visionworks_scenarios_case_study.sh  # run the case study
+python scripts/view_times_cdf.py -k "execute_times" # view CDF plots
+python scripts/view_times_pdf.py # view PDF (probablity density function) plots,
+# by default it only shows "x4" scenarios. This can be modified in the script
+```
+
 Output File Format
 ------------------
 

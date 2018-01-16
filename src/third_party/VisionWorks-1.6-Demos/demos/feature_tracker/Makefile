@@ -72,11 +72,10 @@ endif
 EXTERNAL_CFLAGS :=
 EXTERNAL_LIBS :=
 
-EXTERNAL_CFLAGS += $(shell pkg-config --cflags cudart-8.0)
-EXTERNAL_LIBS += $(shell pkg-config --libs cudart-8.0)
+EXTERNAL_CFLAGS += -I/usr/local/cuda/include
+EXTERNAL_LIBS += -L/usr/local/cuda/lib64 -lcudart
 EXTERNAL_CFLAGS += $(shell pkg-config --cflags visionworks)
 EXTERNAL_LIBS += $(shell pkg-config --libs visionworks)
-
 
 EIGEN_CFLAGS := -I../../3rdparty/eigen
 
@@ -86,7 +85,7 @@ OVXIO_LIBS := ../../libs/$(OS_ARCH)/$(OSLOWER)/$(TARGET)$(if $(abi),/$(abi))/lib
 INCLUDES := $(EXTERNAL_CFLAGS)
 INCLUDES += -I$(ROOT_DIR)/src
 INCLUDES += $(NVXIO_CFLAGS)
-INCLUDES += -I../../3rdparty/opengl -I../../3rdparty/glfw3/include  $(shell pkg-config --cflags freetype2)
+INCLUDES += -I../../3rdparty/opengl -I../../3rdparty/glfw3/include -I../../3rdparty/freetype/include
 INCLUDES += $(EIGEN_CFLAGS)
 
 # to ensure correct linkage with NVIDIA GLES if MESA version is installed
@@ -97,7 +96,7 @@ ifneq ($(VIBRANTE_TOOLCHAIN_SYSROOT),)
 endif
 
 LIBRARIES += $(OVXIO_LIBS)
-LIBRARIES += $(shell pkg-config --libs freetype2) ../../3rdparty/glfw3/libs/libglfw3.a $(shell pkg-config --libs gl) $(shell pkg-config --libs xrandr xi xxf86vm x11)
+LIBRARIES += ../../3rdparty/freetype/libs/libfreetype.a ../../3rdparty/glfw3/libs/libglfw3.a $(shell pkg-config --libs gl) $(shell pkg-config --libs xrandr xi xxf86vm x11)
 LIBRARIES +=  $(shell pkg-config --libs gstreamer-base-1.0 gstreamer-pbutils-1.0 gstreamer-app-1.0)
 LIBRARIES += 
 LIBRARIES += $(EXTERNAL_LIBS)
@@ -119,7 +118,7 @@ ifeq ($(dbg),1)
 	LDFLAGS += -Wl,--trace
 endif
 
-CUDA_LIB_PATH := $(subst -L$(PKG_CONFIG_SYSROOT_DIR),,$(shell pkg-config --libs-only-L cudart-8.0))
+CUDA_LIB_PATH := $(subst -L$(PKG_CONFIG_SYSROOT_DIR),,-L/usr/local/cuda/lib64)
 LDFLAGS += -Wl,-rpath=$(CUDA_LIB_PATH)
 
 CPP_FILES := $(wildcard *.cpp)
