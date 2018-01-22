@@ -14,8 +14,6 @@ def get_benchmark_cdf(benchmark, times_key):
     argument can be used to specify which range of times (in the times array)
     should be used to calculate the durations to include in the CDF."""
     raw_values = []
-    worstcase = 0
-    starttime_worst = 0
     for t in benchmark["times"]:
         if not times_key in t:
             continue
@@ -88,7 +86,7 @@ def get_line_styles():
 
 def plot_scenario(benchmarks, name, times_key):
     """Takes a list of parsed benchmark results and a scenario name and
-    generates a CDF plot of CPU times for the scenario. See get_benchmark_cdf
+    generates a PDF plot of CPU times for the scenario. See get_benchmark_cdf
     for an explanation of the times_key argument."""
     benchmarks = sorted(benchmarks, key = benchmark_sort_key)
     style_cycler = itertools.cycle(get_line_styles())
