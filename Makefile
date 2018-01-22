@@ -20,7 +20,7 @@ benchmarks: bin/mandelbrot.so bin/timer_spin.so bin/multikernel.so \
 	bin/random_walk.so bin/sharedmem_timer_spin.so bin/counter_spin.so \
 	bin/timer_spin_default_stream.so bin/stream_action.so bin/task_host.so
 
-visionworks: obj/cjson.o
+visionworks: obj/cjson.o bin/runner
 	$(MAKE) -C ./src/third_party/VisionWorks-1.6-Demos
 
 directories:
