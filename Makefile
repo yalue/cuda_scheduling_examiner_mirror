@@ -99,7 +99,7 @@ obj/benchmark_gpu_utilities.o: src/benchmark_gpu_utilities.cu \
 obj/barrier_wait.o: src/barrier_wait.c src/barrier_wait.h
 	gcc -c $(CFLAGS) -o obj/barrier_wait.o src/barrier_wait.c
 
-bin/runner: obj/runner.o
+bin/runner: obj/runner.o bin/task_host.so
 	gcc -o bin/runner obj/runner.o -ldl
 
 bin/task_host.so: obj/task_host.o obj/cjson.o obj/parse_config.o \
