@@ -8,7 +8,8 @@ import sys
 import argparse
 
 def convert_values_to_cdf(values):
-    """Takes a 1-D list of values and converts it to a CDF representation."""
+    """Takes a 1-D list of values and converts it to a CDF representation. The
+    CDF consists of a vector of times and a vector of percentages of 100."""
     if len(values) == 0:
         return [[], []]
     values.sort()
@@ -171,9 +172,10 @@ def show_plots(filenames, times_key="block_times"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--directory", help="directory containing results.", default='./results')
-    parser.add_argument("-k", "--times_key", help="key name for the time property to be plotted.",
-            default="block_times")
+    parser.add_argument("-d", "--directory",
+        help="Directory containing result JSON files.", default='./results')
+    parser.add_argument("-k", "--times_key",
+        help="JSON key name for the time property to be plot.", default="block_times")
     args = parser.parse_args()
     filenames = glob.glob(args.directory + "/*.json")
     show_plots(filenames, args.times_key)

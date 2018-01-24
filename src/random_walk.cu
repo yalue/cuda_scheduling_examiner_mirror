@@ -12,7 +12,7 @@
 #include "library_interface.h"
 
 // The default number of memory reads to perform in each iteration.
-#define DEFAULT_MEMORY_ACCESS_COUNT (1000 * 1000)
+#define DEFAULT_MEMORY_ACCESS_COUNT (1000)
 
 // Holds the local state for one instance of this benchmark.
 typedef struct {

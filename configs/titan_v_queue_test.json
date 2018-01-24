@@ -1,0 +1,51 @@
+{
+  "name": "Titan V primary queue/stream test",
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "pin_cpus": true,
+  "benchmarks": [
+    {
+      "filename": "./bin/multikernel.so",
+      "log_name": "titan_v_queuetest_stream1.json",
+      "label": "K1 and K3",
+      "thread_count": 0,
+      "block_count": 0,
+      "data_size": 0,
+      "additional_info": [
+        {
+          "kernel_label": "K1",
+          "duration": 500000000,
+          "block_count": 161,
+          "thread_count": 768
+        },
+        {
+          "kernel_label": "K3",
+          "duration": 500000000,
+          "block_count": 1,
+          "thread_count": 256
+        }
+      ]
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "titan_v_queuetest_stream2.json",
+      "label": "K2, should run with K1's last block & K4",
+      "thread_count": 1024,
+      "block_count": 1,
+      "data_size": 0,
+      "additional_info": 500000000,
+      "release_time": 0.1
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "titan_v_queuetest_stream3.json",
+      "label": "K4, should run with K1's last block and K3",
+      "thread_count": 512,
+      "block_count": 1,
+      "data_size": 0,
+      "additional_info": 500000000,
+      "release_time": 0.2
+    }
+  ]
+}
