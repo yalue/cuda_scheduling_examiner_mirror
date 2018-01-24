@@ -39,6 +39,8 @@ def convert_values_to_pdf(values, bin_count):
         start_time = end_time
         end_time = start_time + bin_size
         count_in_bin = 0
+    time_list.append(values[len(values) - 1])
+    probability_list.append(0.0)
     return [time_list, probability_list]
 
 def get_benchmark_pdf(benchmark, times_key, bin_count):
