@@ -6,13 +6,12 @@ import numpy
 import re
 import sys
 import argparse
+from scipy import stats
 
-
-def get_benchmark_cdf(benchmark, times_key):
-    """Takes a parsed benchmark result JSON file and returns a CDF (in seconds
-    and percentages) of the CPU (total) times for the benchmark. The times_key
-    argument can be used to specify which range of times (in the times array)
-    should be used to calculate the durations to include in the CDF."""
+def get_benchmark_raw_values(benchmark, times_key):
+    """Takes a parsed benchmark result JSON file and returns raw values of the
+    selected times for the benchmark.  The times_key is used to specify which
+    specific time measurement (from objects in the times array) to use."""
     raw_values = []
     for t in benchmark["times"]:
         if not times_key in t:
@@ -21,8 +20,8 @@ def get_benchmark_cdf(benchmark, times_key):
         for i in range(len(times) / 2):
             start_index = i * 2
             end_index = i * 2 + 1
-            # 1000 for converting to milliseconds from seconds
-            raw_values.append(1000 * (times[end_index] - times[start_index]))
+            milliseconds = (times[end_index] - times[start_index]) * 1000.0
+            raw_values.append(milliseconds)
     return raw_values
 
 def nice_sort_key(label):
@@ -84,16 +83,38 @@ def get_line_styles():
             all_styles.append(to_add)
     return all_styles
 
+def add_plot_padding(axes):
+    """Takes matplotlib axes, and adds some padding so that lines close to
+    edges aren't obscured by tickmarks or the plot border."""
+    y_limits = axes.get_ylim()
+    y_range = y_limits[1] - y_limits[0]
+    y_pad = y_range * 0.05
+    x_limits = axes.get_xlim()
+    x_range = x_limits[1] - x_limits[0]
+    x_pad = x_range * 0.05
+    axes.set_ylim(y_limits[0] - y_pad, y_limits[1] + y_pad)
+    axes.set_xlim(x_limits[0] - x_pad, x_limits[1] + x_pad)
+    axes.xaxis.set_ticks(numpy.arange(x_limits[0], x_limits[1] + x_pad,
+        x_range / 5.0))
+    axes.yaxis.set_ticks(numpy.arange(y_limits[0], y_limits[1] + y_pad,
+        y_range / 5.0))
+    return
+
+def get_x_range(raw_data, sample_count = 2000):
+    """Takes a list of raw data, and returns a range of points to use as the
+    x-values of the KDE plot."""
+    x_min = min(raw_data)
+    x_max = max(raw_data)
+    return numpy.arange(x_min, x_max, (x_max - x_min) / 2000.0)
+
 def plot_scenario(benchmarks, name, times_key):
     """Takes a list of parsed benchmark results and a scenario name and
-    generates a PDF plot of CPU times for the scenario. See get_benchmark_cdf
-    for an explanation of the times_key argument."""
+    generates a PDF plot of CPU times for the scenario. See
+    get_benchmark_raw_values for an explanation of the times_key argument."""
     benchmarks = sorted(benchmarks, key = benchmark_sort_key)
     style_cycler = itertools.cycle(get_line_styles())
-    cdfs = []
+    raw_data_array = []
     labels = []
-    min_x = 1.0e99
-    max_x = -1.0
     c = 0
     for b in benchmarks:
         c += 1
@@ -101,24 +122,18 @@ def plot_scenario(benchmarks, name, times_key):
         if "label" in b:
             label = b["label"]
         labels.append(label)
-        print label
-        cdf_data = get_benchmark_cdf(b, times_key)
-        min_value = min(cdf_data)
-        max_value = max(cdf_data)
-        if min_value < min_x:
-            min_x = min_value
-        if max_value > max_x:
-            max_x = max_value
-        cdfs.append(cdf_data)
-    x_range = max_x - min_x
-    x_pad = 0.05 * x_range
+        raw_data = get_benchmark_raw_values(b, times_key)
+        raw_data_array.append(raw_data)
     figure = plot.figure()
     figure.suptitle(name)
-    plot.xlim(0, max_x + x_pad)
-    plot.xticks(numpy.arange(0, max_x + x_pad, int(x_range / 10.0)))
     axes = figure.add_subplot(1, 1, 1)
-    for i in range(len(cdfs)):
-        axes.hist(cdfs[i], 80, normed=1, label=labels[i], histtype=u'step')
+    # Make the axes track data exactly, we'll manually add padding later.
+    axes.autoscale(enable=True, axis='both', tight=True)
+    for i in range(len(raw_data_array)):
+        density = stats.kde.gaussian_kde(raw_data_array[i])
+        x = get_x_range(raw_data_array[i])
+        axes.plot(x, density(x), label=labels[i], **(style_cycler.next()))
+    add_plot_padding(axes)
     axes.set_xlabel("Time (milliseconds)")
     axes.set_ylabel("Density")
     legend = plot.legend()
@@ -142,15 +157,20 @@ def show_plots(filenames, times_key="block_times"):
         scenarios[scenario].append(benchmark)
     figures = []
     for scenario in scenarios:
-        print scenario + "\n"
+        print scenario
         figures.append(plot_scenario(scenarios[scenario], scenario, times_key))
     plot.show()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--directory", help="directory containing results.", default='./results')
-    parser.add_argument("-k", "--times_key", help="key name for the time property to be plotted.",
-            default="execute_times") #"block_times")
+    parser.add_argument("-d", "--directory",
+        help="Directory containing result JSON files.", default='./results')
+    parser.add_argument("-k", "--times_key",
+        help="JSON key name for the time property to be plot.",
+        default="block_times")
+    parser.add_argument("-r", "--regex",
+        help="Regex for JSON files to be processed",
+        default="*.json")
     args = parser.parse_args()
-    filenames = glob.glob(args.directory + "/*x4_0.json")
+    filenames = glob.glob(args.directory + "/" + args.regex)
     show_plots(filenames, args.times_key)

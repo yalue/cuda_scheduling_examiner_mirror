@@ -8,7 +8,8 @@ import sys
 import argparse
 
 def convert_values_to_cdf(values):
-    """Takes a 1-D list of values and converts it to a CDF representation."""
+    """Takes a 1-D list of values and converts it to a CDF representation. The
+    CDF consists of a vector of times and a vector of percentages of 100."""
     if len(values) == 0:
         return [[], []]
     values.sort()
@@ -107,6 +108,22 @@ def get_line_styles():
                 all_styles.append(to_add)
     return all_styles
 
+def add_plot_padding(axes):
+    """Takes matplotlib axes, and adds some padding so that lines close to
+    edges aren't obscured by tickmarks or the plot border."""
+    y_limits = axes.get_ybound()
+    y_range = y_limits[1] - y_limits[0]
+    y_pad = y_range * 0.05
+    x_limits = axes.get_xbound()
+    x_range = x_limits[1] - x_limits[0]
+    x_pad = x_range * 0.05
+    axes.set_ylim(y_limits[0] - y_pad, y_limits[1] + y_pad)
+    axes.set_xlim(x_limits[0] - x_pad, x_limits[1] + x_pad)
+    axes.xaxis.set_ticks(numpy.arange(x_limits[0], x_limits[1] + x_pad,
+        x_range / 5.0))
+    axes.yaxis.set_ticks(numpy.arange(y_limits[0], y_limits[1] + y_pad,
+        y_range / 5.0))
+
 def plot_scenario(benchmarks, name, times_key):
     """Takes a list of parsed benchmark results and a scenario name and
     generates a CDF plot of CPU times for the scenario. See get_benchmark_cdf
@@ -115,8 +132,6 @@ def plot_scenario(benchmarks, name, times_key):
     style_cycler = itertools.cycle(get_line_styles())
     cdfs = []
     labels = []
-    min_x = 1.0e99
-    max_x = -1.0
     c = 0
     for b in benchmarks:
         c += 1
@@ -125,24 +140,16 @@ def plot_scenario(benchmarks, name, times_key):
             label = b["label"]
         labels.append(label)
         cdf_data = get_benchmark_cdf(b, times_key)
-        min_value = min(cdf_data[0])
-        max_value = max(cdf_data[0])
-        if min_value < min_x:
-            min_x = min_value
-        if max_value > max_x:
-            max_x = max_value
         cdfs.append(cdf_data)
-    x_range = max_x - min_x
-    x_pad = 0.05 * x_range
     figure = plot.figure()
     figure.suptitle(name)
-    plot.axis([min_x - x_pad, max_x + x_pad, -5.0, 105.0])
-    plot.xticks(numpy.arange(min_x, max_x + x_pad, x_range / 5.0))
-    plot.yticks(numpy.arange(0, 105, 100 / 5.0))
     axes = figure.add_subplot(1, 1, 1)
+    # Make the axes track data exactly, we'll manually add padding later.
+    axes.autoscale(enable=True, axis='both', tight=True)
     for i in range(len(cdfs)):
         axes.plot(cdfs[i][0], cdfs[i][1], label=labels[i], lw=3,
             **(style_cycler.next()))
+    add_plot_padding(axes)
     axes.set_xlabel("Time (milliseconds)")
     axes.set_ylabel("% <= X")
     legend = plot.legend()
@@ -171,9 +178,10 @@ def show_plots(filenames, times_key="block_times"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--directory", help="directory containing results.", default='./results')
-    parser.add_argument("-k", "--times_key", help="key name for the time property to be plotted.",
-            default="block_times")
+    parser.add_argument("-d", "--directory",
+        help="Directory containing result JSON files.", default='./results')
+    parser.add_argument("-k", "--times_key",
+        help="JSON key name for the time property to be plot.", default="block_times")
     args = parser.parse_args()
     filenames = glob.glob(args.directory + "/*.json")
     show_plots(filenames, args.times_key)

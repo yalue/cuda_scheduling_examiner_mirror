@@ -118,7 +118,7 @@ static void SanitizeJSONString(const char *input, char *output,
   memset(output, 0, output_size);
   while (*input) {
     // Ensure that we have enough space for at least one full escaped value.
-    if ((output_index - 2) == output_size) break;
+    if ((output_index - 2) >= output_size) break;
     // Block any non-ASCII characters
     if (*input >= 0x7f) {
       output[output_index] = '?';
