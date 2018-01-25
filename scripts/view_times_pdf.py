@@ -98,6 +98,22 @@ def add_plot_padding(axes):
         x_range / 5.0))
     axes.yaxis.set_ticks(numpy.arange(y_limits[0], y_limits[1] + y_pad,
         y_range / 5.0))
+    return
+
+def get_x_range(raw_data, sample_count = 2000):
+    """Takes a list of raw data, and returns a range of points to use as the
+    x-values of the KDE plot. Pads the range if possible, so that spikes near
+    endpoints won't be cut off."""
+    x_min = min(raw_data)
+    x_max = max(raw_data)
+    x_range = x_max - x_min
+    x_pad = x_range * 0.05
+    x_start = x_min - x_pad
+    # Only add the padding if it won't cause negative densities to be plotted.
+    if x_start <= 0:
+        x_start = x_min
+    return numpy.arange(x_start, x_max + x_pad, (x_range + 2 * x_pad) /
+        float(sample_count))
 
 def plot_scenario(benchmarks, name, times_key):
     """Takes a list of parsed benchmark results and a scenario name and
@@ -123,15 +139,7 @@ def plot_scenario(benchmarks, name, times_key):
     axes.autoscale(enable=True, axis='both', tight=True)
     for i in range(len(raw_data_array)):
         density = stats.kde.gaussian_kde(raw_data_array[i])
-        current_min = min(raw_data_array[i])
-        current_max = max(raw_data_array[i])
-        current_range = current_max - current_min
-        # Pad the plot a little bit, otherwise spikes near the endpoints can be
-        # partially cut off.
-        current_pad = current_range / 20.0
-        # Plot 2000 x-points for each curve
-        x = numpy.arange(current_min - current_pad, current_max + current_pad,
-            (current_range + 2 * current_pad) / 2000.0)
+        x = get_x_range(raw_data_array[i])
         axes.plot(x, density(x), label=labels[i], **(style_cycler.next()))
     add_plot_padding(axes)
     axes.set_xlabel("Time (milliseconds)")
