@@ -83,6 +83,22 @@ def get_line_styles():
             all_styles.append(to_add)
     return all_styles
 
+def add_plot_padding(axes):
+    """Takes matplotlib axes, and adds some padding so that lines close to
+    edges aren't obscured by tickmarks or the plot border."""
+    y_limits = axes.get_ylim()
+    y_range = y_limits[1] - y_limits[0]
+    y_pad = y_range * 0.05
+    x_limits = axes.get_xlim()
+    x_range = x_limits[1] - x_limits[0]
+    x_pad = x_range * 0.05
+    axes.set_ylim(y_limits[0] - y_pad, y_limits[1] + y_pad)
+    axes.set_xlim(x_limits[0] - x_pad, x_limits[1] + x_pad)
+    axes.xaxis.set_ticks(numpy.arange(x_limits[0], x_limits[1] + x_pad,
+        x_range / 5.0))
+    axes.yaxis.set_ticks(numpy.arange(y_limits[0], y_limits[1] + y_pad,
+        y_range / 5.0))
+
 def plot_scenario(benchmarks, name, times_key):
     """Takes a list of parsed benchmark results and a scenario name and
     generates a PDF plot of CPU times for the scenario. See
@@ -91,8 +107,6 @@ def plot_scenario(benchmarks, name, times_key):
     style_cycler = itertools.cycle(get_line_styles())
     raw_data_array = []
     labels = []
-    min_x = 1.0e99
-    max_x = -1.0
     c = 0
     for b in benchmarks:
         c += 1
@@ -101,23 +115,25 @@ def plot_scenario(benchmarks, name, times_key):
             label = b["label"]
         labels.append(label)
         raw_data = get_benchmark_raw_values(b, times_key)
-        min_time = min(raw_data)
-        max_time = max(raw_data)
-        if min_time < min_x:
-            min_x = min_time
-        if max_time > max_x:
-            max_x = max_time
         raw_data_array.append(raw_data)
-    x_range = max_x - min_x
-    x_pad = 0.05 * x_range
     figure = plot.figure()
     figure.suptitle(name)
-    plot.xticks(numpy.arange(int(min_x), max_x + x_pad, int(x_range / 5.0)))
     axes = figure.add_subplot(1, 1, 1)
+    # Make the axes track data exactly, we'll manually add padding later.
+    axes.autoscale(enable=True, axis='both', tight=True)
     for i in range(len(raw_data_array)):
         density = stats.kde.gaussian_kde(raw_data_array[i])
-        x = numpy.arange(0, max(raw_data_array[i]), .1)
+        current_min = min(raw_data_array[i])
+        current_max = max(raw_data_array[i])
+        current_range = current_max - current_min
+        # Pad the plot a little bit, otherwise spikes near the endpoints can be
+        # partially cut off.
+        current_pad = current_range / 20.0
+        # Plot 2000 x-points for each curve
+        x = numpy.arange(current_min - current_pad, current_max + current_pad,
+            (current_range + 2 * current_pad) / 2000.0)
         axes.plot(x, density(x), label=labels[i], **(style_cycler.next()))
+    add_plot_padding(axes)
     axes.set_xlabel("Time (milliseconds)")
     axes.set_ylabel("Density")
     legend = plot.legend()
