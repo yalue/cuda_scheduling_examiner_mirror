@@ -102,18 +102,10 @@ def add_plot_padding(axes):
 
 def get_x_range(raw_data, sample_count = 2000):
     """Takes a list of raw data, and returns a range of points to use as the
-    x-values of the KDE plot. Pads the range if possible, so that spikes near
-    endpoints won't be cut off."""
+    x-values of the KDE plot."""
     x_min = min(raw_data)
     x_max = max(raw_data)
-    x_range = x_max - x_min
-    x_pad = x_range * 0.05
-    x_start = x_min - x_pad
-    # Only add the padding if it won't cause negative densities to be plotted.
-    if x_start <= 0:
-        x_start = x_min
-    return numpy.arange(x_start, x_max + x_pad, (x_range + 2 * x_pad) /
-        float(sample_count))
+    return numpy.arange(x_min, x_max, (x_max - x_min) / 2000.0)
 
 def plot_scenario(benchmarks, name, times_key):
     """Takes a list of parsed benchmark results and a scenario name and
