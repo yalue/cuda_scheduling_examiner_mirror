@@ -88,6 +88,9 @@ The layout of each configuration file is as follows:
         given a default name based on its filename, process and thread ID. If
         this doesn't start with '/', it will be relative to
         base_result_directory.>,
+      "mps_thread_percentage": <Number. Optional. A percentage of thread
+        resources to use if MPS is active and a Volta-architecture GPU is used.
+        This is ignored if use_processes is false. Defaults to 100.>,
       "label:": <String. Optional. A label or name for this specific benchmark,
         to be copied to its output file.>,
       "thread_count": <Number. Required, but may be ignored. The number of CUDA

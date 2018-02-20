@@ -81,6 +81,7 @@ static int VerifyBenchmarkConfigKeys(cJSON *benchmark_config) {
     "release_time",
     "cpu_core",
     "stream_priority",
+    "mps_thread_percentage",
     "comment",
   };
   keys_count = sizeof(valid_keys) / sizeof(char*);
@@ -151,6 +152,19 @@ static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
         printf("Failed copying benchmark label.\n");
         goto ErrorCleanup;
       }
+    }
+    benchmarks[i].mps_thread_percentage = 100.0;
+    entry = cJSON_GetObjectItem(current_benchmark, "mps_thread_percentage");
+    if (entry) {
+      if (entry->type != cJSON_Number) {
+        printf("Invalid mps_thread_percentage setting.\n");
+        goto ErrorCleanup;
+      }
+      if ((entry->valuedouble <= 0) || (entry->valuedouble > 100)) {
+        printf("Invalid mps_thread_percentage: %f\n", entry->valuedouble);
+        goto ErrorCleanup;
+      }
+      benchmarks[i].mps_thread_percentage = entry->valuedouble;
     }
     entry = cJSON_GetObjectItem(current_benchmark, "thread_count");
     if (!entry || (entry->type != cJSON_Number)) {

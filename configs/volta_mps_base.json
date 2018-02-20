@@ -1,0 +1,32 @@
+{
+  "name": "Simple Volta MPS Test",
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "pin_cpus": true,
+  "use_processes": true,
+  "benchmarks": [
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "volta_mps_test_process1.json",
+      "mps_thread_percentage": 75.0,
+      "label": "K1",
+      "thread_count": 1024,
+      "block_count": 160,
+      "data_size": 0,
+      "additional_info": 500000000,
+      "release_time": 0.1
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "volta_mps_test_process2.json",
+      "mps_thread_percentage": 25.0,
+      "label": "K2",
+      "thread_count": 1024,
+      "block_count": 160,
+      "data_size": 0,
+      "additional_info": 500000000,
+      "release_time": 0.2
+    }
+  ]
+}
