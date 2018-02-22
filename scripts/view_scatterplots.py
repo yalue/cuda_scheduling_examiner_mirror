@@ -3,6 +3,7 @@
 # samples. In order for a distribution to be included in a plot, its "label"
 # field must consist of a single number (may be floating-point). As with the
 # other scripts, one plot will be created for each "name" in the output files.
+import argparse
 import glob
 import json
 import matplotlib.pyplot as plot
@@ -19,24 +20,23 @@ def convert_to_float(s):
         to_return = None
     return to_return
 
-def benchmark_summary_values(benchmark):
+def benchmark_summary_values(benchmark, times_key):
     """Takes a single benchmark results (one parsed output file) and returns
-    a list containing 3 elements: [min block duration, max block duration,
-    mean block duration]. Durations are converted to milliseconds."""
-    block_durations = []
+    a list containing 3 elements: [min duration, max duration, mean duration].
+    Durations are converted to milliseconds."""
+    durations = []
     for t in benchmark["times"]:
-        if "block_times" not in t:
+        if times_key not in t:
             continue
-        block_times = t["block_times"]
+        times = t[times_key]
         i = 0
-        while i < len(block_times):
-            block_duration = block_times[i + 1] - block_times[i]
-            # Convert times to milliseconds here.
-            block_durations.append(block_duration)
+        while i < len(times):
+            duration = times[i + 1] - times[i]
+            durations.append(duration)
             i += 2
-    minimum = min(block_durations) * 1000.0
-    maximum = max(block_durations) * 1000.0
-    average = numpy.mean(block_durations) * 1000.0
+    minimum = min(durations) * 1000.0
+    maximum = max(durations) * 1000.0
+    average = numpy.mean(durations) * 1000.0
     return [minimum, maximum, average]
 
 def scenario_to_distribution(scenario):
@@ -57,36 +57,42 @@ def scenario_to_distribution(scenario):
         mean_y_values.append(triplet[2])
     return [x_values, min_y_values, max_y_values, mean_y_values]
 
+def add_plot_padding(axes):
+    """Takes matplotlib axes, and adds some padding so that lines close to
+    edges aren't obscured by tickmarks or the plot border."""
+    y_limits = axes.get_ybound()
+    y_range = y_limits[1] - y_limits[0]
+    y_pad = y_range * 0.05
+    x_limits = axes.get_xbound()
+    x_range = x_limits[1] - x_limits[0]
+    x_pad = x_range * 0.05
+    axes.set_ylim(y_limits[0] - y_pad, y_limits[1] + y_pad)
+    axes.set_xlim(x_limits[0] - x_pad, x_limits[1] + x_pad)
+    axes.xaxis.set_ticks(numpy.arange(x_limits[0], x_limits[1] + x_pad,
+        x_range / 5.0))
+    axes.yaxis.set_ticks(numpy.arange(y_limits[0], y_limits[1] + y_pad,
+        y_range / 5.0))
+
 def plot_scenario(scenario, name):
     data = scenario_to_distribution(scenario)
-    min_x = min(data[0])
-    max_x = max(data[0])
-    # Get the min and max y from the lists of minimum and maximum values.
-    min_y = min(data[1])
-    max_y = max(data[2])
-    x_range = max_x - min_x
-    x_pad = 0.025 * x_range
-    y_range = max_y - min_y
-    y_pad = 0.025 * y_range
     figure = plot.figure()
     figure.suptitle(name)
-    plot.axis([min_x - x_pad, max_x + x_pad, min_y - y_pad, max_y + y_pad])
-    plot.xticks(numpy.arange(min_x - 1, max_x + x_pad, (x_range + 1) / 8.0))
-    plot.yticks(numpy.arange(min_y, max_y + y_pad, y_range / 8.0))
     axes = figure.add_subplot(1, 1, 1)
+    axes.autoscale(enable=True, axis='both', tight=True)
     axes.plot(data[0], data[2], label="Max", linestyle="None", marker="^",
         fillstyle="full", markeredgewidth=0.0, ms=7)
     axes.plot(data[0], data[3], label="Average", linestyle="None", marker="*",
         fillstyle="full", markeredgewidth=0.0, ms=8)
     axes.plot(data[0], data[1], label="Min", linestyle="None", marker="v",
         fillstyle="full", markeredgewidth=0.0, ms=7)
-    axes.set_ylabel("Block duration (ms)")
-    axes.set_xlabel("Thread count")
+    add_plot_padding(axes)
+    axes.set_ylabel("Duration (ms)")
+    axes.set_xlabel("Value")
     legend = plot.legend()
     legend.draggable()
     return figure
 
-def show_plots(filenames):
+def show_plots(filenames, times_key):
     """Takes a list of filenames and generates one plot per named scenario
     across all of the files."""
     # Maps benchmark names to benchmark data, where the benchmark data is a map
@@ -105,7 +111,7 @@ def show_plots(filenames):
             if float_value is None:
                 print "Skipping %s: label isn't a number." % (name)
                 continue
-            summary_values = benchmark_summary_values(parsed)
+            summary_values = benchmark_summary_values(parsed, times_key)
             name = parsed["scenario_name"]
             if name not in all_scenarios:
                 all_scenarios[name] = {}
@@ -117,12 +123,13 @@ def show_plots(filenames):
     plot.show()
 
 if __name__ == "__main__":
-    base_directory = "./results"
-    if len(sys.argv) > 2:
-        print "Usage: python %s [directory containing results (./results)]" % (
-            sys.argv[0])
-        exit(1)
-    if len(sys.argv) == 2:
-        base_directory = sys.argv[1]
-    filenames = glob.glob(base_directory + "/*.json")
-    show_plots(filenames)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", "--directory",
+        help="Directory containing result JSON files.", default='./results')
+    parser.add_argument("-k", "--times_key",
+        help="JSON key name for the time property to be plot.",
+        default="execute_times")
+    args = parser.parse_args()
+    filenames = glob.glob(args.directory + "/*.json")
+    show_plots(filenames, args.times_key)
+
