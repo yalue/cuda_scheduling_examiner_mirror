@@ -14,7 +14,7 @@
 // Holds local state for one instances of this benchmark.
 typedef struct {
   // The buffer to traverse.
-  uint32_t *buffer;
+  uint64_t *buffer;
   // The number of 32-bit elements in the buffer.
   uint64_t buffer_length;
   // The number of memory reads to perform during the execute phase.
@@ -38,13 +38,13 @@ static void* Initialize(InitializationParameters *params) {
   state = (TaskState *) malloc(sizeof(*state));
   if (!state) return NULL;
   memset(state, 0, sizeof(*state));
-  buffer_length = params->data_size / 4;
+  buffer_length = params->data_size / sizeof(uint64_t);
   // The buffer must contain at least one element.
   if (buffer_length == 0) {
     free(state);
     return NULL;
   }
-  state->buffer = (uint32_t *) malloc(buffer_length * sizeof(uint32_t));
+  state->buffer = (uint64_t *) malloc(buffer_length * sizeof(uint64_t));
   if (!state->buffer) {
     free(state);
     return NULL;

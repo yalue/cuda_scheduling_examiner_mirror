@@ -27,7 +27,7 @@ typedef struct {
   // Holds the device copy of the SMID each block was assigned to.
   uint32_t *device_block_smids;
   // Holds the buffer of GPU memory traversed during the walk.
-  uint32_t *device_walk_buffer;
+  uint64_t *device_walk_buffer;
   // Use an accumulator that the host reads in order to prevent CUDA from
   // optimizing out our loop.
   uint64_t *device_accumulator;
@@ -80,7 +80,7 @@ static int AllocateMemory(TaskState *state) {
     return 0;
   }
   if (!CheckCUDAError(cudaMalloc(&(state->device_walk_buffer),
-    state->walk_buffer_length * sizeof(uint32_t)))) {
+    state->walk_buffer_length * sizeof(uint64_t)))) {
     return 0;
   }
   if (!CheckCUDAError(cudaMalloc(&(state->device_accumulator),
@@ -122,7 +122,7 @@ static int SetMemoryAccessCount(const char *arg, TaskState *state) {
 // walk_buffer, which should bring (small) buffers into the GPU cache. The
 // accumulator can be NULL, and is used to prevent optimizations from removing
 // the kernel entirely.
-static __global__ void InitialWalk(uint32_t *walk_buffer,
+static __global__ void InitialWalk(uint64_t *walk_buffer,
     uint64_t buffer_length, uint64_t *accumulator) {
   uint64_t i = 0;
   uint64_t result = 0;
@@ -137,7 +137,7 @@ static __global__ void InitialWalk(uint32_t *walk_buffer,
 static void* Initialize(InitializationParameters *params) {
   TaskState *state = NULL;
   uint64_t i;
-  uint32_t *host_initial_buffer = NULL;
+  uint64_t *host_initial_buffer = NULL;
   // First allocate space for local data.
   state = (TaskState *) malloc(sizeof(*state));
   if (!state) return NULL;
@@ -145,9 +145,10 @@ static void* Initialize(InitializationParameters *params) {
   if (!CheckCUDAError(cudaSetDevice(params->cuda_device))) return NULL;
   state->thread_count = params->thread_count;
   state->block_count = params->block_count;
-  state->walk_buffer_length = params->data_size / 4;
+  state->walk_buffer_length = params->data_size / sizeof(uint64_t);
   if (state->walk_buffer_length <= 0) {
-    printf("Memory walks require a data_size of at least 4.\n");
+    printf("Memory walks require a data_size of at least %d.\n",
+      (int) sizeof(uint64_t));
     Cleanup(state);
     return NULL;
   }
@@ -157,8 +158,8 @@ static void* Initialize(InitializationParameters *params) {
   }
   // Now that the device buffer is allocated, initialize it for an in-order
   // walk.
-  host_initial_buffer = (uint32_t *) malloc(state->walk_buffer_length *
-    sizeof(uint32_t));
+  host_initial_buffer = (uint64_t *) malloc(state->walk_buffer_length *
+    sizeof(uint64_t));
   if (!host_initial_buffer) {
     printf("Failed allocating host buffer for initializing GPU memory.\n");
     Cleanup(state);
@@ -170,7 +171,7 @@ static void* Initialize(InitializationParameters *params) {
   }
   host_initial_buffer[state->walk_buffer_length - 1] = 0;
   if (!CheckCUDAError(cudaMemcpy(state->device_walk_buffer,
-    host_initial_buffer, state->walk_buffer_length * sizeof(uint32_t),
+    host_initial_buffer, state->walk_buffer_length * sizeof(uint64_t),
     cudaMemcpyHostToDevice))) {
     free(host_initial_buffer);
     Cleanup(state);
@@ -206,7 +207,7 @@ static int CopyIn(void *data) {
 // Traverses the walk_buffer, taking each subsequent index to visit as the
 // value stored in the current index.
 static __global__ void WalkKernel(uint64_t access_count,
-    uint64_t *accumulator, uint32_t *walk_buffer, uint64_t walk_buffer_length,
+    uint64_t *accumulator, uint64_t *walk_buffer, uint64_t walk_buffer_length,
     uint64_t *block_times, uint32_t *block_smids) {
   uint64_t start_time = GlobalTimer64();
   uint64_t i = 0;
