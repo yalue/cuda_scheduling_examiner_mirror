@@ -17,7 +17,7 @@ def generate_config(mps_ratio):
         "block_count": 160,
         "data_size": 2 * 1024 * 1024,
         "filename": "./bin/random_walk.so",
-        "additional_info": 5000
+        "additional_info": 15000
     }
     # The Mandelbrot-set benchmark calculates its number of threads based on
     # data size. We'll need at least 160 * 1024 threads to occupy the entire
@@ -39,11 +39,12 @@ def generate_config(mps_ratio):
         benchmarks.append(thrasher_config)
     overall_config = {
             "name": "Volta MPS resource limit test",
-            "max_iterations": 10,
+            "max_iterations": 100,
             "max_time": 0,
             "cuda_device": 0,
             "pin_cpus": True,
             "use_processes": True,
+            "sync_every_iteration": True,
             "benchmarks": benchmarks
     }
     return json.dumps(overall_config, indent=2)
