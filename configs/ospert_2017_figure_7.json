@@ -38,42 +38,8 @@
         {
           "kernel_label": "K3",
           "duration": 500000000,
-          "block_count": 1,
-          "thread_count": 512
-        }
-      ],
-      "release_time": 0.25
-    },
-    {
-      "filename": "./bin/multikernel.so",
-      "log_name": "multikernel_2_3.json",
-      "label": "Stream 3",
-      "thread_count": 0,
-      "block_count": 0,
-      "data_size": 0,
-      "additional_info": [
-        {
-          "kernel_label": "K4",
-          "duration": 500000000,
-          "block_count": 1,
+          "block_count": 4,
           "thread_count": 1024
-        }
-      ],
-      "release_time": 0.4
-    },
-    {
-      "filename": "./bin/multikernel.so",
-      "log_name": "multikernel_2_4.json",
-      "label": "Stream 4",
-      "thread_count": 0,
-      "block_count": 0,
-      "data_size": 0,
-      "additional_info": [
-        {
-          "kernel_label": "K5",
-          "duration": 500000000,
-          "block_count": 1,
-          "thread_count": 512
         }
       ],
       "release_time": 0.25
