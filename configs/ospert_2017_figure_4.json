@@ -7,7 +7,7 @@
   "benchmarks": [
     {
       "filename": "./bin/timer_spin.so",
-      "log_name": "coschedule_1.json",
+      "log_name": "ospert_2017_figure_4_log1.json",
       "label": "Kernel 1",
       "thread_count": 1024,
       "block_count": 2,
@@ -16,7 +16,7 @@
     },
     {
       "filename": "./bin/timer_spin.so",
-      "log_name": "coschedule_2.json",
+      "log_name": "ospert_2017_figure_4_log2.json",
       "label": "Kernel 2",
       "thread_count": 1024,
       "block_count": 2,
@@ -25,7 +25,7 @@
     },
     {
       "filename": "./bin/timer_spin.so",
-      "log_name": "coschedule_3.json",
+      "log_name": "ospert_2017_figure_4_log3.json",
       "label": "Kernel 3",
       "thread_count": 1024,
       "block_count": 2,
@@ -35,7 +35,7 @@
     },
     {
       "filename": "./bin/timer_spin.so",
-      "log_name": "coschedule_4.json",
+      "log_name": "ospert_2017_figure_4_log4.json",
       "label": "Kernel 4",
       "thread_count": 1024,
       "block_count": 2,

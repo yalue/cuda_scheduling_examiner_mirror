@@ -7,7 +7,7 @@
   "benchmarks": [
     {
       "filename": "./bin/timer_spin.so",
-      "log_name": "distribution_2_1.json",
+      "log_name": "ospert_2017_figure_9_log1.json",
       "label": "Small job",
       "thread_count": 512,
       "block_count": 6,
@@ -17,7 +17,7 @@
     },
     {
       "filename": "./bin/timer_spin.so",
-      "log_name": "distribution_2_2.json",
+      "log_name": "ospert_2017_figure_9_log2.json",
       "label": "Larger job",
       "thread_count": 1024,
       "block_count": 1,
