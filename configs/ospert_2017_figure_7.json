@@ -7,7 +7,7 @@
   "benchmarks": [
     {
       "filename": "./bin/multikernel.so",
-      "log_name": "multikernel_2_1.json",
+      "log_name": "ospert_2017_figure_7_log1.json",
       "label": "Stream 1",
       "thread_count": 0,
       "block_count": 0,
@@ -29,7 +29,7 @@
     },
     {
       "filename": "./bin/multikernel.so",
-      "log_name": "multikernel_2_2.json",
+      "log_name": "ospert_2017_figure_7_log2.json",
       "label": "Stream 2",
       "thread_count": 0,
       "block_count": 0,
