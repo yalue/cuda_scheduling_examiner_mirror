@@ -20,6 +20,9 @@ typedef struct {
   char *log_name;
   // An extra label or name for the benchmark, included in its JSON log file.
   char *label;
+  // The limit on thread resources used by MPS. Only used if the task is run as
+  // a process, MPS is active, and a Volta GPU is used.
+  double mps_thread_percentage;
   // The number of threads to request the benchmark to use
   int thread_count;
   // The number of blocks to request the benchmark to use

@@ -1,3 +1,4 @@
+import argparse
 import glob
 import itertools
 import json
@@ -5,7 +6,6 @@ import matplotlib.pyplot as plot
 import numpy
 import re
 import sys
-import argparse
 
 def convert_values_to_cdf(values):
     """Takes a 1-D list of values and converts it to a CDF representation. The

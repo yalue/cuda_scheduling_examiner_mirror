@@ -7,7 +7,7 @@
   "benchmarks": [
     {
       "filename": "./bin/timer_spin.so",
-      "log_name": "greedy_1.json",
+      "log_name": "ospert_2017_figure_5_log1.json",
       "label": "Small job (released first)",
       "thread_count": 512,
       "block_count": 1,
@@ -16,7 +16,7 @@
     },
     {
       "filename": "./bin/timer_spin.so",
-      "log_name": "greedy_2.json",
+      "log_name": "ospert_2017_figure_5_log2.json",
       "label": "Larger job (released second)",
       "thread_count": 512,
       "block_count": 16,
@@ -26,7 +26,7 @@
     },
     {
       "filename": "./bin/timer_spin.so",
-      "log_name": "greedy_3.json",
+      "log_name": "ospert_2017_figure_5_log3.json",
       "label": "Small job (released third)",
       "thread_count": 512,
       "block_count": 1,

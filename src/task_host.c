@@ -67,6 +67,9 @@ typedef struct {
 typedef struct TaskConfig_ {
   BenchmarkLibraryFunctions benchmark;
   InitializationParameters parameters;
+  // A limit on a percentage of GPU threads the task can use. Only applies if
+  // running as a process under MPS using a Volta GPU.
+  double mps_thread_percentage;
   // Limits on how long the benchmark should run.
   int64_t max_iterations;
   double max_seconds;
@@ -635,8 +638,9 @@ static TaskConfig* CreateTaskConfigs(SharedState *shared_state) {
     if (benchmark->max_time >= 0) {
       new_list[i].max_seconds = benchmark->max_time;
     }
-    new_list[i].label = benchmark->label;
     new_list[i].parameters.cuda_device = config->cuda_device;
+    new_list[i].label = benchmark->label;
+    new_list[i].mps_thread_percentage = benchmark->mps_thread_percentage;
     // These settings must all be specified in the benchmark-specific settings.
     new_list[i].parameters.thread_count = benchmark->thread_count;
     new_list[i].parameters.block_count = benchmark->block_count;
@@ -754,6 +758,21 @@ static int RunAsThreads(SharedState *shared_state) {
   return to_return;
 }
 
+// Sets the MPS thread limit environment variable. Only called if processes are
+// used. Returns 0 on error, nonzero on success.
+static int SetMPSResourceLimit(TaskConfig *config) {
+  char print_buffer[64];
+  if (config->mps_thread_percentage >= 100) return 1;
+  if (config->mps_thread_percentage <= 0) return 0;
+  snprintf(print_buffer, sizeof(print_buffer), "%.4f",
+    config->mps_thread_percentage);
+  if (setenv("CUDA_MPS_ACTIVE_THREAD_PERCENTAGE", print_buffer, 1) == 0) {
+    return 1;
+  }
+  printf("Failed setting MPS limit env. variable: %s\n", strerror(errno));
+  return 0;
+}
+
 // Like RunAsThreads, but runs benchmarks in separate processes instead.
 static int RunAsProcesses(SharedState *shared_state) {
   TaskConfig *task_configs = shared_state->task_configs;
@@ -775,6 +794,10 @@ static int RunAsProcesses(SharedState *shared_state) {
     if (child_pid != 0) {
       pids[i] = child_pid;
       continue;
+    }
+    // The MPS thread limit must be set before initializing CUDA.
+    if (!SetMPSResourceLimit(task_configs + i)) {
+      exit(EXIT_FAILURE);
     }
     // The child process will run its benchmark and exit with a success if
     // everything went OK.
