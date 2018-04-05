@@ -117,8 +117,8 @@ scripts/view_times_cdf.py``.  For example,
 
 ```bash
 ./scripts/visionworks_simplified.sh
-python scripts/view_times_cdf.py -k "execute_times" -r "hough*x4_0.json 	# Figure 5 in the paper
-python scripts/view_times_pdf.py -k "execute_times" -r "hough*x4_0.json 	# Figure 6
-python scripts/view_times_cdf.py -k "execute_times" -r "feature*x4_0.json 	# Figure 7
-python scripts/view_times_pdf.py -k "execute_times" -r "feature*x4_0.json 	# Figure 8
+python scripts/view_times_cdf.py -k "execute_times" -r "hough*x4_0.json" 	# Figure 5 in the paper
+python scripts/view_times_pdf.py -k "execute_times" -r "hough*x4_0.json" 	# Figure 6
+python scripts/view_times_cdf.py -k "execute_times" -r "feature*x4_0.json" 	# Figure 7
+python scripts/view_times_pdf.py -k "execute_times" -r "feature*x4_0.json" 	# Figure 8
 ```
