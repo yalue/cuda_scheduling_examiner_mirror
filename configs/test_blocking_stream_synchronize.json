@@ -1,0 +1,78 @@
+{
+  "cuda_device": 0,
+  "name": "Testing blocking: Stream Synchronize",
+  "pin_cpus": true,
+  "benchmarks":
+  [
+    {
+      "block_count": 2,
+      "log_name": "test_blocking_source_Stream_Synchronize_task1.json",
+      "thread_count": 512,
+      "release_time": 0.0,
+      "label": "Task 1",
+      "additional_info": 1000000000,
+      "data_size": 0,
+      "filename": "./bin/timer_spin.so"
+    },
+    {
+      "block_count": 2,
+      "log_name": "test_blocking_source_Stream_Synchronize_task2.json",
+      "thread_count": 512,
+      "release_time": 0.2,
+      "label": "Task 2",
+      "additional_info": 2000000000,
+      "data_size": 0,
+      "filename": "./bin/timer_spin.so"
+    },
+    {
+      "block_count": 2,
+      "log_name": "test_blocking_source_Stream_Synchronize_task3.json",
+      "thread_count": 512,
+      "release_time": 0.4,
+      "label": "Task 3",
+      "additional_info":
+      {
+        "use_null_stream": false,
+        "actions":
+        [
+          {
+            "type": "kernel",
+            "parameters":
+            {
+              "duration": 250000000
+            },
+            "label": "K3-1"
+          },
+          {
+            "type": "synchronize",
+            "label": "Stream Synchronize"
+          },
+          {
+            "delay": 0.2,
+            "type": "kernel",
+            "parameters":
+            {
+              "duration": 250000000
+            },
+            "label": "K3-2"
+          }
+        ]
+      },
+      "data_size": 0,
+      "filename": "./bin/stream_action.so"
+    },
+    {
+      "block_count": 2,
+      "log_name": "test_blocking_source_Stream_Synchronize_task4.json",
+      "thread_count": 512,
+      "release_time": 0.8,
+      "label": "Task 4",
+      "additional_info": 1000000000,
+      "data_size": 0,
+      "filename": "./bin/timer_spin.so"
+    }
+  ],
+  "max_time": 0,
+  "max_iterations": 1
+}
+

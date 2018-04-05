@@ -53,12 +53,24 @@ consistent.
 ### Run
 
 We have one script packaging all the cases in Table 3 in the paper.  To get the
-data results, run ``python scripts/test_blocking_sources.py``.  To view the
-scheduling timeline plots, run ``python scripts/view_blocksbysm.py``.  Note
-that this ``view_blocksbysm.py`` cannot process results from experiment 2
-below.  It is suggested to have the results from this experiment (1)
-self-contained in a separate directory, and pass the director parameter to the
-script by ``python scripts/view_blocksbysm.py ./path/to/results/``.
+data results, run ``python ./scripts/test_blocking_sources.py``.  To get the
+result of ``cudaStreamSynchronize``, which have a standalone configuration file,
+run ``./bin/runner ./configs/test_blocking_stream_synchronize.json``.  To view
+the scheduling timeline plots, run ``python ./scripts/view_blocksbysm.py``.  Note
+that this ``view_blocksbysm.py`` cannot process results from experiment 2 below.
+It is suggested to have the results from this experiment (1) self-contained in a
+separate directory, and pass the director parameter to the script by ``python
+scripts/view_blocksbysm.py ./path/to/results/``.
+
+In summary, run:
+
+```bash
+python ./scripts/test_blocking_sources.py                       # get all results except stream synchronization.
+./bin/runner ./configs/test_blocking_stream_synchronize.json    # get results for stream synchronization.
+mkdir ./results/testing_blocking_resources
+mv ./results/test_blocking_sources* ./results/testing_blocking_resources
+python ./scripts/view_blocksbysm.py ./results/testing_blocking_resources   # generate plots
+```
 
 ### Compare
 
@@ -91,7 +103,6 @@ between the completion of the source and the launch of Task 3.  In this
 category, we have ``cudaDeviceSynchronize``, ``cudaFree``, ``cudaFreeHost``,
 and ``cudaMemset (sync.)``.  ``cudaStreamSynchronize`` also makes the caller
 wait for GPU but it's not demonstrated in the plot.
-
 ## Experiment 2: VisionWorks Case Study
 
 In this case study, we run multiple VisionWorks sample programs under different
