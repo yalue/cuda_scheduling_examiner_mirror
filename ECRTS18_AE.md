@@ -9,8 +9,8 @@ Overview
 
 Due to the necessity of using a GPU with only our benchmarks running on it, we
 have not prepared a VM image.  Rather, our code is available publicly on
-[GitHub:yalue/cuda\_scheduling\_examiner\_mirror](https://github.com/yalue/cuda_scheduling_examiner_mirror).
-It should work on any CUDA-capable GPU with the Kepler/Maxwell/Pascal/Volta
+[GitHub:yalue/cuda\_scheduling\_examiner\_mirror](https://github.com/yalue/cuda_scheduling_examiner_mirror/tree/ecrts18_artifact_eval).
+It should work on any CUDA-capable GPU with the Maxwell or Pascal
 architecture, such as an NVIDIA GeForce GTX 860M, 1050, 1070, which we ran our
 experiments on.  You will also need CUDA 8.0 or 9.0, and
 [VisionWorks](https://developer.nvidia.com/embedded/visionworks).
@@ -27,9 +27,9 @@ Install
 ========
 
 After downloading the repository from
-[GitHub:yalue/cuda\_scheduling\_examiner\_mirror](https://github.com/yalue/cuda_scheduling_examiner_mirror),
+[GitHub:yalue/cuda\_scheduling\_examiner\_mirror](https://github.com/yalue/cuda_scheduling_examiner_mirror/tree/ecrts18_artifact_eval),
 follow the [``Compilation``
-section](https://github.com/yalue/cuda_scheduling_examiner_mirror#compilation),
+section](https://github.com/yalue/cuda_scheduling_examiner_mirror/tree/ecrts18_artifact_eval#compilation),
 or simply ``cd`` into the repository and run ``make``.  Please make sure
 ``nvcc`` command is available on your ``PATH``.
 
