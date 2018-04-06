@@ -100,9 +100,11 @@ The plot indicates that the source **makes the caller wait for GPU** if Task 3
 starts 0.2 seconds after the completion of Task 2.  Because the source starts
 and finishes quickly after Task 2 finishes.  And there's 0.2 seconds delay
 between the completion of the source and the launch of Task 3.  In this
-category, we have ``cudaDeviceSynchronize``, ``cudaFree``, ``cudaFreeHost``,
-and ``cudaMemset (sync.)``.  ``cudaStreamSynchronize`` also makes the caller
-wait for GPU but it's not demonstrated in the plot.
+category, we have ``cudaDeviceSynchronize``, ``cudaFree``, ``cudaFreeHost``, and
+``cudaMemset (sync.)``.  ``cudaStreamSynchronize`` makes the caller wait for GPU
+kernels (K3-1 in the plot) launched in the specified stream (stream 3 in the
+plot).
+
 ## Experiment 2: VisionWorks Case Study
 
 In this case study, we run multiple VisionWorks sample programs under different

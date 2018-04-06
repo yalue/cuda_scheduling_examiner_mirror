@@ -111,3 +111,4 @@ bin/task_host.so: obj/task_host.o obj/cjson.o obj/parse_config.o \
 clean:
 	rm -f bin/*
 	rm -f obj/*
+	$(MAKE) -C ./src/third_party/VisionWorks-1.6-Demos clean
