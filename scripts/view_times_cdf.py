@@ -182,6 +182,9 @@ if __name__ == "__main__":
         help="Directory containing result JSON files.", default='./results')
     parser.add_argument("-k", "--times_key",
         help="JSON key name for the time property to be plot.", default="block_times")
+    parser.add_argument("-r", "--regex",
+        help="Regex for JSON files to be processed",
+        default="*.json")
     args = parser.parse_args()
-    filenames = glob.glob(args.directory + "/*.json")
+    filenames = glob.glob(args.directory + "/" + args.regex)
     show_plots(filenames, args.times_key)
