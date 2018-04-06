@@ -124,3 +124,10 @@ python scripts/view_times_pdf.py -k "execute_times" -r "hough*x4_0.json" 	# Figu
 python scripts/view_times_cdf.py -k "execute_times" -r "feature*x4_0.json" 	# Figure 7
 python scripts/view_times_pdf.py -k "execute_times" -r "feature*x4_0.json" 	# Figure 8
 ```
+
+For table 2 in the paper, we do not expect that the same execution time data are
+reproducible but the general trend can be observed from plots by running
+
+```bash
+python scripts/view_times_cdf.py -k "execute_times" -r "*x4_0.json"         # CDF for all benchmarks
+```
