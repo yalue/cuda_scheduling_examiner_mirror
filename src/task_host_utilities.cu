@@ -14,7 +14,7 @@
 
 // The number of GPU nanoseconds to spin for GetGPUTimerScale. Increasing this
 // will both increase the accuracy and the time the function takes to return.
-#define TIMER_SPIN_DURATION (8ull * 1000 * 1000 * 1000)
+#define TIMER_SPIN_DURATION (2ull * 1000 * 1000 * 1000)
 
 // This macro takes a cudaError_t value. It prints an error message and returns
 // 0 if the cudaError_t isn't cudaSuccess. Otherwise, it returns nonzero.
