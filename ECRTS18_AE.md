@@ -46,9 +46,10 @@ disconnecting the display does not ensure the display service to be off.
 ## Experiment 1: Testing Blocking Resources
 
 We conducted this experiment on Jetson TX2 to generate the plots in section 3
-and Table 3 in the paper.  Due to different number of SMs, experiments may
-produce different plots on other GPUs.  But the observations and claims stay
-consistent.
+and Table 3 in the paper.  To run this experiment on Jetson TX2, the script
+``./scripts/jetson_clocks.sh`` needs to be executed first.  Due to different
+number of SMs, experiments may produce different plots on other GPUs.  But the
+observations and claims stay consistent.
 
 ### Run
 
@@ -65,11 +66,13 @@ scripts/view_blocksbysm.py ./path/to/results/``.
 In summary, run:
 
 ```bash
+sudo service lightdm stop					# turn off the display service
+sudo ./scripts/jetson_clocks.sh					# Jetson TX2 performance mode (enable Denver cores)
 python ./scripts/test_blocking_sources.py                       # get all results except stream synchronization.
 ./bin/runner ./configs/test_blocking_stream_synchronize.json    # get results for stream synchronization.
 mkdir ./results/testing_blocking_resources
 mv ./results/test_blocking_sources* ./results/testing_blocking_resources
-python ./scripts/view_blocksbysm.py ./results/testing_blocking_resources   # generate plots
+python ./scripts/view_blocksbysm.py ./results/testing_blocking_resources   # generate plots (either through X11 forwarding or restart lighdm service with ``sudo service lightdm start``)
 ```
 
 ### Compare
