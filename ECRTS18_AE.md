@@ -28,13 +28,23 @@ Install
 
 After downloading the repository from
 [GitHub:yalue/cuda\_scheduling\_examiner\_mirror](https://github.com/yalue/cuda_scheduling_examiner_mirror/tree/ecrts18_artifact_eval),
-follow the [``Compilation``
+check out the branch ``ecrts18_artifact_eval`` and follow the [``Compilation``
 section](https://github.com/yalue/cuda_scheduling_examiner_mirror/tree/ecrts18_artifact_eval#compilation),
 or simply ``cd`` into the repository and run ``make``.  Please make sure
 ``nvcc`` command is available on your ``PATH``.
 
 To compile programs of VisionWorks, run ``make visionworks``.  Please make sure
 you have installed VisionWorks.
+
+In summary, run:
+
+```bash
+git clone https://github.com/yalue/cuda_scheduling_examiner_mirror.git
+cd cuda_scheduling_examiner_mirror
+git checkout ecrts18_artifact_eval
+make -j4
+make visionworks
+```
 
 Evaluate
 ========
@@ -72,7 +82,7 @@ python ./scripts/test_blocking_sources.py                       # get all result
 ./bin/runner ./configs/test_blocking_stream_synchronize.json    # get results for stream synchronization.
 mkdir ./results/testing_blocking_resources
 mv ./results/test_blocking_sources* ./results/testing_blocking_resources
-python ./scripts/view_blocksbysm.py ./results/testing_blocking_resources   # generate plots (either through X11 forwarding or restart lighdm service with ``sudo service lightdm start``)
+python ./scripts/view_blocksbysm.py ./results/testing_blocking_resources   # generate plots (either through X11 forwarding or restart lightdm service with ``sudo service lightdm start``)
 ```
 
 ### Compare
