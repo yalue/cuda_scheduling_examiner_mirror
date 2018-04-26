@@ -4,6 +4,7 @@ Table of Contents
 2. [Install](#install)
 3. [Evaluate](#evaluate)
 
+
 Overview
 ========
 
@@ -22,6 +23,7 @@ we have two sets of experiments:
 2. VisionWorks case studies under different scenarios
 
 The following document will walk you through how to install and run the experiments.
+
 
 Install
 ========
@@ -46,12 +48,14 @@ make -j4
 make visionworks
 ```
 
+
 Evaluate
 ========
 
 Before running any experiments, be sure to turn off the display service, e.g.,
 by running ``sudo service lightdm stop``.  Using remote connection and
 disconnecting the display does not ensure the display service to be off.
+
 
 ## Experiment 1: Testing Blocking Resources
 
@@ -118,11 +122,14 @@ category, we have ``cudaDeviceSynchronize``, ``cudaFree``, ``cudaFreeHost``, and
 kernels (K3-1 in the plot) launched in the specified stream (stream 3 in the
 plot).
 
+
 ## Experiment 2: VisionWorks Case Study
 
 In this case study, we run multiple VisionWorks sample programs under different
-scenarios (section 4).  We conducted our experiments on GTX 860M, 1050, and
-1070.
+scenarios (section 4).  Multi-Process Service (MPS) is required in this case
+study; however, it is not supported on ARM cores.  Thus this case study needs to
+execute on X86\_64 cores and discrete GPUs.  We conducted our experiments on GTX
+860M, 1050, and 1070.
 
 ### Run and Compare
 
