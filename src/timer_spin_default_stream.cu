@@ -32,6 +32,11 @@ typedef struct {
   int thread_count;
   // Holds host-side times that are shared with the calling process.
   KernelTimes spin_kernel_times;
+  // The kernel launch will still use the default stream--this one is only for
+  // copying the runtime data from the GPU.
+  cudaStream_t stream;
+  // Nonzero if stream for copying results has been created.
+  int stream_created;
 } TaskState;
 
 // Implements the cleanup function required by the library interface, but is
@@ -45,6 +50,9 @@ static void Cleanup(void *data) {
   // Free host memory.
   if (host_times->block_times) cudaFreeHost(host_times->block_times);
   if (host_times->block_smids) cudaFreeHost(host_times->block_smids);
+  if (state->stream_created) {
+    CheckCUDAError(cudaStreamDestroy(state->stream));
+  }
   memset(state, 0, sizeof(*state));
   free(state);
 }
@@ -112,6 +120,12 @@ static void* Initialize(InitializationParameters *params) {
     Cleanup(state);
     return NULL;
   }
+  if (!CheckCUDAError(CreateCUDAStreamWithPriority(params->stream_priority,
+    &(state->stream)))) {
+    Cleanup(state);
+    return NULL;
+  }
+  state->stream_created = 1;
   return state;
 }
 
@@ -157,16 +171,17 @@ static int CopyOut(void *data, TimingInformation *times) {
   uint64_t block_times_count = state->block_count * 2;
   uint64_t block_smids_count = state->block_count;
   memset(times, 0, sizeof(*times));
-  if (!CheckCUDAError(cudaMemcpy(host_times->block_times,
+  if (!CheckCUDAError(cudaMemcpyAsync(host_times->block_times,
     state->device_block_times, block_times_count * sizeof(uint64_t),
-    cudaMemcpyDeviceToHost))) {
+    cudaMemcpyDeviceToHost, state->stream))) {
     return 0;
   }
-  if (!CheckCUDAError(cudaMemcpy(host_times->block_smids,
+  if (!CheckCUDAError(cudaMemcpyAsync(host_times->block_smids,
     state->device_block_smids, block_smids_count * sizeof(uint32_t),
-    cudaMemcpyDeviceToHost))) {
+    cudaMemcpyDeviceToHost, state->stream))) {
     return 0;
   }
+  if (!CheckCUDAError(cudaStreamSynchronize(state->stream))) return 0;
   host_times->kernel_name = "GPUSpin";
   host_times->block_count = state->block_count;
   host_times->thread_count = state->thread_count;
