@@ -883,7 +883,7 @@ static int ParseParameters(TaskState *state,
   // If the NULL stream wasn't specified, then use the user-defined stream
   // for all other operations, too.
   if (use_null_stream) {
-    state->stream = 0;
+    state->stream = cudaStreamLegacy;
   } else {
     state->stream = state->copy_out_stream;
   }

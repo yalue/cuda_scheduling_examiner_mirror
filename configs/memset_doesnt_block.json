@@ -1,0 +1,68 @@
+{
+  "cuda_device": 0,
+  "name": "Testing blocking: cudaMemset",
+  "pin_cpus": true,
+  "benchmarks": [
+    {
+      "block_count": 2,
+      "log_name": "test_blocking_memset_task1.json",
+      "thread_count": 512,
+      "label": "Task 1",
+      "data_size": 0,
+      "release_time": 0.0,
+      "filename": "./bin/timer_spin.so",
+      "additional_info": 1000000000
+    },
+    {
+      "block_count": 2,
+      "log_name": "test_blocking_memset_task2.json",
+      "thread_count": 512,
+      "label": "Task 2",
+      "data_size": 0,
+      "release_time": 0.2,
+      "filename": "./bin/timer_spin.so",
+      "additional_info": 2000000000
+    },
+    {
+      "block_count": 2,
+      "log_name": "test_blocking_memset_task3.json",
+      "thread_count": 512,
+      "label": "Task 3",
+      "data_size": 0,
+      "release_time": 0.4,
+      "filename": "./bin/stream_action.so",
+      "additional_info": {
+        "actions": [
+          {
+            "type": "memset",
+            "label": "memset 1",
+            "parameters": {
+              "async": false,
+              "size": 1024
+            }
+          },
+          {
+            "delay": 0.2,
+            "type": "kernel",
+            "parameters": {
+              "duration": 250000000
+            },
+            "label": "K3"
+          }
+        ]
+      }
+    },
+    {
+      "block_count": 2,
+      "log_name": "test_blocking_memset_task4.json",
+      "thread_count": 512,
+      "label": "Task 4",
+      "data_size": 0,
+      "release_time": 0.8,
+      "filename": "./bin/timer_spin.so",
+      "additional_info": 1000000000
+    }
+  ],
+  "max_time": 0,
+  "max_iterations": 1
+}
