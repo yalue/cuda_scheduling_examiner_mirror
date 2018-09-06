@@ -25,6 +25,6 @@ The views and conclusions contained in the software and documentation are those
 of the authors and should not be interpreted as representing official policies,
 either expressed or implied, of the cuda_scheduling_examiner project.
 
-This license only applies to files outside of the third_party subdirectory,
-which may include their own licenses.
+This license only applies to files outside of any third_party subdirectory,
+such as "src/third_party".
 
