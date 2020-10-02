@@ -10,6 +10,18 @@ capable of running any benchmark which can be self-contained in a shared
 library file exporting specific functions. Currently, this tool only runs under
 Linux, and is unlikely to support other systems in the future.
 
+For Users of AMD GPUs
+---------------------
+
+For users of AMD GPUs, or those willing to give up some useful CUDA-specific
+features, more recent development has been focused on a port of this project to
+the [HIP](https://github.com/ROCm-Developer-Tools/HIP) language. This project
+can be found at [https://github.com/yalue/hip_plugin_framework](https://github.com/yalue/hip_plugin_framework).
+`hip_plugin_framework` remains nearly identical to `cuda_scheduling_examiner`,
+but with some cleaned-up code, more consistent naming conventions, and,
+unfortunately, lacking in ability to detect the SMs that blocks are assigned
+to, as such a feature is not portable to HIP.
+
 
 Compilation
 -----------
