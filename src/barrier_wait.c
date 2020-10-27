@@ -49,7 +49,7 @@ int BarrierCreate(ProcessBarrier *b, int process_count) {
 }
 
 void BarrierDestroy(ProcessBarrier *b) {
-  FreeSharedBuffer(b->internal_buffer, sizeof(*b));
+  FreeSharedBuffer(b->internal_buffer, sizeof(InternalSharedBuffer));
   b->internal_buffer = NULL;
 }
 
