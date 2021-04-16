@@ -322,7 +322,7 @@ class BlockSMRect(object):
         otherHeight = smHeight / MAX_YVAL * otherThreads
         blockBottom = smBottom - otherHeight
         blockTop = blockBottom - blockHeight
-        
+
         p1x = int(float(block.start - firstTime) / totalTime * (w-BUFFER_LEFT-BUFFER_RIGHT)) + BUFFER_LEFT
         p1y = blockBottom
 
@@ -827,7 +827,7 @@ class ResizingCanvasFrame(CanvasFrame):
 class BlockSMDisplay():
     INIT_WIDTH = 800
     INIT_HEIGHT = 600
-    
+
     def __init__(self, win, benchmark):
         self.setup(win, self.INIT_WIDTH, self.INIT_HEIGHT, benchmark)
         self.draw_benchmark()
@@ -862,7 +862,7 @@ class BlockSMDisplay():
 
         # Calculate the legend height based on the # of streams (two columns)
         LEGEND_HEIGHT = (len(self.benchmark.streams) + 1) / 2 * LEGEND_HEIGHT_BASE
-        
+
         # Draw the plot area
         self.draw_plot_area()
 
@@ -1111,7 +1111,7 @@ def plot_scenario(benchmarks, name):
     win = Window("Block Execution by SM")
     graph = BlockSMDisplay(win, get_block_intervals(name, benchmarks))
     win.mainloop()
-    
+
 def show_plots(filenames):
     """Takes a list of filenames, and generates one plot per scenario found in
     the files."""
@@ -1120,7 +1120,7 @@ def show_plots(filenames):
     for name in filenames:
         with open(name) as f:
             parsed_files.append(json.loads(f.read()))
-            
+
     # Group the files by scenario
     scenarios = {}
     for benchmark in parsed_files:
