@@ -87,6 +87,9 @@ The layout of each configuration file is as follows:
   "pin_cpus": <Boolean. Optional, defaults to false. If true, attempt to pin
     benchmarks to CPU cores, evenly distributed across cores. If true,
     individual benchmark cpu_core settings are ignored.>,
+  "do_warmup": <Boolean. Optional, defaults to false. If true, runs each
+    benchmark for a small, arbitrary, number of iterations after initializing
+    but before starting to take measurements.>,
   "sync_every_iteration": <Boolean. Optional, defaults to false. If true,
     iterations of each benchmark start when all benchmarks have completed their
     previous iteration. By default, each benchmark only waits for its own
