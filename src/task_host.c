@@ -389,6 +389,32 @@ static int WriteOutputHeader(TaskConfig *config) {
   return 1;
 }
 
+// Runs one or more non-recorded "warm-up" iterations of a plugin. Returns 0 on
+// error. Does not call the cleanup function; the caller must do that if this
+// returns 0.
+static int DoWarmup(TaskConfig *config, void *user_data) {
+  TimingInformation junk;
+  BenchmarkLibraryFunctions *benchmark = &(config->benchmark);
+  const char *name = benchmark->get_name();
+  int i;
+  // We arbitrarily choose to run 4 warmup iterations.
+  for (i = 0; i < 4; i++){
+    if (!benchmark->copy_in(user_data)) {
+      printf("Benchmark %s copy in failed (warm up).\n", name);
+      return 0;
+    }
+    if (!benchmark->execute(user_data)) {
+      printf("Benchmark %s execute failed (warm up).\n", name);
+      return 0;
+    }
+    if (!benchmark->copy_out(user_data, &junk)) {
+      printf("Benchmark %s copy out failed (warm up).\n", name);
+      return 0;
+    }
+  }
+  return 1;
+}
+
 // Runs a single benchmark. This is usually called from a separate thread or
 // process. It takes a pointer to a TaskConfig struct as an argument.
 // It may print a message and return NULL on error. On success, it will simply
@@ -422,6 +448,12 @@ static void* RunBenchmark(void *data) {
   if (!WriteOutputHeader(config)) {
     printf("Failed writing metadata to log file.\n");
     return NULL;
+  }
+  if (config->shared_state->global_config->do_warmup) {
+    if (!DoWarmup(config, user_data)) {
+      printf("Failed warming up.\n");
+      return NULL;
+    }
   }
   if (!BarrierWait(barrier, &local_sense)) {
     printf("Failed waiting for post-initialization synchronization.\n");

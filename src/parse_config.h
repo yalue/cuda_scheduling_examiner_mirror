@@ -70,6 +70,10 @@ typedef struct {
   // benchmark's cpu_core setting. If nonzero, benchmarks are distributed
   // evenly accrorss CPU cores.
   int pin_cpus;
+  // If nonzero, run each benchmark for one or more iterations without
+  // recording performance after initialization, but before syncing with other
+  // plugins and starting to take measurements.
+  int do_warmup;
   // If zero, iterations of individual benchmarks run as soon as previous
   // iterations complete. If 1, then every benchmark starts each iteration
   // only after the previous iteration of every benchmark has completed.
