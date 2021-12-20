@@ -10,6 +10,17 @@ capable of running any benchmark which can be self-contained in a shared
 library file exporting specific functions. Currently, this tool only runs under
 Linux, and is unlikely to support other systems in the future.
 
+To cite this work in academic use, either link to this repository or cite the
+[original paper for which it was created](https://cs.unc.edu/~anderson/papers/ospert17.pdf).
+```
+@inproceedings{otterness2017inferring,
+  title={Inferring the Scheduling Policies of an Embedded {CUDA} {GPU}},
+  author={Otterness, Nathan and Yang, Ming and Amert, Tanya and Anderson, James H. and Smith, F. D.},
+  booktitle={Workshop on Operating Systems Platforms for Embedded Real-Time Applications (OSPERT)},
+  year={2017}
+}
+```
+
 For Users of AMD GPUs
 ---------------------
 
