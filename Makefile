@@ -3,12 +3,12 @@
 CFLAGS := -Wall -Werror -O3 -g -fPIC
 
 NVCCFLAGS := -g --ptxas-options=-v --compiler-options="$(CFLAGS)" \
-	--cudart=shared --generate-code arch=compute_30,code=[compute_30,sm_30] \
-	--generate-code arch=compute_35,code=[compute_35,sm_35] \
 	--generate-code arch=compute_50,code=[compute_50,sm_50] \
 	--generate-code arch=compute_53,code=[compute_53,sm_53] \
 	--generate-code arch=compute_60,code=[compute_60,sm_60] \
-	--generate-code arch=compute_62,code=[compute_62,sm_62]
+	--generate-code arch=compute_62,code=[compute_62,sm_62] \
+	--generate-code arch=compute_62,code=[compute_70,sm_70] \
+	--generate-code arch=compute_62,code=[compute_75,sm_75]
 
 BENCHMARK_DEPENDENCIES := src/library_interface.h \
 	src/benchmark_gpu_utilities.h obj/benchmark_gpu_utilities.o
@@ -19,9 +19,6 @@ benchmarks: bin/mandelbrot.so bin/timer_spin.so bin/multikernel.so \
 	bin/cpu_inorder_walk.so bin/cpu_random_walk.so bin/inorder_walk.so \
 	bin/random_walk.so bin/sharedmem_timer_spin.so bin/counter_spin.so \
 	bin/timer_spin_default_stream.so bin/stream_action.so bin/task_host.so
-
-visionworks: obj/cjson.o bin/runner
-	$(MAKE) -C ./src/third_party/VisionWorks-1.6-Demos
 
 directories:
 	mkdir -p bin/

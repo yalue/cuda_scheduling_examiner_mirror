@@ -39,8 +39,12 @@ Compilation
 
 This tool can only be run on a computer with a CUDA-capable GPU and with CUDA
 installed. The `nvcc` command must be available on your PATH. The tool has not
-been tested with devices earlier than compute capability 3.0 or CUDA versions
-earlier than 8.0. GCC version 4.9 or later is required.
+been tested with devices earlier than compute capability 5.0 or CUDA versions
+earlier than 9.0. GCC version 4.9 or later is required.
+
+Earlier versions of the tool, developed for devices with compute capability 3.0
+or CUDA versions 8.0 or earlier, is available by checking out the `older_cuda`
+git tag.
 
 To build, clone the repository, `cd` into it, and run `make`.
 
@@ -163,35 +167,6 @@ this script, run the following command (after running `make`):
 python scripts/multikernel_generator.py | ./bin/runner -
 ```
 
-VisionWorks Demos Benchmark
----------------------------
-
-NVIDIA's VisionWorks demos are available to use as benchmarks. These demos are
-real-world autonomous driving applications such as stereo matching, feature
-tracking, the Hough transform, and motion stabilization. The source code of
-these demos was modified to fit the benchmark interface. The modified source
-code is located in `src/third_party/VisionWorks-1.6-Demos`.
-
-To compile VisionWorks benchmarks, use `make visionworks`. The VisionWorks
-library must be installed for this to complete.
-
-The `scripts/visionworks_generator.py` script is provided to generate
-configuration files for VisionWorks demos. Check out detailed help information
-using `python scripts/visionworks_generator.py -h`. Here is an example running
-one feature tracker instance:
-
-```bash
-python scripts/visionworks_generator.py --ft 1 | ./bin/runner -
-```
-
-To run VisionWorks case study, use:
-
-```bash
-./scripts/visionworks_scenarios_case_study.sh  # run the case study
-python scripts/view_times_cdf.py -k "execute_times" # view CDF plots
-python scripts/view_times_pdf.py # view PDF (probablity density function) plots,
-# by default it only shows "x4" scenarios. This can be modified in the script
-```
 
 Output File Format
 ------------------
