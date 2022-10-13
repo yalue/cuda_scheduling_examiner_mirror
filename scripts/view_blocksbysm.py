@@ -1,9 +1,13 @@
-# This script reads all JSON result files and uses matplotlib to display a
+#!/usr/bin/env python
+# This script reads all JSON result files and uses Tkinter to display a
 # timeline indicating when blocks and threads from multiple jobs were run on
 # GPU, including which SM they ran on. For this to work, all result filenames
 # must end in .json.
 #
-# Usage: python view_blocksbysm.py [results directory (default: ./results)]
+# Only Python 2 is supported.
+#
+# Usage: python view_blocksbysm.py -d [results directory (default: ./results)]
+import argparse
 import glob
 import json
 import math
@@ -11,6 +15,13 @@ import re
 import sys
 
 from graphics import *
+
+# Disable saving if the canvasvg library is not installed
+try:
+    import canvasvg
+    SAVE_AVIL = True
+except:
+    SAVE_AVIL = False
 
 # Using threads vs shared memory
 SM_THREADS = 2048
@@ -825,11 +836,8 @@ class ResizingCanvasFrame(CanvasFrame):
         self.canvas.delete("all")
 
 class BlockSMDisplay():
-    INIT_WIDTH = 800
-    INIT_HEIGHT = 600
-
-    def __init__(self, win, benchmark):
-        self.setup(win, self.INIT_WIDTH, self.INIT_HEIGHT, benchmark)
+    def __init__(self, win, benchmark, window_width, window_height):
+        self.setup(win, window_width, window_height, benchmark)
         self.draw_benchmark()
 
     def setup(self, win, width, height, benchmark):
@@ -845,7 +853,7 @@ class BlockSMDisplay():
         self.benchmark = benchmark
 
         if len(benchmark.streams) > 0:
-            self.numSms = self.benchmark.streams[0].maxResidentThreads / 2048
+            self.numSms = int(self.benchmark.streams[0].maxResidentThreads / 2048)
             self.name = self.benchmark.streams[0].scenarioName
 
     def redraw(self, width, height):
@@ -1104,15 +1112,18 @@ class Benchmark(object):
 def get_block_intervals(name, benchmarks):
     return Benchmark(name, benchmarks)
 
-def plot_scenario(benchmarks, name):
+def plot_scenario(benchmarks, name, window_name, window_width, window_height, save):
     """Takes a list of parsed benchmark results and a scenario name and
     generates a plot showing the timeline of benchmark behaviors for the
     specific scenario."""
-    win = Window("Block Execution by SM")
-    graph = BlockSMDisplay(win, get_block_intervals(name, benchmarks))
+    win = Window(window_name)
+    graph = BlockSMDisplay(win, get_block_intervals(name, benchmarks),
+                           window_width, window_height)
+    if save:
+        canvasvg.saveall(name+".svg", graph.canvas.canvas)
     win.mainloop()
 
-def show_plots(filenames):
+def show_plots(filenames, window_name, window_width, window_height, save):
     """Takes a list of filenames, and generates one plot per scenario found in
     the files."""
     # Parse the files
@@ -1131,15 +1142,33 @@ def show_plots(filenames):
 
     # Plot the scenarios
     for scenario in scenarios:
-        plot_scenario(scenarios[scenario], scenario)
+        plot_scenario(scenarios[scenario], scenario, window_name, window_width,
+                      window_height, save)
 
 if __name__ == "__main__":
-    base_directory = "./results"
-    if len(sys.argv) > 2:
-        print "Usage: python %s [directory containing results (./results)]" % (
-            sys.argv[0])
-        exit(1)
-    if len(sys.argv) == 2:
-        base_directory = sys.argv[1]
-    filenames = glob.glob(base_directory + "/*.json")
-    show_plots(filenames)
+    args = {}
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", "--directory",
+        help="Directory containing result JSON files.", default='./results')
+    parser.add_argument("-t", "--title",
+        help="Title of the display window.", default="Block Execution by SM")
+    parser.add_argument("-v", "--height",
+        help="Height (in pixels) of the plot.", default=600, type=int)
+    parser.add_argument("-w", "--width",
+        help="Width (in pixels) of the plot.", default=800, type=int)
+    if SAVE_AVIL:
+        parser.add_argument("-s", "--save",
+            help="Should plots be saved?", action="store_true")
+    # Legacy parser for old usage:
+    # `python view_blocksbysm.py [results directory (default: ./results)]`
+    if len(sys.argv) == 2 and sys.argv[1][0] != "-":
+        print("Warning: Unnamed arguments are deprecated! Run %s --help for information on new format."%(sys.argv[0], sys.argv[0]))
+        args = parser.parse_args([]) # Get defaults
+        args.directory = sys.argv[1]
+    else:
+        args = parser.parse_args()
+    filenames = glob.glob(args.directory + "/*.json")
+    if SAVE_AVIL:
+        show_plots(filenames, args.title, args.width, args.height, args.save)
+    else:
+        show_plots(filenames, args.title, args.width, args.height, False)
