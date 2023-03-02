@@ -1,0 +1,22 @@
+{
+  "name": "Matrix multiply test",
+  "comment": "This config is for basic testing of the matrix_multiply plugin.",
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "use_processes": false,
+  "do_warmup": true,
+  "benchmarks": [
+    {
+      "filename": "./bin/matrix_multiply.so",
+      "log_name": "results/matrix_multiply_test.json",
+      "thread_count": [16, 16],
+      "block_count": 1,
+      "data_size": 0,
+      "additional_info": {
+        "matrix_width": 2048,
+        "skip_copy": false
+      }
+    }
+  ]
+}
