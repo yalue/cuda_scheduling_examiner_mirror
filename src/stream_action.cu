@@ -468,8 +468,8 @@ static int GetCJSONBoolean(cJSON *object) {
 // *parameters* object for a kernel action, and fills in the KernelParameters.
 // Returns 0 on error.
 static int ParseKernelParameters(cJSON *json_parameters,
-    KernelParameters *kernel_config, int default_block_count,
-    int default_thread_count) {
+    KernelParameters *kernel_config,
+    InitializationParameters *default_params) {
   cJSON *entry = NULL;
   // Due to the complexity of this config, this can forestall confusing errors
   // by pointing out misspelled keys.
@@ -515,7 +515,11 @@ static int ParseKernelParameters(cJSON *json_parameters,
   kernel_config->duration = (uint64_t) entry->valuedouble;
   // Get the block and thread counts, which default to the benchmark setting
   // if they aren't provided.
-  kernel_config->block_count = default_block_count;
+  if (!GetSingleBlockAndGridDimensions(default_params,
+    &kernel_config->thread_count, &kernel_config->block_count)) {
+    // No need to print a message on error, Get...Dimensions() does.
+    return 0;
+  }
   entry = cJSON_GetObjectItem(json_parameters, "block_count");
   if (entry) {
     if (entry->type != cJSON_Number) {
@@ -524,7 +528,6 @@ static int ParseKernelParameters(cJSON *json_parameters,
     }
     kernel_config->block_count = entry->valueint;
   }
-  kernel_config->thread_count = default_thread_count;
   entry = cJSON_GetObjectItem(json_parameters, "thread_count");
   if (entry) {
     if (entry->type != cJSON_Number) {
@@ -803,8 +806,7 @@ static int ParseSingleAction(cJSON *object, ActionConfig *action,
       printf("Missing kernel parameters for stream_action.so.\n");
       return 0;
     }
-    if (!ParseKernelParameters(entry, &(action->parameters.kernel),
-      params->block_count, params->thread_count)) {
+    if (!ParseKernelParameters(entry, &(action->parameters.kernel), params)) {
       return 0;
     }
   }

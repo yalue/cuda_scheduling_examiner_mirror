@@ -106,12 +106,14 @@ static int SetSpinDuration(const char *arg, TaskState *state) {
 static void* Initialize(InitializationParameters *params) {
   TaskState *state = NULL;
   // First allocate space for local data.
-  state = (TaskState *) malloc(sizeof(*state));
+  state = (TaskState *) calloc(1, sizeof(*state));
   if (!state) return NULL;
-  memset(state, 0, sizeof(*state));
   if (!CheckCUDAError(cudaSetDevice(params->cuda_device))) return NULL;
-  state->thread_count = params->thread_count;
-  state->block_count = params->block_count;
+  if (!GetSingleBlockAndGridDimensions(params, &state->thread_count,
+    &state->block_count)) {
+    Cleanup(state);
+    return NULL;
+  }
   if (!AllocateMemory(state)) {
     Cleanup(state);
     return NULL;

@@ -123,10 +123,13 @@ The layout of each configuration file is as follows:
         This is ignored if use_processes is false. Defaults to 100.>,
       "label:": <String. Optional. A label or name for this specific benchmark,
         to be copied to its output file.>,
-      "thread_count": <Number. Required, but may be ignored. The number of CUDA
-        threads this benchmark should use.>,
-      "block_count": <Number. Required, but may be ignored. The number of CUDA
-        blocks this benchmark should use.>,
+      "thread_count": <Number or array. Required, but may be ignored. The
+        number of CUDA threads that each block of this plugin should use. May
+        also be an array with up to 3 integers, specifying a multi-dimensional
+        block size.>,
+      "block_count": <Number or array. Required, but may be ignored. The number
+        of CUDA blocks this plugin's kernels should use. May also be an array
+        with up to 3 integers, specifying a multi-dimensional grid size.>,
       "data_size": <Number. Required, but may be ignored. The input size, in
         bytes, for the benchmark.>,
       "additional_info": <A JSON object of any format. Optional. This can be
