@@ -21,7 +21,6 @@
 #include "third_party/cJSON.h"
 #include "benchmark_gpu_utilities.h"
 #include "library_interface.h"
-#include <libsmctrl.h>
 
 // Holds the state of an instance of this plugin.
 typedef struct {
