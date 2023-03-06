@@ -674,8 +674,8 @@ static TaskConfig* CreateTaskConfigs(SharedState *shared_state) {
     new_list[i].label = benchmark->label;
     new_list[i].mps_thread_percentage = benchmark->mps_thread_percentage;
     // These settings must all be specified in the benchmark-specific settings.
-    new_list[i].parameters.thread_count = benchmark->thread_count;
-    new_list[i].parameters.block_count = benchmark->block_count;
+    memcpy(new_list[i].parameters.block_dim, benchmark->block_dim, 3 * sizeof(int));
+    memcpy(new_list[i].parameters.grid_dim, benchmark->grid_dim, 3 * sizeof(int));
     new_list[i].parameters.data_size = benchmark->data_size;
     new_list[i].parameters.additional_info = benchmark->additional_info;
     new_list[i].release_time = benchmark->release_time;

@@ -1,6 +1,7 @@
 .PHONY: all clean benchmarks directories
 
 CFLAGS := -Wall -Werror -O3 -g -fPIC
+NVCC ?= /usr/local/cuda-11.4/bin/nvcc
 
 NVCCFLAGS := -g --ptxas-options=-v --compiler-options="$(CFLAGS)" \
 	--generate-code arch=compute_50,code=[compute_50,sm_50] \
@@ -18,50 +19,56 @@ all: directories benchmarks bin/runner
 benchmarks: bin/mandelbrot.so bin/timer_spin.so bin/multikernel.so \
 	bin/cpu_inorder_walk.so bin/cpu_random_walk.so bin/inorder_walk.so \
 	bin/random_walk.so bin/sharedmem_timer_spin.so bin/counter_spin.so \
-	bin/timer_spin_default_stream.so bin/stream_action.so bin/task_host.so
+	bin/timer_spin_default_stream.so bin/stream_action.so bin/task_host.so \
+	bin/matrix_multiply.so
 
 directories:
 	mkdir -p bin/
 	mkdir -p obj/
 
 bin/mandelbrot.so: src/mandelbrot.cu $(BENCHMARK_DEPENDENCIES)
-	nvcc --shared $(NVCCFLAGS) -o bin/mandelbrot.so src/mandelbrot.cu \
+	$(NVCC) --shared $(NVCCFLAGS) -o bin/mandelbrot.so src/mandelbrot.cu \
 		obj/benchmark_gpu_utilities.o
 
 bin/timer_spin.so: src/timer_spin.cu $(BENCHMARK_DEPENDENCIES)
-	nvcc --shared $(NVCCFLAGS) -o bin/timer_spin.so src/timer_spin.cu \
+	$(NVCC) --shared $(NVCCFLAGS) -o bin/timer_spin.so src/timer_spin.cu \
 		obj/benchmark_gpu_utilities.o
 
 bin/counter_spin.so: src/counter_spin.cu $(BENCHMARK_DEPENDENCIES)
-	nvcc --shared $(NVCCFLAGS) -o bin/counter_spin.so src/counter_spin.cu \
+	$(NVCC) --shared $(NVCCFLAGS) -o bin/counter_spin.so src/counter_spin.cu \
 		obj/benchmark_gpu_utilities.o
 
 bin/timer_spin_default_stream.so: src/timer_spin_default_stream.cu \
 		$(BENCHMARK_DEPENDENCIES)
-	nvcc --shared $(NVCCFLAGS) -o bin/timer_spin_default_stream.so \
+	$(NVCC) --shared $(NVCCFLAGS) -o bin/timer_spin_default_stream.so \
 		src/timer_spin_default_stream.cu obj/benchmark_gpu_utilities.o
 
 bin/multikernel.so: src/multikernel.cu $(BENCHMARK_DEPENDENCIES) obj/cjson.o
-	nvcc --shared $(NVCCFLAGS) -o bin/multikernel.so src/multikernel.cu \
+	$(NVCC) --shared $(NVCCFLAGS) -o bin/multikernel.so src/multikernel.cu \
 		obj/benchmark_gpu_utilities.o obj/cjson.o
 
 bin/inorder_walk.so: src/inorder_walk.cu $(BENCHMARK_DEPENDENCIES)
-	nvcc --shared $(NVCCFLAGS) -o bin/inorder_walk.so src/inorder_walk.cu \
+	$(NVCC) --shared $(NVCCFLAGS) -o bin/inorder_walk.so src/inorder_walk.cu \
 		obj/benchmark_gpu_utilities.o
 
 bin/random_walk.so: src/random_walk.cu $(BENCHMARK_DEPENDENCIES)
-	nvcc --shared $(NVCCFLAGS) -o bin/random_walk.so src/random_walk.cu \
+	$(NVCC) --shared $(NVCCFLAGS) -o bin/random_walk.so src/random_walk.cu \
 		obj/benchmark_gpu_utilities.o
 
 bin/sharedmem_timer_spin.so: src/sharedmem_timer_spin.cu \
 		$(BENCHMARK_DEPENDENCIES) obj/cjson.o
-	nvcc --shared $(NVCCFLAGS) -o bin/sharedmem_timer_spin.so \
+	$(NVCC) --shared $(NVCCFLAGS) -o bin/sharedmem_timer_spin.so \
 		src/sharedmem_timer_spin.cu obj/benchmark_gpu_utilities.o obj/cjson.o
 
 bin/stream_action.so: src/stream_action.cu $(BENCHMARK_DEPENDENCIES) \
 		obj/cjson.o
-	nvcc --shared $(NVCCFLAGS) -o bin/stream_action.so src/stream_action.cu \
+	$(NVCC) --shared $(NVCCFLAGS) -o bin/stream_action.so src/stream_action.cu \
 		obj/benchmark_gpu_utilities.o obj/cjson.o
+
+bin/matrix_multiply.so: src/matrix_multiply.cu $(BENCHMARK_DEPENDENCIES) \
+		obj/cjson.o
+	$(NVCC) --shared $(NVCCFLAGS) -o bin/matrix_multiply.so \
+		src/matrix_multiply.cu obj/benchmark_gpu_utilities.o obj/cjson.o
 
 bin/cpu_inorder_walk.so: src/cpu_inorder_walk.c src/library_interface.h
 	gcc $(CFLAGS) -shared -o bin/cpu_inorder_walk.so src/cpu_inorder_walk.c
@@ -85,12 +92,12 @@ obj/task_host.o: src/task_host.c src/third_party/cJSON.h \
 
 obj/task_host_utilities.o: src/task_host_utilities.cu \
 		src/task_host_utilities.h src/library_interface.h
-	nvcc -c $(NVCCFLAGS) -o obj/task_host_utilities.o \
+	$(NVCC) -c $(NVCCFLAGS) -o obj/task_host_utilities.o \
 		src/task_host_utilities.cu
 
 obj/benchmark_gpu_utilities.o: src/benchmark_gpu_utilities.cu \
 		src/benchmark_gpu_utilities.h
-	nvcc -c $(NVCCFLAGS) -o obj/benchmark_gpu_utilities.o \
+	$(NVCC) -c $(NVCCFLAGS) -o obj/benchmark_gpu_utilities.o \
 		src/benchmark_gpu_utilities.cu
 
 obj/barrier_wait.o: src/barrier_wait.c src/barrier_wait.h
@@ -101,7 +108,7 @@ bin/runner: obj/runner.o bin/task_host.so
 
 bin/task_host.so: obj/task_host.o obj/cjson.o obj/parse_config.o \
 		obj/task_host_utilities.o obj/barrier_wait.o
-	nvcc --shared $(NVCCFLAGS) -o bin/task_host.so obj/task_host.o \
+	$(NVCC) --shared $(NVCCFLAGS) -o bin/task_host.so obj/task_host.o \
 		obj/cjson.o obj/task_host_utilities.o obj/barrier_wait.o \
 		obj/parse_config.o -lpthread -ldl -lm
 

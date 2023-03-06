@@ -135,14 +135,16 @@ static int SetMaxIterations(const char *arg, TaskState *info) {
 static void* Initialize(InitializationParameters *params) {
   TaskState *info = NULL;
   FractalDimensions *dimensions = NULL;
-  info = (TaskState *) malloc(sizeof(*info));
+  info = (TaskState *) calloc(1, sizeof(*info));
   if (!info) {
     printf("Failed allocating library state variables.\n");
     return NULL;
   }
-  memset(info, 0, sizeof(*info));
   if (!CheckCUDAError(cudaSetDevice(params->cuda_device))) return NULL;
-  info->thread_count = params->thread_count;
+  if (!GetSingleBlockDimension(params, &info->thread_count)) {
+    Cleanup(info);
+    return NULL;
+  }
   // Fill in the dimensions and parameters of the complex plane region we'll
   // draw.
   dimensions = &(info->dimensions);
@@ -155,9 +157,9 @@ static void* Initialize(InitializationParameters *params) {
   dimensions->delta_real = 4.0 / dimensions->w;
   dimensions->delta_imag = 4.0 / dimensions->h;
   // Set the block count based on thread_count and the image dimensions.
-  info->block_count = (dimensions->w * dimensions->h) / params->thread_count;
+  info->block_count = (dimensions->w * dimensions->h) / info->thread_count;
   // In case the image isn't evenly divisible by the thread_count...
-  if (((dimensions->w * dimensions->h) % params->thread_count) != 0) {
+  if (((dimensions->w * dimensions->h) % info->thread_count) != 0) {
     info->block_count++;
   }
   if (!SetMaxIterations(params->additional_info, info)) {

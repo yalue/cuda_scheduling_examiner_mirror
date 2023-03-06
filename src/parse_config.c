@@ -89,6 +89,64 @@ static int VerifyBenchmarkConfigKeys(cJSON *benchmark_config) {
   return VerifyConfigKeys(benchmark_config, valid_keys, keys_count);
 }
 
+// Used for parsing block_count and thread_count. The cJSON object must either
+// be a single number or an array containing 1, 2, or 3 entries, all of which
+// must be numbers. Returns 0 on error, including if any numbers are negative,
+// the entry isn't a number or an array, if the array is too large or empty,
+// etc.
+static int ParseDim3OrInt(cJSON *entry, int *dim3) {
+  cJSON *element = NULL;
+  int i, array_length;
+  // All entries in the dimensions default to 1, so setting only lower values
+  // will be valid.
+  for (i = 0; i < 3; i++) {
+    dim3[i] = 1;
+  }
+
+  // If it's a number, we can just return right away.
+  if (entry->type == cJSON_Number) {
+    if (entry->valueint <= 0) {
+      printf("Block and grid dims must be positive.\n");
+      return 0;
+    }
+    dim3[0] = entry->valueint;
+    return 1;
+  }
+
+  if ((entry->type != cJSON_Array) || (!entry->child)) {
+    printf("Block and grid dims must either be a number or non-empty array\n");
+    return 0;
+  }
+  array_length = 1;
+  element = entry->child;
+  element = element->next;
+  // Walk the list to figure out the length.
+  while (element) {
+    array_length++;
+    if (array_length > 3) {
+      printf("Block and grid dims may have at most 3 entries.\n");
+      return 0;
+    }
+    element = element->next;
+  }
+
+  // "Rewind" back to the first array element and parse the values.
+  element = entry->child;
+  for (i = 0; i < array_length; i++) {
+    if (element->type != cJSON_Number) {
+      printf("Block and grid dim array entries must be numbers.\n");
+      return 0;
+    }
+    if (element->valueint <= 0) {
+      printf("Block and grid dim array entries must be positive.\n");
+      return 0;
+    }
+    dim3[i] = element->valueint;
+  }
+
+  return 1;
+}
+
 // Parses the list of individaul benchmark settings, starting with the entry
 // given by list_start. The list_start entry must have already been valideated
 // when this is called. On error, this will return 0 and leave the config
@@ -108,12 +166,11 @@ static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
     entry = entry->next;
   }
   benchmarks_size = benchmark_count * sizeof(BenchmarkConfiguration);
-  benchmarks = (BenchmarkConfiguration *) malloc(benchmarks_size);
+  benchmarks = (BenchmarkConfiguration *) calloc(1, benchmarks_size);
   if (!benchmarks) {
     printf("Failed allocating space for the benchmark list.\n");
     return 0;
   }
-  memset(benchmarks, 0, benchmarks_size);
   // Next, traverse the array and fill in our parsed copy.
   current_benchmark = list_start;
   for (i = 0; i < benchmark_count; i++) {
@@ -168,17 +225,15 @@ static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
       benchmarks[i].mps_thread_percentage = entry->valuedouble;
     }
     entry = cJSON_GetObjectItem(current_benchmark, "thread_count");
-    if (!entry || (entry->type != cJSON_Number)) {
+    if (!ParseDim3OrInt(entry, benchmarks[i].block_dim)) {
       printf("Missing/invalid benchmark thread_count in config.\n");
       goto ErrorCleanup;
     }
-    benchmarks[i].thread_count = entry->valueint;
     entry = cJSON_GetObjectItem(current_benchmark, "block_count");
-    if (!entry || (entry->type != cJSON_Number)) {
+    if (!ParseDim3OrInt(entry, benchmarks[i].grid_dim)) {
       printf("Missing/invalid benchmark block_count in config.\n");
       goto ErrorCleanup;
     }
-    benchmarks[i].block_count = entry->valueint;
     entry = cJSON_GetObjectItem(current_benchmark, "data_size");
     if (!entry || (entry->type != cJSON_Number)) {
       printf("Missing/invalid benchmark data_size in config.\n");
@@ -281,12 +336,11 @@ GlobalConfiguration* ParseConfiguration(const char *config) {
   cJSON *root = NULL;
   cJSON *entry = NULL;
   int tmp;
-  to_return = (GlobalConfiguration *) malloc(sizeof(*to_return));
+  to_return = (GlobalConfiguration *) calloc(1, sizeof(*to_return));
   if (!to_return) {
     printf("Failed allocating config memory.\n");
     return NULL;
   }
-  memset(to_return, 0, sizeof(*to_return));
   root = cJSON_Parse(config);
   if (!root) {
     printf("Failed parsing JSON.\n");

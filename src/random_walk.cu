@@ -169,12 +169,14 @@ static void* Initialize(InitializationParameters *params) {
   uint64_t i;
   uint64_t *host_initial_buffer = NULL;
   // First allocate space for local data.
-  state = (TaskState *) malloc(sizeof(*state));
+  state = (TaskState *) calloc(1, sizeof(*state));
   if (!state) return NULL;
-  memset(state, 0, sizeof(*state));
   if (!CheckCUDAError(cudaSetDevice(params->cuda_device))) return NULL;
-  state->thread_count = params->thread_count;
-  state->block_count = params->block_count;
+  if (!GetSingleBlockAndGridDimensions(params, &state->thread_count,
+    &state->block_count)) {
+    Cleanup(state);
+    return NULL;
+  }
   state->walk_buffer_length = params->data_size / sizeof(uint64_t);
   if (state->walk_buffer_length <= 0) {
     printf("Memory walks require a data_size of at least %d.\n",

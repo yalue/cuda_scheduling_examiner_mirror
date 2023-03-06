@@ -16,13 +16,12 @@ extern "C" {
 // function should modify the fields in this struct so that they reflect the
 // actual dimensions used.
 typedef struct {
-  // The number of threads to be used in each block. This (and block_count)
-  // only supports kernels with 1-dimensional grids and blocks. Other kernels
-  // may be configured using data_size, or some combination of block_count,
-  // thread_count and data_size.
-  int thread_count;
-  // The number of blocks to be used in the grid
-  int block_count;
+  // The number of threads to be used in each block. This is a 3-dimensional
+  // value, with the unused dimensions being set to 1
+  int block_dim[3];
+  // The number of blocks to create when launching a kernel. Like block_dim,
+  // unused dimensions will be set to 1.
+  int grid_dim[3];
   // The input size for each benchmark.
   uint64_t data_size;
   // Contains an optional user-specified string which is taken from the
