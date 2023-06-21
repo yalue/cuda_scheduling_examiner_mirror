@@ -209,7 +209,6 @@ static void* Initialize(InitializationParameters *params) {
     state->block_size.y = 32;
   }
   state->block_size.y = params->block_dim[1];
-  state->block_size.y = 1;
   state->block_size.z = 1;
 
   // Compute the grid size from the block size and matrix width.
