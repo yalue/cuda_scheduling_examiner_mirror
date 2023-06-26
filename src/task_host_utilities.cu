@@ -39,6 +39,7 @@ static double CurrentSeconds(void) {
   return ((double) ts.tv_sec) + (((double) ts.tv_nsec) / 1e9);
 }
 
+#if __CUDA_ARCH__ >= 300 // Kepler+
 // Returns the value of CUDA's global nanosecond timer.
 // Starting with sm_30, `globaltimer64` was added
 // Tuned for sm_5X architectures, but tested to still be efficient on sm_7X
@@ -58,6 +59,20 @@ static __device__ inline uint64_t GlobalTimer64(void) {
   ret |= lo_bits;
   return ret;
 }
+#elif __CUDA_ARCH__ < 200 // Tesla
+// On sm_13, we /only/ have `clock` (32 bits)
+static __device__ inline uint64_t GlobalTimer64(void) {
+  uint32_t lo_bits;
+  uint64_t ret;
+  asm volatile("mov.u32 %0, %%clock;" : "=r"(lo_bits));
+  ret = 0;
+  ret |= lo_bits;
+  return ret;
+}
+#else
+// Could use clock64 for sm_2x (Fermi), but that's untested
+#error Fermi-based GPUs (sm_2x) are unsupported!
+#endif
 
 // A simple kernel which writes the value of the globaltimer64 register to a
 // location in device memory.
@@ -270,12 +285,42 @@ int GetMaxResidentThreads(int cuda_device) {
   return to_return;
 }
 
+#if __CUDA_ARCH__ >= 300 // Kepler+
 static __global__ void TimerSpin(uint64_t ns_to_spin) {
   uint64_t start_time = GlobalTimer64();
   while ((GlobalTimer64() - start_time) < ns_to_spin) {
     continue;
   }
 }
+#elif __CUDA_ARCH__ < 200 // Tesla
+// On sm_13, we /only/ have `clock` (32 bits)
+static __device__ inline uint32_t Clock32(void) {
+  uint32_t lo_bits;
+  asm volatile("mov.u32 %0, %%clock;" : "=r"(lo_bits));
+  return lo_bits;
+}
+
+// 'clock' can easily roll over, so handle that for ancient architectures
+static __global__ void TimerSpin(uint64_t ns_to_spin) {
+  uint64_t total_time = 0;
+  uint32_t last_time = Clock32();
+  while (total_time < ns_to_spin) {
+    uint32_t time = Clock32();
+    if (time < last_time) {
+      // Rollover. Compensate...
+      total_time += time; // rollover to now
+      total_time += UINT_MAX - last_time; // last to rollover
+    } else {
+      // Step counter
+      total_time += time - last_time;
+    }
+    last_time = time;
+  }
+}
+#else
+// Could use clock64 for sm_2x (Fermi), but that's untested
+#error Fermi-based GPUs (sm_2x) are unsupported!
+#endif
 
 // This function is intended to be run in a child process. Returns -1 on error.
 static double InternalGetGPUTimerScale(int cuda_device) {
