@@ -40,24 +40,23 @@ static double CurrentSeconds(void) {
 }
 
 // Returns the value of CUDA's global nanosecond timer.
+// Starting with sm_30, `globaltimer64` was added
+// Tuned for sm_5X architectures, but tested to still be efficient on sm_7X
 static __device__ inline uint64_t GlobalTimer64(void) {
-  // Due to a bug in CUDA's 64-bit globaltimer, the lower 32 bits can wrap
-  // around after the upper bits have already been read. Work around this by
-  // reading the high bits a second time. Use the second value to detect a
-  // rollover, and set the lower bits of the 64-bit "timer reading" to 0, which
-  // would be valid, it's passed over during the duration of the reading. If no
-  // rollover occurred, just return the initial reading.
-  volatile uint64_t first_reading;
-  volatile uint32_t second_reading;
-  uint32_t high_bits_first;
-  asm volatile("mov.u64 %0, %%globaltimer;" : "=l"(first_reading));
-  high_bits_first = first_reading >> 32;
-  asm volatile("mov.u32 %0, %%globaltimer_hi;" : "=r"(second_reading));
-  if (high_bits_first == second_reading) {
-    return first_reading;
-  }
-  // Return the value with the updated high bits, but the low bits set to 0.
-  return ((uint64_t) second_reading) << 32;
+  uint32_t lo_bits, hi_bits, hi_bits_2;
+  uint64_t ret;
+  // Upper bits may rollever between our 1st and 2nd read
+  asm volatile("mov.u32 %0, %%globaltimer_hi;" : "=r"(hi_bits));
+  asm volatile("mov.u32 %0, %%globaltimer_lo;" : "=r"(lo_bits));
+  asm volatile("mov.u32 %0, %%globaltimer_hi;" : "=r"(hi_bits_2));
+  // If upper bits rolled over, lo_bits = 0
+  lo_bits = (hi_bits != hi_bits_2) ? 0 : lo_bits;
+  // SASS on older architectures (such as sm_52) is natively 32-bit, so the
+  // following three lines get optimized out.
+  ret = hi_bits_2;
+  ret <<= 32;
+  ret |= lo_bits;
+  return ret;
 }
 
 // A simple kernel which writes the value of the globaltimer64 register to a
