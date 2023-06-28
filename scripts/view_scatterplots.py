@@ -1,14 +1,19 @@
+#!/usr/bin/env python
 # This scripts looks through JSON result files and uses matplotlib to display
 # scatterplots containing the min, max and arithmetic mean for distributions of
 # samples. In order for a distribution to be included in a plot, its "label"
 # field must consist of a single number (may be floating-point). As with the
 # other scripts, one plot will be created for each "name" in the output files.
+#
+# Supports Python 2 and Python 3
+from __future__ import print_function
 import argparse
 import glob
 import json
 import matplotlib.pyplot as plot
 import numpy
 import sys
+import os
 
 def convert_to_float(s):
     """Takes a string s and parses it as a floating-point number. If s can not
@@ -100,16 +105,16 @@ def show_plots(filenames, times_key):
     all_scenarios = {}
     counter = 1
     for name in filenames:
-        print "Parsing file %d / %d: %s" % (counter, len(filenames), name)
+        print("Parsing file %d / %d: %s" % (counter, len(filenames), name))
         counter += 1
         with open(name) as f:
             parsed = json.loads(f.read())
             if len(parsed["times"]) < 2:
-                print "Skipping %s: no recorded times in file." % (name)
+                print("Skipping %s: no recorded times in file." % (name))
                 continue
             float_value = convert_to_float(parsed["label"])
             if float_value is None:
-                print "Skipping %s: label isn't a number." % (name)
+                print("Skipping %s: label isn't a number." % (name))
                 continue
             summary_values = benchmark_summary_values(parsed, times_key)
             name = parsed["scenario_name"]
@@ -124,12 +129,22 @@ def show_plots(filenames, times_key):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--directory",
-        help="Directory containing result JSON files.", default='./results')
     parser.add_argument("-k", "--times_key",
-        help="JSON key name for the time property to be plot.",
+        help="JSON key name for the time property to be plotted.",
         default="execute_times")
+    parser.add_argument("result_file_to_plot", nargs="*", default=["./results"],
+        help="List of result files, or directories of result files, to plot (./results default)")
     args = parser.parse_args()
-    filenames = glob.glob(args.directory + "/*.json")
+    filenames = []
+    # If a positional argument is a directory, it's automatically expanded out
+    # to include all contained *.json files.
+    for f in args.result_file_to_plot:
+        if os.path.isdir(f):
+            filenames.extend(glob.glob(f + "/*.json"))
+        elif os.path.isfile(f):
+            filenames.append(f)
+        else:
+            print("Input path '%s' not found as valid file or directory." % f, file=sys.stderr)
+            exit(1)
     show_plots(filenames, args.times_key)
 

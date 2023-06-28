@@ -75,6 +75,18 @@ find configs/*.json -exec ./bin/runner {} \;
 
 # Visualize the scheduling timelines for each scenario
 python scripts/view_timelines.py
+
+# View the execution timeline of each block
+python scripts/view_blocksbysm.py
+```
+
+To only plot a subset of the results, many of the aforementioned scripts support
+explicitly specifying which output files to plot.
+For example:
+
+```bash
+# Plot all results of the memset_doesnt_block.json configuration
+python scripts/view_blocksbysm.py ./results/test_blocking_memset*
 ```
 
 Configuration Files

@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+#
+# Supports both Python 2 and Python 3
+from __future__ import print_function
 import argparse
 import glob
 import itertools
@@ -6,6 +10,7 @@ import matplotlib.pyplot as plot
 import numpy
 import re
 import sys
+import os
 
 def convert_values_to_cdf(values):
     """Takes a 1-D list of values and converts it to a CDF representation. The
@@ -41,7 +46,7 @@ def get_benchmark_cdf(benchmark, times_key):
         if not times_key in t:
             continue
         times = t[times_key]
-        for i in range(len(times) / 2):
+        for i in range(len(times) // 2):
             start_index = i * 2
             end_index = i * 2 + 1
             raw_values.append(times[end_index] - times[start_index])
@@ -178,10 +183,20 @@ def show_plots(filenames, times_key="block_times"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--directory",
-        help="Directory containing result JSON files.", default='./results')
     parser.add_argument("-k", "--times_key",
         help="JSON key name for the time property to be plot.", default="block_times")
+    parser.add_argument("result_file_to_plot", nargs="*", default=["./results"],
+        help="List of result files, or directories of result files, to plot (./results default)")
     args = parser.parse_args()
-    filenames = glob.glob(args.directory + "/*.json")
+    filenames = []
+    # If a positional argument is a directory, it's automatically expanded out
+    # to include all contained *.json files.
+    for f in args.result_file_to_plot:
+        if os.path.isdir(f):
+            filenames.extend(glob.glob(f + "/*.json"))
+        elif os.path.isfile(f):
+            filenames.append(f)
+        else:
+            print("Input path '%s' not found as valid file or directory." % f, file=sys.stderr)
+            exit(1)
     show_plots(filenames, args.times_key)
