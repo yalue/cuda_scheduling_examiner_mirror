@@ -7,12 +7,14 @@
 # Only Python 2 is supported.
 #
 # Usage: python view_blocksbysm.py -d [results directory (default: ./results)]
+from __future__ import print_function
 import argparse
 import glob
 import json
 import math
 import re
 import sys
+import os
 
 from graphics import *
 
@@ -836,15 +838,18 @@ class ResizingCanvasFrame(CanvasFrame):
         self.canvas.delete("all")
 
 class BlockSMDisplay():
-    def __init__(self, win, benchmark, window_width, window_height):
-        self.setup(win, window_width, window_height, benchmark)
+    def __init__(self, win, benchmark, window_width, window_height, start_time, end_time):
+        self.setup(win, window_width, window_height, benchmark, start_time, end_time)
         self.draw_benchmark()
 
-    def setup(self, win, width, height, benchmark):
+    def setup(self, win, width, height, benchmark, start_time, end_time):
         self.width = width
         self.height = height
-        self.firstTime = 0.0
-        self.totalTime = (benchmark.get_end() - self.firstTime) * 1.05
+        self.firstTime = start_time
+        if end_time:
+            self.totalTime = end_time - self.firstTime
+        else:
+            self.totalTime = (benchmark.get_end() - self.firstTime) * 1.05
 
         # Create a canvas
         self.canvas = ResizingCanvasFrame(win, self.width, self.height, self.redraw)
@@ -905,20 +910,28 @@ class BlockSMDisplay():
             # Calculate competing threadcount
             otherThreads = 0
             myOverlap = [(0, self.totalTime, 0, block.sm, "", -1)]
+            # Check every other interval already plotted for this SM
             for interval in smBase[block.sm]:
+                # If this competing interval overlaps with our run time
                 if interval[0] < block.end and interval[1] > block.start:
-                    # Find the sub-interval of my own that this overlaps for
+                    # Find tight bounds for the overlap
                     intervalStart = max(interval[0], block.start)
                     intervalEnd = min(interval[1], block.end)
 
-                    # Find any interval I've already built up overlap for
+                    # Each block's run time is broken into contiguous intervals
+                    # of time, where the number of competing blocks is constant
+                    # throughout each interval. Here, we aquire a list of all
+                    # our intervals which exist within the overlap (exist
+                    # simultaneously to this competitor)
                     myoverlappingintervals = []
                     for myinterval in myOverlap:
                         if myinterval[0] < intervalEnd and myinterval[1] > intervalStart:
                             myoverlappingintervals.append(myinterval)
 
-                    # For each interval I already know about that I overlap with,
-                    # consider a few cases
+                    # For each of our intervals that exist (at some point)
+                    # against a competitor, break it into intervals that either
+                    # fully exist against the competitor, or exist against none
+                    # at all.
                     for myinterval in myoverlappingintervals:
                         # Check if my interval completely encloses this new one (in that case,
                         # split at the beginning and end of this new one)
@@ -941,6 +954,8 @@ class BlockSMDisplay():
                             myOverlap.remove(myinterval)
                             myOverlap.append((myinterval[0], intervalEnd, myinterval[2] + interval[2], myinterval[3], myinterval[4], myinterval[5]))
                             myOverlap.append((intervalEnd, myinterval[1], myinterval[2], myinterval[3], myinterval[4], myinterval[5]))
+                        # Otherwise my interval is completely enclosed within
+                        # the other one, and no action is necessary.
 
             for interval in myOverlap:
                 otherThreads = max(otherThreads, interval[2])
@@ -1112,18 +1127,19 @@ class Benchmark(object):
 def get_block_intervals(name, benchmarks):
     return Benchmark(name, benchmarks)
 
-def plot_scenario(benchmarks, name, window_name, window_width, window_height, save):
+def plot_scenario(benchmarks, name, window_name, window_width, window_height,
+                  save, start_time, end_time):
     """Takes a list of parsed benchmark results and a scenario name and
     generates a plot showing the timeline of benchmark behaviors for the
     specific scenario."""
     win = Window(window_name)
     graph = BlockSMDisplay(win, get_block_intervals(name, benchmarks),
-                           window_width, window_height)
+                           window_width, window_height, start_time, end_time)
     if save:
         canvasvg.saveall(name+".svg", graph.canvas.canvas)
     win.mainloop()
 
-def show_plots(filenames, window_name, window_width, window_height, save):
+def show_plots(filenames, window_name, window_width, window_height, save, start_time, end_time):
     """Takes a list of filenames, and generates one plot per scenario found in
     the files."""
     # Parse the files
@@ -1143,32 +1159,40 @@ def show_plots(filenames, window_name, window_width, window_height, save):
     # Plot the scenarios
     for scenario in scenarios:
         plot_scenario(scenarios[scenario], scenario, window_name, window_width,
-                      window_height, save)
+                      window_height, save, start_time, end_time)
 
 if __name__ == "__main__":
     args = {}
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--directory",
-        help="Directory containing result JSON files.", default='./results')
     parser.add_argument("-t", "--title",
         help="Title of the display window.", default="Block Execution by SM")
     parser.add_argument("-v", "--height",
-        help="Height (in pixels) of the plot.", default=600, type=int)
+        help="Height (in pixels) of the plot (600 default).", default=600, type=int)
     parser.add_argument("-w", "--width",
-        help="Width (in pixels) of the plot.", default=800, type=int)
+        help="Width (in pixels) of the plot (800 default).", default=800, type=int)
+    parser.add_argument("-s", "--start",
+        help="What time to start plotting from.", default=0, type=float)
+    parser.add_argument("-e", "--end",
+        help="What time to end plotting at.", default=0, type=float)
+    parser.add_argument("result_file_to_plot", nargs="*", default=["./results"],
+        help="List of result files, or directories of result files, to plot (./results default)")
     if SAVE_AVIL:
-        parser.add_argument("-s", "--save",
+        parser.add_argument("-o", "--output",
             help="Should plots be saved?", action="store_true")
-    # Legacy parser for old usage:
+    args = parser.parse_args()
+    filenames = []
+    # If a positional argument is a directory, it's automatically expanded out
+    # to include all contained *.json files. This supports the old usage:
     # `python view_blocksbysm.py [results directory (default: ./results)]`
-    if len(sys.argv) == 2 and sys.argv[1][0] != "-":
-        print("Warning: Unnamed arguments are deprecated! Run %s --help for information on new format."%(sys.argv[0], sys.argv[0]))
-        args = parser.parse_args([]) # Get defaults
-        args.directory = sys.argv[1]
-    else:
-        args = parser.parse_args()
-    filenames = glob.glob(args.directory + "/*.json")
+    for f in args.result_file_to_plot:
+        if os.path.isdir(f):
+            filenames.extend(glob.glob(f + "/*.json"))
+        elif os.path.isfile(f):
+            filenames.append(f)
+        else:
+            print("Input path '%s' not found as valid file or directory." % f, file=sys.stderr)
+            exit(1)
     if SAVE_AVIL:
-        show_plots(filenames, args.title, args.width, args.height, args.save)
+        show_plots(filenames, args.title, args.width, args.height, args.output, args.start, args.end)
     else:
-        show_plots(filenames, args.title, args.width, args.height, False)
+        show_plots(filenames, args.title, args.width, args.height, False, args.start, args.end)

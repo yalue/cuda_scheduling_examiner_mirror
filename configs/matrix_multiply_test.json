@@ -9,7 +9,7 @@
   "benchmarks": [
     {
       "filename": "./bin/matrix_multiply.so",
-      "log_name": "results/matrix_multiply_test.json",
+      "log_name": "matrix_multiply_test.json",
       "thread_count": [16, 16],
       "block_count": 1,
       "data_size": 0,
