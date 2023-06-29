@@ -25,7 +25,7 @@ For Users of AMD GPUs
 ---------------------
 
 For users of AMD GPUs, or those willing to give up some useful CUDA-specific
-features, more recent development has been focused on a port of this project to
+features, we developed a port of this project in
 the [HIP](https://github.com/ROCm-Developer-Tools/HIP) language. This project
 can be found at [https://github.com/yalue/hip_plugin_framework](https://github.com/yalue/hip_plugin_framework).
 `hip_plugin_framework` remains nearly identical to `cuda_scheduling_examiner`,
