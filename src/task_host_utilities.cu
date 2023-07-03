@@ -39,6 +39,8 @@ static double CurrentSeconds(void) {
   return ((double) ts.tv_sec) + (((double) ts.tv_nsec) / 1e9);
 }
 
+// GlobalTimer64: Get 64-bit counter of current time on GPU
+// ***This is duplicated in benchmark_gpu_utilities.h***
 #if __CUDA_ARCH__ >= 300 // Kepler+
 // Returns the value of CUDA's global nanosecond timer.
 // Starting with sm_30, `globaltimer64` was added
@@ -46,7 +48,9 @@ static double CurrentSeconds(void) {
 static __device__ inline uint64_t GlobalTimer64(void) {
   uint32_t lo_bits, hi_bits, hi_bits_2;
   uint64_t ret;
-  // Upper bits may rollever between our 1st and 2nd read
+  // Upper bits may rollover between our 1st and 2nd read
+  // (The bug seems constrained to certain old Jetson boards, so this
+  // workaround could probably be gated to only those GPUs.)
   asm volatile("mov.u32 %0, %%globaltimer_hi;" : "=r"(hi_bits));
   asm volatile("mov.u32 %0, %%globaltimer_lo;" : "=r"(lo_bits));
   asm volatile("mov.u32 %0, %%globaltimer_hi;" : "=r"(hi_bits_2));
@@ -379,45 +383,4 @@ double GetGPUTimerScale(int cuda_device) {
     return -1;
   }
   return to_return;
-}
-
-int GetSingleBlockAndGridDimensions(InitializationParameters *params,
-    int *thread_count, int *block_count) {
-  int a, b;
-  if ((params->block_dim[1] != 1) || (params->block_dim[2] != 1)) {
-    printf("Expected 1-D block dimensions, but got [%d, %d, %d]\n",
-      params->block_dim[0], params->block_dim[1], params->block_dim[2]);
-    return 0;
-  }
-  if ((params->grid_dim[1] != 1) || (params->grid_dim[2] != 1)) {
-    printf("Expected 1-D grid dimensions, but got [%d, %d, %d]\n",
-      params->grid_dim[0], params->grid_dim[1], params->grid_dim[2]);
-    return 0;
-  }
-  a = params->block_dim[0];
-  if ((a < 1) || (a > 1024)) {
-    printf("Invalid number of threads in a block: %d\n", a);
-    return 0;
-  }
-  b = params->grid_dim[0];
-  if (b < 1) {
-    printf("Invalid number of blocks: %d\n", b);
-  }
-  *thread_count = a;
-  *block_count = b;
-  return 1;
-}
-
-int GetSingleBlockDimension(InitializationParameters *params,
-    int *thread_count) {
-  int x, y, z;
-  x = params->block_dim[0];
-  y = params->block_dim[1];
-  z = params->block_dim[2];
-  if ((y != 1) || (z != 1)) {
-    printf("Expected 1-D block dimensions, but got [%d, %d, %d]\n", x, y, z);
-    return 0;
-  }
-  *thread_count = x;
-  return 1;
 }
