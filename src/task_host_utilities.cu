@@ -39,6 +39,8 @@ static double CurrentSeconds(void) {
   return ((double) ts.tv_sec) + (((double) ts.tv_nsec) / 1e9);
 }
 
+// GlobalTimer64: Get 64-bit counter of current time on GPU
+// ***This is duplicated in benchmark_gpu_utilities.h***
 #if __CUDA_ARCH__ >= 300 // Kepler+
 // Returns the value of CUDA's global nanosecond timer.
 // Starting with sm_30, `globaltimer64` was added
@@ -46,7 +48,9 @@ static double CurrentSeconds(void) {
 static __device__ inline uint64_t GlobalTimer64(void) {
   uint32_t lo_bits, hi_bits, hi_bits_2;
   uint64_t ret;
-  // Upper bits may rollever between our 1st and 2nd read
+  // Upper bits may rollover between our 1st and 2nd read
+  // (The bug seems constrained to certain old Jetson boards, so this
+  // workaround could probably be gated to only those GPUs.)
   asm volatile("mov.u32 %0, %%globaltimer_hi;" : "=r"(hi_bits));
   asm volatile("mov.u32 %0, %%globaltimer_lo;" : "=r"(lo_bits));
   asm volatile("mov.u32 %0, %%globaltimer_hi;" : "=r"(hi_bits_2));
