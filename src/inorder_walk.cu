@@ -186,8 +186,8 @@ static void* Initialize(InitializationParameters *params) {
     Cleanup(state);
     return NULL;
   }
-  if (!CheckCUDAError(CreateCUDAStreamWithPriority(params->stream_priority,
-    &(state->stream)))) {
+  if (!CheckCUDAError(CreateCUDAStreamWithPriorityAndMask(
+    params->stream_priority, params->sm_mask, &(state->stream)))) {
     Cleanup(state);
     return NULL;
   }

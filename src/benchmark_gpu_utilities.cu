@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <time.h>
 #include "benchmark_gpu_utilities.h"
+#ifdef SMCTRL
+#include <libsmctrl.h>
+#endif
 
 int InternalCUDAErrorCheck(cudaError_t result, const char *fn,
   const char *file, int line) {
@@ -13,8 +16,8 @@ int InternalCUDAErrorCheck(cudaError_t result, const char *fn,
   return 0;
 }
 
-cudaError_t CreateCUDAStreamWithPriority(int stream_priority,
-    cudaStream_t *stream) {
+cudaError_t CreateCUDAStreamWithPriorityAndMask(int stream_priority,
+    uint64_t sm_mask, cudaStream_t *stream) {
   cudaError_t result;
   int lowest_priority, highest_priority;
   result = cudaDeviceGetStreamPriorityRange(&lowest_priority,
@@ -23,10 +26,15 @@ cudaError_t CreateCUDAStreamWithPriority(int stream_priority,
   // Low priorities are higher numbers than high priorities.
   if ((stream_priority > lowest_priority) || (stream_priority <
     highest_priority)) {
-    return cudaStreamCreate(stream);
+    result = cudaStreamCreate(stream);
+  } else {
+    result = cudaStreamCreateWithPriority(stream, cudaStreamNonBlocking,
+      stream_priority);
   }
-  return cudaStreamCreateWithPriority(stream, cudaStreamNonBlocking,
-    stream_priority);
+#ifdef SMCTRL
+  libsmctrl_set_stream_mask(*stream, sm_mask);
+#endif
+  return result;
 }
 
 double CurrentSeconds(void) {

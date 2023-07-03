@@ -84,6 +84,7 @@ static int VerifyBenchmarkConfigKeys(cJSON *benchmark_config) {
     "stream_priority",
     "mps_thread_percentage",
     "comment",
+    "sm_mask",
   };
   keys_count = sizeof(valid_keys) / sizeof(char*);
   return VerifyConfigKeys(benchmark_config, valid_keys, keys_count);
@@ -242,6 +243,30 @@ static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
     // As with max iterations (both benchmark-specific and default), use
     // valuedouble for a better range. valueint is just a cast double already.
     benchmarks[i].data_size = entry->valuedouble;
+    entry = cJSON_GetObjectItem(current_benchmark, "sm_mask");
+#ifdef SMCTRL
+    if (entry) {
+      if (entry->type != cJSON_String) {
+        printf("Invalid benchmark sm_mask in config.\n");
+        goto ErrorCleanup;
+      }
+      // Allow an inverted mask of enabled TPCs
+      if (entry->valuestring[0] == '~') {
+        benchmarks[i].sm_mask = strtoull(entry->valuestring + 1, NULL, 16);
+        benchmarks[i].sm_mask = ~benchmarks[i].sm_mask;
+      } else {
+        benchmarks[i].sm_mask = strtoull(entry->valuestring, NULL, 16);
+      }
+    } else {
+      benchmarks[i].sm_mask = 0; // Enable all TPCs by default
+    }
+#else
+    // libsmctrl build needs to be enabled in the Makefile to use this field
+    if (entry) {
+      printf("libsmctrl is needed for benchmarks with sm_mask; see README.md.\n");
+      goto ErrorCleanup;
+    }
+#endif
     entry = cJSON_GetObjectItem(current_benchmark, "additional_info");
     if (entry) {
       benchmarks[i].additional_info = cJSON_PrintUnformatted(entry);

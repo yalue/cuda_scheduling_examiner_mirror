@@ -877,8 +877,8 @@ static int ParseParameters(TaskState *state,
     goto ErrorCleanup;
   }
   // Always use a user-defined stream for copy_out operations.
-  if (!CheckCUDAError(CreateCUDAStreamWithPriority(params->stream_priority,
-    &(state->copy_out_stream)))) {
+  if (!CheckCUDAError(CreateCUDAStreamWithPriorityAndMask(
+    params->stream_priority, 0, &(state->copy_out_stream)))) {
     goto ErrorCleanup;
   }
   state->stream_created = 1;

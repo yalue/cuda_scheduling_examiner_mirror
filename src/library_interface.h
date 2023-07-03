@@ -31,6 +31,8 @@ typedef struct {
   int cuda_device;
   // The stream priority to use for this instance's streams, if necessary.
   int stream_priority;
+  // Which SMs are enabled for this instance's kernels
+  uint64_t sm_mask;
 } InitializationParameters;
 
 // Holds times and metadata about a single kernel's execution in a benchmark
