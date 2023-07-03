@@ -146,8 +146,8 @@ static void* Initialize(InitializationParameters *params) {
   }
   // Parse the additional_info JSON (spin duration, shared memory count)
   if (!InitializeKernelConfig(state, params->additional_info)) return NULL;
-  if (!CheckCUDAError(CreateCUDAStreamWithPriority(params->stream_priority,
-    &(state->stream)))) {
+  if (!CheckCUDAError(CreateCUDAStreamWithPriorityAndMask(
+    params->stream_priority, params->sm_mask, &(state->stream)))) {
     Cleanup(state);
     return NULL;
   }

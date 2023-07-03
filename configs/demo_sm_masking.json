@@ -1,0 +1,64 @@
+{
+  "name": "Demo of Callback- (K1, K2) and Stream-Based (K3, K4) TPC Partitioning",
+  "max_iterations": 1,
+  "max_time": 0,
+  "cuda_device": 0,
+  "benchmarks": [
+    {
+      "filename": "./bin/multikernel.so",
+      "log_name": "demo_sm_masking_1.json",
+      "label": "K1",
+      "thread_count": 1,
+      "block_count": 1,
+      "data_size": 0,
+      "additional_info": [
+        {
+          "kernel_label": "K1",
+          "duration": 250000000,
+          "thread_count": 1024,
+          "block_count": 20,
+          "sm_mask": "0xaaaaaaaaaaaaaaa0"
+        }
+      ]
+    },
+    {
+      "filename": "./bin/multikernel.so",
+      "log_name": "demo_sm_masking_2.json",
+      "label": "K2",
+      "thread_count": 1,
+      "block_count": 1,
+      "data_size": 0,
+      "additional_info": [
+        {
+          "kernel_label": "K2",
+          "duration": 250000000,
+          "thread_count": 1024,
+          "block_count": 16,
+          "sm_mask": "0x5555555555555550"
+        }
+      ]
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "demo_sm_masking_3.json",
+      "label": "K3",
+      "thread_count": 1024,
+      "block_count": 20,
+      "data_size": 0,
+      "additional_info": 250000000,
+      "release_time": 1.5,
+      "sm_mask": "0x5555555555555550"
+    },
+    {
+      "filename": "./bin/timer_spin.so",
+      "log_name": "demo_sm_masking_4.json",
+      "label": "K4",
+      "thread_count": 1024,
+      "block_count": 16,
+      "data_size": 0,
+      "additional_info": 250000000,
+      "release_time": 1.5,
+      "sm_mask": "0xaaaaaaaaaaaaaaa0"
+    }
+  ]
+}

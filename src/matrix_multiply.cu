@@ -222,8 +222,8 @@ static void* Initialize(InitializationParameters *params) {
   state->grid_size.z = 1;
 
   // Create the stream and fill in boilerplate for reporting to the framework.
-  if (!CheckCUDAError(CreateCUDAStreamWithPriority(params->stream_priority,
-    &(state->stream)))) {
+  if (!CheckCUDAError(CreateCUDAStreamWithPriorityAndMask(
+    params->stream_priority, params->sm_mask, &(state->stream)))) {
     Cleanup(state);
     return NULL;
   }

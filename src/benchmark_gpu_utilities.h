@@ -25,9 +25,11 @@ int InternalCUDAErrorCheck(cudaError_t result, const char *fn,
 // the given stream_priority isn't a valid stream, it will create a stream with
 // the default priority. This populates the cudaStream_t pointed to by the
 // stream parameter. This will return cudaSuccess on success and a different
-// value if an error occurs. Always creates a nonblocking stream.
-cudaError_t CreateCUDAStreamWithPriority(int stream_priority,
-    cudaStream_t *stream);
+// value if an error occurs. Always creates a nonblocking stream. If libsmctrl
+// is built-in, this function will also apply the provided TPC mask. sm_mask is
+// ignored otherwise.
+cudaError_t CreateCUDAStreamWithPriorityAndMask(int stream_priority,
+    uint64_t sm_mask, cudaStream_t *stream);
 
 // This returns the current CPU time, in seconds. This time will correspond
 // to the CPU times obtained by runner.c.

@@ -48,6 +48,8 @@ typedef struct {
   int cpu_core;
   // The stream priority used to create the CUDA stream. Ignored if negative.
   int stream_priority;
+  // SM enablement mask
+  uint64_t sm_mask;
 } BenchmarkConfiguration;
 
 // Holds default settings for all benchmarks, and a list of individual

@@ -21,6 +21,17 @@ To cite this work in academic use, either link to this repository or cite the
 }
 ```
 
+If using SM/TPC partitioning, please cite the
+[paper for which it was created](https://cs.unc.edu/~jbakita/rtas23.pdf).
+```
+@inproceedings{bakita2023hardware,
+  title={Hardware Compute Partitioning on {NVIDIA} {GPUs}},
+  author={Bakita, Joshua and Anderson, James H},
+  booktitle={Proceedings of the 29th IEEE Real-Time and Embedded Technology and Applications Symposium (RTAS)},
+  year={2023},
+}
+```
+
 For Users of AMD GPUs
 ---------------------
 
@@ -47,6 +58,10 @@ or CUDA versions 8.0 or earlier, is available by checking out the `older_cuda`
 git tag.
 
 To build, clone the repository, `cd` into it, and run `make`.
+
+In order to use SM/TPC partitioning (the `sm_mask` field documented below),
+please install [libsmctrl](http://rtsrv.cs.unc.edu/cgit/cgit.cgi/libsmctrl.git/)
+and set `LIBSMCTRL_PATH` to the library's location in this project's Makefile.
 
 Usage
 -----
@@ -144,6 +159,11 @@ The layout of each configuration file is as follows:
         with up to 3 integers, specifying a multi-dimensional grid size.>,
       "data_size": <Number. Required, but may be ignored. The input size, in
         bytes, for the benchmark.>,
+      "sm_mask": <Hexidecimal mask. Optional. A set bit indicates a disabled
+        TPC at that index. May be prefixed with ~ to indicate that the mask
+        should be inverted before application (turning this into a bit string
+        of enabled, rather than disabled, TPCs). Requires building with
+        libsmctrl.>,
       "additional_info": <A JSON object of any format. Optional. This can be
         used to pass additional benchmark-specific configuration parameters.>,
       "max_iterations": <Number. Optional. If specified, overrides the default
