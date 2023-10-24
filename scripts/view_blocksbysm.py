@@ -974,8 +974,10 @@ class BlockSMDisplay():
             else:
                 pass # invalid!
 
-        # Draw a marker for the kernel release time
-        releaseBucket = int(kernel.releaseTime / 0.02)
+        # Draw a marker arrow for the kernel release time
+        # (Stack markers if releases differ by less than ~1% of plot length)
+        epsilon = (self.totalTime / 100)
+        releaseBucket = int(kernel.releaseTime / epsilon)
         releaseIdx = releaseDict.get(releaseBucket, 0)
         releaseDict[releaseBucket] = releaseIdx + 1
         krm = KernelReleaseMarker(kernel, self.firstTime, self.totalTime,
