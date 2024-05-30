@@ -222,7 +222,7 @@ static int SetCPUAffinity(TaskConfig *config) {
 
 // Formats the given timing information as a JSON object and appends it to the
 // output file. Returns 0 on error and 1 on success. Times will be written in a
-// floatig-point number of *seconds*, even though they are recorded in ns. This
+// floating-point number of *seconds*, even though they are recorded in ns. This
 // code should not be included in benchmark timing measurements.
 static int WriteTimesToOutput(FILE *output, TimingInformation *times,
     SharedState *shared_state) {
