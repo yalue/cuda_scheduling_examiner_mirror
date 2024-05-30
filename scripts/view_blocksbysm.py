@@ -589,7 +589,7 @@ class LegendBox(object):
         self.rect.setWidth(LINE_WIDTH)
 
         if USE_PATTERNS:
-            color = idToColorMap[i]
+            color = idToColorMap[i % len(idToColorMap)]
             self.rect.setFill(patternColorToBgColorMap[color])
 
             patternType = idToPatternMap[i % len(idToPatternMap)]
@@ -887,7 +887,7 @@ class BlockSMDisplay():
         smBase = [[] for j in range(self.numSms)]
         releaseDict = {}
         for i in range(len(self.benchmark.streams)):
-            color = idToColorMap[i] if USE_PATTERNS else patternColorToArrowColorMap[idToColorMap[i]]
+            color = idToColorMap[i % len(idToColorMap)] if USE_PATTERNS else patternColorToArrowColorMap[idToColorMap[i % len(idToColorMap)]]
             patternType = idToPatternMap[i % len(idToPatternMap)] if USE_PATTERNS else None
             self.draw_stream(self.benchmark.streams[i], color, patternType, i, smBase, releaseDict)
 
