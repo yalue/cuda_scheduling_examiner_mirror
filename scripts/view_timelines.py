@@ -5,7 +5,7 @@
 #
 # Usage: python view_timeline.py [results directory (default: ./results)]
 #
-# Supports Python 2 or Python 3
+# Supports Python 2 and Python 3
 from __future__ import print_function
 import argparse
 import glob
