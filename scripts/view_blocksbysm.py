@@ -84,7 +84,9 @@ patternColorToBgColorMap = {"light pink": "misty rose",
                             "deep pink": "light salmon",
                             "gold1": "light yellow",
                             "gold4": "light slate gray",
-                            }
+                            "light blue": "azure",
+                            "LightGoldenrod2": "LightGoldenrod3",
+                            "light sea green": "dark sea green"}
 
 patternColorToArrowColorMap = {"light pink": "IndianRed3",
                                "azure": "SteelBlue2",
@@ -99,7 +101,9 @@ patternColorToArrowColorMap = {"light pink": "IndianRed3",
                                "DarkOliveGreen": "DarkOliveGreen",
                                "deep pink": "deep pink",
                                "gold1": "gold1",
-                               "gold4": "gold4"}
+                               "gold4": "gold4",
+                               "light blue": "dark blue",
+                               "light sea green": "light sea green"}
 
 BUFFER_TOP = 32
 BUFFER_BOTTOM = 68
@@ -588,7 +592,7 @@ class LegendBox(object):
             color = idToColorMap[i]
             self.rect.setFill(patternColorToBgColorMap[color])
 
-            patternType = idToPatternMap[i]
+            patternType = idToPatternMap[i % len(idToPatternMap)]
             if patternType == HorizontalLinePattern:
                 self.pattern = patternType(self.rect, color, 2)
             elif patternType == VerticalLinePattern:
@@ -884,7 +888,7 @@ class BlockSMDisplay():
         releaseDict = {}
         for i in range(len(self.benchmark.streams)):
             color = idToColorMap[i] if USE_PATTERNS else patternColorToArrowColorMap[idToColorMap[i]]
-            patternType = idToPatternMap[i] if USE_PATTERNS else None
+            patternType = idToPatternMap[i % len(idToPatternMap)] if USE_PATTERNS else None
             self.draw_stream(self.benchmark.streams[i], color, patternType, i, smBase, releaseDict)
 
         # Draw the title, legend, and axes

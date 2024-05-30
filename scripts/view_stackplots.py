@@ -1,13 +1,21 @@
+#!/usr/bin/env python
 # This script reads all JSON result files and uses matplotlib to display a
 # timeline indicating when blocks and threads from multiple jobs were run on
 # GPU. For this to work, all result filenames must end in .json.
 #
 # Usage: python view_timeline.py [results directory (default: ./results)]
+#
+# Supports Python 2 and Python 3
+from __future__ import print_function
+import argparse
 import glob
 import json
 import math
 import matplotlib.pyplot as plot
+import os
 import sys
+
+HATCH_STYLES = ['//', '\\\\', '||', '-', '+', 'x', 'o', 'O', '.', '*', '/', '\\', '|']
 
 def get_kernel_timeline(kernel_times):
     """Takes a single kernel invocation's information from the benchmark struct
@@ -37,7 +45,7 @@ def get_kernel_timeline(kernel_times):
         if (len(start_times) == 0) and (len(end_times) == 0):
             break
         if len(end_times) == 0:
-            print "Error! The last block end time was before a start time."
+            print("Error! The last block end time was before a start time.", file=sys.stderr)
             exit(1)
         current_time = 0.0
         previous_thread_count = current_thread_count
@@ -207,21 +215,41 @@ def get_stackplot_values(benchmarks):
         to_return.append(v)
     return to_return
 
-def plot_scenario(benchmarks, name, ymax):
+def plot_scenario(benchmarks, name, max_threads, use_percent, save):
     """Takes a list of parsed benchmark results and a scenario name and
     generates a plot showing the timeline of benchmark behaviors for the
     specific scenario. Returns a matplotlib Figure object."""
-    figure = plot.figure()
+    labels = []
+    c = 0
+    for b in benchmarks:
+        c += 1
+        label = "%d: %s" % (c, b["benchmark_name"])
+        if "label" in b:
+            label = b["label"]
+        labels.append(label)
+    figure = plot.figure(figsize=(3.5, 2.0))
     axes = figure.add_subplot(1, 1, 1)
     axes.set_title(name)
     values = get_stackplot_values(benchmarks)
-    axes.stackplot(*values)
-    plot.ylim([0, math.ceil(ymax / 2000.0) * 2000]) # round up to max for machine
-    # TODO: Add labels of each individual benchmark instance, if a "label"
-    # is available.
+    stacks = axes.stackplot(*values, labels=labels, linewidth=1, edgecolor='black')
+    for i in range(len(stacks)):
+            stacks[i].set_hatch(HATCH_STYLES[i % len(HATCH_STYLES)])
+    axes.set_ylim([0, max_threads])
+    if use_percent:
+        locs = range(0, max_threads + 1, max_threads // 10)
+        ticks = ["%.f%%" % (100 * loc / max_threads) for loc in locs]
+        plot.yticks(locs, ticks)
+        axes.set_ylabel("Utilization")
+    else:
+        axes.set_ylabel("Threads")
+    axes.set_xlabel("Time (seconds)")
+    plot.legend()
+    plot.tight_layout()
+    if save:
+        plot.savefig(name + ".svg")
     return figure
 
-def show_plots(filenames):
+def show_plots(filenames, use_percent, save):
     """Takes a list of filenames, and generates one plot per scenario found in
     the files."""
     parsed_files = []
@@ -238,16 +266,33 @@ def show_plots(filenames):
     figures = []
     for scenario in scenarios:
         figures.append(plot_scenario(scenarios[scenario], scenario,
-                                     benchmark["max_resident_threads"]))
+                                     benchmark["max_resident_threads"],
+                                     use_percent, save))
     plot.show()
 
 if __name__ == "__main__":
-    base_directory = "./results"
-    if len(sys.argv) > 2:
-        print "Usage: python %s [directory containing results (./results)]" % (
-            sys.argv[0])
-        exit(1)
-    if len(sys.argv) == 2:
-        base_directory = sys.argv[1]
-    filenames = glob.glob(base_directory + "/*.json")
-    show_plots(filenames)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-p", "--percent",
+        help="Use percent utilization, rather than raw thread count, on the y-axis",
+        action="store_true")
+    parser.add_argument("-r", "--regex",
+        help="Regex for which to match JSON files in passed directories",
+        default="*.json")
+    parser.add_argument("result_file_to_plot", nargs="*", default=["./results"],
+        help="List of result files, or directories of result files, to plot (./results default)")
+    parser.add_argument("-o", "--output",
+        help="Should plots be saved?", action="store_true")
+    args = parser.parse_args()
+    filenames = []
+    # If a positional argument is a directory, it's automatically expanded out
+    # to include all contained *.json files. This supports the old usage:
+    # `python view_blocksbysm.py [results directory (default: ./results)]`
+    for f in args.result_file_to_plot:
+        if os.path.isdir(f):
+            filenames.extend(glob.glob(f + "/" + args.regex))
+        elif os.path.isfile(f):
+            filenames.append(f)
+        else:
+            print("Input path '%s' not found as valid file or directory." % f, file=sys.stderr)
+            exit(1)
+    show_plots(filenames, args.percent, args.output)
