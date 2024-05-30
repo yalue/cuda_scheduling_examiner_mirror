@@ -4,9 +4,9 @@
 # GPU, including which SM they ran on. For this to work, all result filenames
 # must end in .json.
 #
-# Only Python 2 is supported.
-#
 # Usage: python view_blocksbysm.py -d [results directory (default: ./results)]
+#
+# Supports Python 2 and Python 3
 from __future__ import print_function
 import argparse
 import glob
