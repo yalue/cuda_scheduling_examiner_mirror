@@ -137,12 +137,15 @@ def plot_scenario(benchmarks, name, times_key):
     for i in range(len(raw_data_array)):
         density = stats.kde.gaussian_kde(raw_data_array[i])
         x = get_x_range(raw_data_array[i])
-        axes.plot(x, density(x), label=labels[i], **(style_cycler.next()))
+        axes.plot(x, density(x), label=labels[i], **(next(style_cycler)))
     add_plot_padding(axes)
     axes.set_xlabel("Time (milliseconds)")
     axes.set_ylabel("Density")
     legend = plot.legend()
-    legend.draggable()
+    try:
+        legend.draggable()
+    except:
+        legend.set_draggable(True)
     return figure
 
 def show_plots(filenames, times_key="block_times"):

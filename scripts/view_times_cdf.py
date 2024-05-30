@@ -153,12 +153,15 @@ def plot_scenario(benchmarks, name, times_key):
     axes.autoscale(enable=True, axis='both', tight=True)
     for i in range(len(cdfs)):
         axes.plot(cdfs[i][0], cdfs[i][1], label=labels[i], lw=3,
-            **(style_cycler.next()))
+            **(next(style_cycler)))
     add_plot_padding(axes)
     axes.set_xlabel("Time (milliseconds)")
     axes.set_ylabel("% <= X")
     legend = plot.legend()
-    legend.draggable()
+    try:
+        legend.draggable()
+    except: # matplotlib 3+
+        legend.set_draggable(True)
     return figure
 
 def show_plots(filenames, times_key="block_times"):
@@ -185,6 +188,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-k", "--times_key",
         help="JSON key name for the time property to be plot.", default="block_times")
+    parser.add_argument("-r", "--regex",
+        help="Regex for which to match JSON files in passed directories",
+        default="*.json")
     parser.add_argument("result_file_to_plot", nargs="*", default=["./results"],
         help="List of result files, or directories of result files, to plot (./results default)")
     args = parser.parse_args()
@@ -193,7 +199,7 @@ if __name__ == "__main__":
     # to include all contained *.json files.
     for f in args.result_file_to_plot:
         if os.path.isdir(f):
-            filenames.extend(glob.glob(f + "/*.json"))
+            filenames.extend(glob.glob(f + "/" + args.regex))
         elif os.path.isfile(f):
             filenames.append(f)
         else:

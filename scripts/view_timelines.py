@@ -1,12 +1,18 @@
+#!/usr/bin/env python
 # This script reads all JSON result files and uses matplotlib to display a
 # timeline indicating when blocks and threads from multiple jobs were run on
 # GPU. For this to work, all result filenames must end in .json.
 #
 # Usage: python view_timeline.py [results directory (default: ./results)]
+#
+# Supports Python 2 or Python 3
+from __future__ import print_function
+import argparse
 import glob
 import json
 import matplotlib.pyplot as plot
 import numpy
+import os
 import sys
 
 def get_kernel_timeline(kernel_times):
@@ -37,7 +43,7 @@ def get_kernel_timeline(kernel_times):
         if (len(start_times) == 0) and (len(end_times) == 0):
             break
         if len(end_times) == 0:
-            print "Error! The last block end time was before a start time."
+            print("Error! The last block end time was before a start time.", file=sys.stderr)
             exit(1)
         current_time = 0.0
         previous_thread_count = current_thread_count
@@ -320,12 +326,23 @@ def show_plots(filenames):
     plot.show()
 
 if __name__ == "__main__":
-    base_directory = "./results"
-    if len(sys.argv) > 2:
-        print "Usage: python %s [directory containing results (./results)]" % (
-            sys.argv[0])
-        exit(1)
-    if len(sys.argv) == 2:
-        base_directory = sys.argv[1]
-    filenames = glob.glob(base_directory + "/*.json")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-r", "--regex",
+        help="Regex for which to match JSON files in passed directories",
+        default="*.json")
+    parser.add_argument("result_file_to_plot", nargs="*", default=["./results"],
+        help="List of result files, or directories of result files, to plot (./results default)")
+    args = parser.parse_args()
+    filenames = []
+    # If a positional argument is a directory, it's automatically expanded out
+    # to include all contained *.json files. This supports the old usage:
+    # `python view_blocksbysm.py [results directory (default: ./results)]`
+    for f in args.result_file_to_plot:
+        if os.path.isdir(f):
+            filenames.extend(glob.glob(f + "/*.json"))
+        elif os.path.isfile(f):
+            filenames.append(f)
+        else:
+            print("Input path '%s' not found as valid file or directory." % f, file=sys.stderr)
+            exit(1)
     show_plots(filenames)
