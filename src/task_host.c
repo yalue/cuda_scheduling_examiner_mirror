@@ -614,10 +614,9 @@ static char* GetLogFileName(GlobalConfiguration *config, int benchmark_index) {
 
 // This is used to cycle to the next valid CPU core in the set of available
 // CPUs, since they may not be strictly in-order.
-static int CycleToNextCPU(int count, int current_cpu, cpu_set_t *cpu_set) {
-  if (count <= 1) return current_cpu;
+static int CycleToNextCPU(int current_cpu, cpu_set_t *cpu_set) {
   while (1) {
-    current_cpu = (current_cpu + 1) % count;
+    current_cpu = (current_cpu + 1) % CPU_SETSIZE;
     if (CPU_ISSET(current_cpu, cpu_set)) return current_cpu;
   }
 }
@@ -632,7 +631,7 @@ static TaskConfig* CreateTaskConfigs(SharedState *shared_state) {
   BenchmarkConfiguration *benchmark = NULL;
   char *log_name;
   int i = 0;
-  int cpu_count, current_cpu_core;
+  int current_cpu_core;
   TaskConfig *new_list = NULL;
   GlobalConfiguration *config = shared_state->global_config;
   cpu_set_t cpu_set;
@@ -643,20 +642,20 @@ static TaskConfig* CreateTaskConfigs(SharedState *shared_state) {
     return NULL;
   }
   memset(new_list, 0, config->benchmark_count * sizeof(TaskConfig));
-  // This CPU count shouldn't be the number of available CPUs, but simply the
-  // number at which our cyclic assignment to CPU cores rolls over.
-  cpu_count = sysconf(_SC_NPROCESSORS_CONF);
-  // Normally, start the current CPU at core 1, but there won't be a core 1 on
-  // a single-CPU system, in which case use core 0 instead.
-  if (cpu_count <= 1) {
-    current_cpu_core = 0;
-  } else {
-    current_cpu_core = 1;
-  }
+  // This CPU-assignment logic uses CPU sets, rather than starting at core 0
+  // and counting up, as only a subset of cores may be available to us (for
+  // example, if using a partitioned scheduler, such as the default on the
+  // longleaf.unc.edu compute cluster).
   CPU_ZERO(&cpu_set);
   if (sched_getaffinity(0, sizeof(cpu_set), &cpu_set) != 0) {
     printf("Failed getting CPU list.\n");
     goto ErrorCleanup;
+  }
+  // Avoid using core 0 unless it's the only one available.
+  if (CPU_COUNT(&cpu_set) <= 1 && CPU_ISSET(0, &cpu_set)) {
+    current_cpu_core = 0;
+  } else {
+    current_cpu_core = CycleToNextCPU(1, &cpu_set);
   }
   for (i = 0; i < config->benchmark_count; i++) {
     benchmark = config->benchmarks + i;
@@ -684,9 +683,9 @@ static TaskConfig* CreateTaskConfigs(SharedState *shared_state) {
     // Either cycle through CPUs or use the per-benchmark CPU core.
     if (config->pin_cpus) {
       new_list[i].cpu_core = current_cpu_core;
-      current_cpu_core = CycleToNextCPU(cpu_count, current_cpu_core, &cpu_set);
+      current_cpu_core = CycleToNextCPU(current_cpu_core, &cpu_set);
     } else {
-      // Check that if the user specified a GPU that it's a valid one
+      // Check that if the user specified a CPU that it's a valid one
       if ((benchmark->cpu_core != USE_DEFAULT_CPU_CORE) && !CPU_ISSET(
         benchmark->cpu_core, &cpu_set)) {
         printf("CPU core %d doesn't exist/isn't available.\n",
