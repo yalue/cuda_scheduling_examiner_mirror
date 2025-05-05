@@ -1,0 +1,24 @@
+{
+	"name": "6144MM baseline",
+	"max_time": 0,
+	"max_iterations": 0,
+	"cuda_device": 0,
+	"use_processes": true,
+	"pin_cpus": true,
+	"do_warmup": true,
+	"benchmarks": [
+		{
+			"label": "MM6144 Baseline",
+			"log_name": "eurosys25_isol_baseline.json",
+			"filename": "./bin/matrix_multiply.so",
+			"max_iterations": 100,
+			"thread_count": [32, 32],
+			"block_count": 1,
+			"data_size": 0,
+			"additional_info": {
+				"matrix_width": 6144,
+				"skip_copy": true
+			}
+		}
+	]
+}

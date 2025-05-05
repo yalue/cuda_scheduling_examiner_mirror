@@ -1,0 +1,55 @@
+{
+	"name": "Isolation of MM6144 with MPS partitioning vs RW",
+	"max_time": 0,
+	"max_iterations": 0,
+	"cuda_device": 0,
+	"use_processes": true,
+	"pin_cpus": true,
+	"do_warmup": true,
+	"benchmarks": [
+		{
+			"label": "MM6144 MPS-Isolated",
+			"log_name": "eurosys25_isol_mps_rw.json",
+			"filename": "./bin/matrix_multiply.so",
+			"max_iterations": 100,
+			"thread_count": [32, 32],
+			"block_count": 1,
+			"data_size": 0,
+			"additional_info": {
+				"matrix_width": 6144,
+				"skip_copy": true
+			},
+			"mps_thread_percentage": 57
+		},
+		{
+			"label": "Competing Random Walk",
+			"log_name": "/dev/null",
+			"filename": "./bin/random_walk.so",
+			"thread_count": 1024,
+			"block_count": 2048,
+			"comment": "Walk a 512MiB buffer from each thread. Must be at least 512 blocks of 1024 threads to saturate 256 SMs (128 TPCs).",
+			"data_size": 536870912,
+			"mps_thread_percentage": 15
+		},
+		{
+			"label": "Competing Random Walk 2",
+			"log_name": "/dev/null",
+			"filename": "./bin/random_walk.so",
+			"thread_count": 1024,
+			"block_count": 2048,
+			"comment": "Walk a 512MiB buffer from each thread",
+			"data_size": 536870912,
+			"mps_thread_percentage": 14
+		},
+		{
+			"label": "Competing Random Walk 3",
+			"log_name": "/dev/null",
+			"filename": "./bin/random_walk.so",
+			"thread_count": 1024,
+			"block_count": 2048,
+			"comment": "Walk a 512MiB buffer from each thread",
+			"data_size": 536870912,
+			"mps_thread_percentage": 14
+		}
+	]
+}

@@ -1,0 +1,39 @@
+{
+	"name": "Isolation of MM6144 with MiG partitioning vs MB",
+	"max_time": 0,
+	"max_iterations": 0,
+	"cuda_device": 0,
+	"use_processes": true,
+	"pin_cpus": true,
+	"do_warmup": true,
+	"benchmarks": [
+		{
+			"label": "Competing Mandelbrot",
+			"log_name": "/dev/null",
+			"filename": "./bin/mandelbrot.so",
+			"comment": "10M 1-byte pixel image with 50k iterations per-thread. One thread per-pixel. ~20k 512-thread blocks.",
+			"thread_count": 512,
+			"block_count": 1,
+			"data_size": 10000000,
+			"additional_info": 50000
+		},
+		{
+			"label": "Competing Mandelbrot 2",
+			"log_name": "/dev/null",
+			"filename": "./bin/mandelbrot.so",
+			"thread_count": 512,
+			"block_count": 1,
+			"data_size": 10000000,
+			"additional_info": 50000
+		},
+		{
+			"label": "Competing Mandelbrot 3",
+			"log_name": "/dev/null",
+			"filename": "./bin/mandelbrot.so",
+			"thread_count": 512,
+			"block_count": 1,
+			"data_size": 10000000,
+			"additional_info": 50000
+		}
+	]
+}

@@ -1,0 +1,56 @@
+{
+	"name": "Isolation of MM6144 with MPS partitioning vs MB",
+	"max_time": 0,
+	"max_iterations": 0,
+	"cuda_device": 0,
+	"use_processes": true,
+	"pin_cpus": true,
+	"do_warmup": true,
+	"benchmarks": [
+		{
+			"label": "MM6144 MPS-Isolated",
+			"log_name": "eurosys25_isol_mps_mb.json",
+			"filename": "./bin/matrix_multiply.so",
+			"max_iterations": 100,
+			"thread_count": [32, 32],
+			"block_count": 1,
+			"data_size": 0,
+			"additional_info": {
+				"matrix_width": 6144,
+				"skip_copy": true
+			},
+			"mps_thread_percentage": 57
+		},
+		{
+			"label": "Competing Mandelbrot",
+			"log_name": "/dev/null",
+			"filename": "./bin/mandelbrot.so",
+			"comment": "10M 1-byte pixel image with 50k iterations per-thread. One thread per-pixel. ~20k 512-thread blocks.",
+			"thread_count": 512,
+			"block_count": 1,
+			"data_size": 10000000,
+			"additional_info": 50000,
+			"mps_thread_percentage": 15
+		},
+		{
+			"label": "Competing Mandelbrot 2",
+			"log_name": "/dev/null",
+			"filename": "./bin/mandelbrot.so",
+			"thread_count": 512,
+			"block_count": 1,
+			"data_size": 10000000,
+			"additional_info": 50000,
+			"mps_thread_percentage": 14
+		},
+		{
+			"label": "Competing Mandelbrot 3",
+			"log_name": "/dev/null",
+			"filename": "./bin/mandelbrot.so",
+			"thread_count": 512,
+			"block_count": 1,
+			"data_size": 10000000,
+			"additional_info": 50000,
+			"mps_thread_percentage": 14
+		}
+	]
+}

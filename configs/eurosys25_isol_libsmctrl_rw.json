@@ -1,0 +1,57 @@
+{
+	"name": "Isolation of MM6144 with libsmctrl partitioning vs RW",
+	"max_time": 0,
+	"max_iterations": 0,
+	"cuda_device": 0,
+	"use_processes": true,
+	"pin_cpus": true,
+	"do_warmup": true,
+	"benchmarks": [
+		{
+			"label": "MM6144 libsmctrl-Isolated",
+			"log_name": "eurosys25_isol_libsmctrl_rw.json",
+			"filename": "./bin/matrix_multiply.so",
+			"max_iterations": 100,
+			"thread_count": [32, 32],
+			"block_count": 1,
+			"data_size": 0,
+			"additional_info": {
+				"matrix_width": 6144,
+				"skip_copy": true
+			},
+			"comment": "Disable GPCs 2, 4, and 5 on GV100: 0xFFFFFFD32CB2CB2C",
+			"comment": "Enable GPCs 0, 1, 2, (cluster 0) and 5 (cluster 1) on GA100",
+			"sm_mask": "~0x3a74e9d3a74e9"
+		},
+		{
+			"label": "Competing Random Walk",
+			"log_name": "/dev/null",
+			"filename": "./bin/random_walk.so",
+			"thread_count": 1024,
+			"block_count": 2048,
+			"comment": "Walk a 512MiB buffer from each thread",
+			"data_size": 536870912,
+			"sm_mask": "0x3a74e9d3a74e9"
+		},
+		{
+			"label": "Competing Random Walk 2",
+			"log_name": "/dev/null",
+			"filename": "./bin/random_walk.so",
+			"thread_count": 1024,
+			"block_count": 2048,
+			"comment": "Walk a 512MiB buffer from each thread",
+			"data_size": 536870912,
+			"sm_mask": "0x3a74e9d3a74e9"
+		},
+		{
+			"label": "Competing Random Walk 3",
+			"log_name": "/dev/null",
+			"filename": "./bin/random_walk.so",
+			"thread_count": 1024,
+			"block_count": 2048,
+			"comment": "Walk a 512MiB buffer from each thread",
+			"data_size": 536870912,
+			"sm_mask": "0x3a74e9d3a74e9"
+		}
+	]
+}

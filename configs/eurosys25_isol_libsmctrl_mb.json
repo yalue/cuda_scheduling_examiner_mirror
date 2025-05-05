@@ -1,0 +1,58 @@
+{
+	"name": "Isolation of MM6144 with libsmctrl partitioning vs MB",
+	"max_time": 0,
+	"max_iterations": 0,
+	"cuda_device": 0,
+	"use_processes": true,
+	"pin_cpus": true,
+	"do_warmup": true,
+	"benchmarks": [
+		{
+			"label": "MM6144 libsmctrl-Isolated",
+			"log_name": "eurosys25_isol_libsmctrl_mb.json",
+			"filename": "./bin/matrix_multiply.so",
+			"max_iterations": 100,
+			"thread_count": [32, 32],
+			"block_count": 1,
+			"data_size": 0,
+			"additional_info": {
+				"matrix_width": 6144,
+				"skip_copy": true
+			},
+			"comment": "Disable GPCs 2, 4, and 5 on GV100: 0xFFFFFFD32CB2CB2C",
+			"comment": "Enable GPCs 0 (cluster 0) and 4, 5, 6 (cluster 1) on GA100",
+			"sm_mask": "~0x38f1e3c78f1e3c"
+		},
+		{
+			"label": "Competing Mandelbrot",
+			"log_name": "/dev/null",
+			"filename": "./bin/mandelbrot.so",
+			"comment": "10M 1-byte pixel image with 50k iterations per-thread. One thread per-pixel. ~20k 512-thread blocks.",
+			"thread_count": 512,
+			"block_count": 1,
+			"data_size": 10000000,
+			"additional_info": 50000,
+			"sm_mask": "0x38f1e3c78f1e3c"
+		},
+		{
+			"label": "Competing Mandelbrot 2",
+			"log_name": "/dev/null",
+			"filename": "./bin/mandelbrot.so",
+			"thread_count": 512,
+			"block_count": 1,
+			"data_size": 10000000,
+			"additional_info": 50000,
+			"sm_mask": "0x38f1e3c78f1e3c"
+		},
+		{
+			"label": "Competing Mandelbrot 3",
+			"log_name": "/dev/null",
+			"filename": "./bin/mandelbrot.so",
+			"thread_count": 512,
+			"block_count": 1,
+			"data_size": 10000000,
+			"additional_info": 50000,
+			"sm_mask": "0x38f1e3c78f1e3c"
+		}
+	]
+}

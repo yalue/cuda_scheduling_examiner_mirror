@@ -1,0 +1,38 @@
+{
+	"name": "Isolation of MM6144 with MiG partitioning vs RW",
+	"max_time": 0,
+	"max_iterations": 0,
+	"cuda_device": 0,
+	"use_processes": true,
+	"pin_cpus": true,
+	"do_warmup": true,
+	"benchmarks": [
+		{
+			"label": "Competing Random Walk",
+			"log_name": "/dev/null",
+			"filename": "./bin/random_walk.so",
+			"thread_count": 1024,
+			"block_count": 2048,
+			"comment": "Walk a 512MiB buffer from each thread",
+			"data_size": 536870912
+		},
+		{
+			"label": "Competing Random Walk 2",
+			"log_name": "/dev/null",
+			"filename": "./bin/random_walk.so",
+			"thread_count": 1024,
+			"block_count": 2048,
+			"comment": "Walk a 512MiB buffer from each thread",
+			"data_size": 536870912
+		},
+		{
+			"label": "Competing Random Walk 3",
+			"log_name": "/dev/null",
+			"filename": "./bin/random_walk.so",
+			"thread_count": 1024,
+			"block_count": 2048,
+			"comment": "Walk a 512MiB buffer from each thread",
+			"data_size": 536870912
+		}
+	]
+}
