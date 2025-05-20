@@ -313,7 +313,6 @@ static int WriteTimesToOutput(FILE *output, TimingInformation *times,
       return 0;
     }
   }
-  fflush(output);
   return 1;
 }
 
@@ -385,7 +384,6 @@ static int WriteOutputHeader(TaskConfig *config) {
   if (fprintf(output, "\"times\": [{}") < 0) {
     return 0;
   }
-  fflush(output);
   return 1;
 }
 
@@ -523,6 +521,12 @@ static void* RunBenchmark(void *data) {
       return NULL;
     }
   }
+  if (fprintf(config->output_file, "\n]}") < 0) {
+    printf("Failed writing footer to output file.\n");
+    return NULL;
+  }
+  // Only flush the benchmark log when its complete
+  fflush(config->output_file);
   // Wait before cleaning up any benchmarks due to CUDA free causing implicit
   // synchronization that blocks the CPU.
   if (!BarrierWait(barrier, &local_sense)) {
@@ -530,10 +534,6 @@ static void* RunBenchmark(void *data) {
     return NULL;
   }
   if (benchmark->cleanup) benchmark->cleanup(user_data);
-  if (fprintf(config->output_file, "\n]}") < 0) {
-    printf("Failed writing footer to output file.\n");
-    return NULL;
-  }
   return (void *) 1;
 }
 
