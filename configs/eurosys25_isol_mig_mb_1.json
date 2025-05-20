@@ -5,7 +5,7 @@
 	"cuda_device": 0,
 	"use_processes": true,
 	"pin_cpus": true,
-	"do_warmup": true,
+	"do_warmup": false,
 	"benchmarks": [
 		{
 			"label": "Competing Mandelbrot",
