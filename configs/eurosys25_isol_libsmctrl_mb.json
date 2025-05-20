@@ -12,6 +12,7 @@
 			"log_name": "eurosys25_isol_libsmctrl_mb.json",
 			"filename": "./bin/matrix_multiply.so",
 			"max_iterations": 100,
+			"terminator": true,
 			"thread_count": [32, 32],
 			"block_count": 1,
 			"data_size": 0,
