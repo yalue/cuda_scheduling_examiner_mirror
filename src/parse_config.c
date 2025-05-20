@@ -79,6 +79,7 @@ static int VerifyBenchmarkConfigKeys(cJSON *benchmark_config) {
     "additional_info",
     "max_iterations",
     "max_time",
+    "terminator",
     "release_time",
     "cpu_core",
     "stream_priority",
@@ -157,6 +158,7 @@ static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
   cJSON *entry = NULL;
   int benchmark_count = 1;
   int i;
+  int tmp;
   size_t benchmarks_size = 0;
   BenchmarkConfiguration *benchmarks = NULL;
   // Start by counting the number of benchmarks in the array and allocating
@@ -307,6 +309,17 @@ static int ParseBenchmarkList(GlobalConfiguration *config, cJSON *list_start) {
     } else {
       // As with max_iterations, negative means the value wasn't set.
       benchmarks[i].max_time = -1;
+    }
+    entry = cJSON_GetObjectItem(current_benchmark, "terminator");
+    if (entry) {
+      tmp = entry->type;
+      if ((tmp != cJSON_True) && (tmp != cJSON_False)) {
+        printf("Invalid terminator setting in config.\n");
+        goto ErrorCleanup;
+      }
+      benchmarks[i].terminator = tmp == cJSON_True;
+    } else {
+      benchmarks[i].terminator = 0;
     }
     entry = cJSON_GetObjectItem(current_benchmark, "release_time");
     if (entry) {

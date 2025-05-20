@@ -44,6 +44,9 @@ typedef struct {
   // The number of seconds for which the benchmark should sleep before
   // starting. If 0 or negative, it won't sleep at all.
   double release_time;
+  // If all other tasks should be terminated once this task completes its
+  // maximum number of iterations or hits its maximum time.
+  int terminator;
   // The CPU core to pin this benchmark to. Ignored if negative.
   int cpu_core;
   // The stream priority used to create the CUDA stream. Ignored if negative.

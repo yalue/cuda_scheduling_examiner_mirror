@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -61,6 +62,8 @@ typedef struct {
   int barrier_created;
   // A list of settings for individual tasks.
   struct TaskConfig_ *task_configs;
+  // Used to force all other running threads to end at the next iteration.
+  int *terminate;
 } SharedState;
 
 // Holds data about a given benchmark, in addition to configuration parameters.
@@ -73,6 +76,7 @@ typedef struct TaskConfig_ {
   // Limits on how long the benchmark should run.
   int64_t max_iterations;
   double max_seconds;
+  int terminator;
   // The number of seconds the benchmark should sleep before its first
   // iteration. If negative, the benchmark will begin iterating immediately.
   double release_time;
@@ -469,6 +473,9 @@ static void* RunBenchmark(void *data) {
     if (config->max_seconds > 0) {
       if ((CurrentSeconds() - start_time) >= config->max_seconds) break;
     }
+    if (*(config->shared_state->terminate)) {
+      break;
+    }
     // If sync_every_iteration is true, we'll wait here for previous iterations
     // of all benchmarks to complete.
     if (config->shared_state->global_config->sync_every_iteration) {
@@ -527,6 +534,10 @@ static void* RunBenchmark(void *data) {
   }
   // Only flush the benchmark log when its complete
   fflush(config->output_file);
+  // Signal all other benchmarks to terminate
+  if (config->terminator) {
+    *(config->shared_state->terminate) = 1;
+  }
   // Wait before cleaning up any benchmarks due to CUDA free causing implicit
   // synchronization that blocks the CPU.
   if (!BarrierWait(barrier, &local_sense)) {
@@ -669,6 +680,7 @@ static TaskConfig* CreateTaskConfigs(SharedState *shared_state) {
     if (benchmark->max_time >= 0) {
       new_list[i].max_seconds = benchmark->max_time;
     }
+    new_list[i].terminator = benchmark->terminator;
     new_list[i].parameters.cuda_device = config->cuda_device;
     new_list[i].label = benchmark->label;
     new_list[i].mps_thread_percentage = benchmark->mps_thread_percentage;
@@ -860,6 +872,7 @@ static void Cleanup(void *data) {
   if (state->barrier_created) {
     BarrierDestroy(&(state->barrier));
   }
+  munmap(state->terminate, sizeof(int));
   if (state->task_configs) {
     FreeTaskConfigs(state->task_configs,
       state->global_config->benchmark_count);
@@ -914,6 +927,7 @@ static void *Initialize(InitializationParameters *params) {
     return NULL;
   }
   shared_state->barrier_created = 1;
+  shared_state->terminate = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, -1, 0);
   shared_state->starting_seconds = CurrentSeconds();
   // After the heavy initialization work has been done, record an approximate
   // GPU time and system time.

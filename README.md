@@ -171,6 +171,9 @@ The layout of each configuration file is as follows:
         provided for any benchmark, then sync_every_iteration must be false.>,
       "max_time": <Number. Optional. If specified, overrides the default
         max_time for this benchmark alone. 0 = unlimited.>,
+      "terminator": <Boolean. Optional, defaults to false. If true, after this
+        benchmark hits its max_time or max_iterations, all other benchmarks are
+        signaled to end upon completion of their current iteration.>
       "release_time": <Number. Optional. If set, this benchmark will sleep for
         the given number of seconds (between initialization and the start of
         the first iteration) before beginning execution.>,
