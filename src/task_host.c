@@ -724,6 +724,9 @@ static TaskConfig* CreateTaskConfigs(SharedState *shared_state) {
       goto ErrorCleanup;
     }
     free(log_name);
+    // Use a large block buffer to prevent I/O waiting in the hot loop
+    void* block_buf = malloc(300*1024*1024); // 300 MiB
+    setvbuf(new_list[i].output_file, block_buf, _IOFBF, 300*1024*1024);
     // Finally, open the shared library and get the function pointers.
     new_list[i].library_handle = dlopen(benchmark->filename, RTLD_NOW);
     if (!new_list[i].library_handle) {
