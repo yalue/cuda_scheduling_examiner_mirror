@@ -1,16 +1,16 @@
 {
-	"name": "6144MM baseline",
+	"name": "Isolation of MM6144 with MiG partitioning vs RW",
 	"max_time": 0,
 	"max_iterations": 0,
 	"cuda_device": 0,
 	"use_processes": true,
-	"pin_cpus": true,
 	"do_warmup": true,
 	"benchmarks": [
 		{
-			"label": "MM6144 Baseline",
-			"log_name": "eurosys25_isol_baseline.json",
+			"label": "MM6144 MiG-Isolated",
+			"log_name": "ecrts25_isol_mig_rw.json",
 			"filename": "./bin/matrix_multiply.so",
+			"cpu_core": 4,
 			"max_iterations": 100,
 			"thread_count": [32, 32],
 			"block_count": 1,

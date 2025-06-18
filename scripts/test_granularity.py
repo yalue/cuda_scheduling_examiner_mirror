@@ -45,7 +45,7 @@ def generate_config(device, part_method, total_tpcs, active_tpcs, iterations):
     """
     plugin_config = {
         "label": str(active_tpcs),
-        "log_name": "eurosys25_%s_%dtpcs.json" % (part_method, active_tpcs),
+        "log_name": "ecrts25_%s_%dtpcs.json" % (part_method, active_tpcs),
         "filename": "./bin/matrix_multiply.so",
         "thread_count": [32, 32], # Maximum block size. 32x32=1024
         "block_count": 1, # Ignored/unused by matrix_multiply

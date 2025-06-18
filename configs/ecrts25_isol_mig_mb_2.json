@@ -8,7 +8,7 @@
 	"benchmarks": [
 		{
 			"label": "MM6144 MiG-Isolated",
-			"log_name": "eurosys25_isol_mig_mb.json",
+			"log_name": "ecrts25_isol_mig_mb.json",
 			"filename": "./bin/matrix_multiply.so",
 			"cpu_core": 4,
 			"max_iterations": 100,
