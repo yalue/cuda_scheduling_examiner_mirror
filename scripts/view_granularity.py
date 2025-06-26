@@ -124,7 +124,7 @@ def add_scenario_to_plot(axes, scenario, name, style_dict):
     elif "mig" in name:
         name = "MiG"
     else:
-        name = "nvsplit"
+        name = "nvtaskset"
     #axes.plot(data[0], data[2], label="Max", linestyle="None", marker="^",
     #    fillstyle="full", markeredgewidth=0.0, ms=7)
     axes.plot(data[0], data[3], label=name, **style_dict)

@@ -16,6 +16,9 @@ import pysmctrl
 import subprocess
 import sys
 
+# GPC ID to TPC mask
+g_gpcs = []
+
 # Python inexplicably does not provide access to setbuf()/setvbuf(), and is
 # inconsistent about buffering on both stdout and stderr between versions, with
 # full buffering (even on stderr) when output is redirected in Python 3. This
@@ -69,9 +72,24 @@ def generate_config(device, part_method, total_tpcs, active_tpcs, iterations):
         # limit to at most 100%.
         plugin_config["mps_thread_percentage"] = min(100, round(percent_active, 4))
     elif part_method.lower() == "libsmctrl":
-        # Create a bitstring of _enabled_ TPCs, convert to int, print as hex,
-        # then prefix with '~' to make clear this is an enable mask.
-        plugin_config["sm_mask"] = "~" + hex(int("1"*active_tpcs, 2))
+        curr_gpc = 0
+        curr_shift = 0
+        mask = 0
+        # Create a bitstring of _enabled_ TPCs, using the SE-packed strategy
+        for tpc in range(active_tpcs):
+            # Find the next unallocated TPC in the current GPC
+            while (g_gpcs[curr_gpc] >> curr_shift) & 0x1 == 0:
+                curr_shift += 1;
+                # If current GPC has all been allocated, move on to next one
+                if curr_shift == 63:
+                    curr_gpc += 1
+                    curr_shift = 0
+            # Add that TPC to the enabled TPC mask
+            print("curr_gpc %d curr_shift %d g_gpcs[curr_gpc] %x mask %x"%(curr_gpc, curr_shift, g_gpcs[curr_gpc], mask));
+            mask |= 1 << curr_shift
+            curr_shift += 1;
+        # Convert to hex, (with a '~' prefix, as this is an enable mask).
+        plugin_config["sm_mask"] = "~" + hex(mask)
     elif part_method.lower() == "mig":
         # MiG divides the GPU into two levels: GPU Instances, and nested
         # Compute Instances. Compute Instances have the same geometry
@@ -111,9 +129,10 @@ def run_process(device, part_method, total_tpcs, active_tpcs, iterations):
     number of active TPCs under the selected partitioning method. """
     config = generate_config(device, part_method, total_tpcs, active_tpcs, iterations)
     print("Starting test with %d TPCs enabled under %s"%(active_tpcs, part_method))
-    process = subprocess.Popen(["./bin/runner", "-"], stdin=subprocess.PIPE, encoding='utf8')
-    #process = subprocess.Popen(["cat", "-"], stdin=subprocess.PIPE, encoding='utf8')
-    process.communicate(input=config)
+    process = subprocess.Popen(["./bin/runner", "-"], stdin=subprocess.PIPE)
+    # Uncomment to just print the configurations (for debugging)
+    #process = subprocess.Popen(["cat", "-"], stdin=subprocess.PIPE)
+    process.communicate(input=config.encode())
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -153,6 +172,7 @@ if __name__ == "__main__":
             exit(22)
         part_methods = ["mps", "libsmctrl"]
         part_options = range(args.start_count, tpc_count + 1)
+        g_gpcs = pysmctrl.get_gpc_info(args.device);
 
     for active_tpcs in part_options:
         for part_method in part_methods:
