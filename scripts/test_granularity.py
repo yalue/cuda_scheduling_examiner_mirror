@@ -85,7 +85,6 @@ def generate_config(device, part_method, total_tpcs, active_tpcs, iterations):
                     curr_gpc += 1
                     curr_shift = 0
             # Add that TPC to the enabled TPC mask
-            print("curr_gpc %d curr_shift %d g_gpcs[curr_gpc] %x mask %x"%(curr_gpc, curr_shift, g_gpcs[curr_gpc], mask));
             mask |= 1 << curr_shift
             curr_shift += 1;
         # Convert to hex, (with a '~' prefix, as this is an enable mask).
