@@ -1,5 +1,6 @@
 {
   "name": "Demo of Callback- (K1, K2) and Stream-Based (K3, K4) TPC Partitioning",
+  "comment": "Stripe TPCs between each pair of kernels, with TPCs 0 and 1 left disabled in all cases to demonstrate that the mask bit indexes are aligned with the TPC IDs.",
   "max_iterations": 1,
   "max_time": 0,
   "cuda_device": 0,
@@ -17,7 +18,7 @@
           "duration": 250000000,
           "thread_count": 1024,
           "block_count": 20,
-          "sm_mask": "0xaaaaaaaaaaaaaaa0"
+          "sm_mask": "~0xaaaaaaaaaaaaaaa8"
         }
       ]
     },
@@ -34,7 +35,7 @@
           "duration": 250000000,
           "thread_count": 1024,
           "block_count": 16,
-          "sm_mask": "0x5555555555555550"
+          "sm_mask": "~0x5555555555555554"
         }
       ]
     },
@@ -47,7 +48,7 @@
       "data_size": 0,
       "additional_info": 250000000,
       "release_time": 1.5,
-      "sm_mask": "0x5555555555555550"
+      "sm_mask": "~0xaaaaaaaaaaaaaaa8"
     },
     {
       "filename": "./bin/timer_spin.so",
@@ -58,7 +59,7 @@
       "data_size": 0,
       "additional_info": 250000000,
       "release_time": 1.5,
-      "sm_mask": "0xaaaaaaaaaaaaaaa0"
+      "sm_mask": "~0x5555555555555554"
     }
   ]
 }
