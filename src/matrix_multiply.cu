@@ -282,7 +282,7 @@ __global__ void MatrixMultiplyKernel(float *a, float *b, float *c, int width,
   uint64_t *block_times, uint32_t *block_smids) {
   int row, col, k, block_index;
   float v_a, v_b, v_c;
-  uint64_t start_clock = clock64();
+  uint64_t start_clock = GlobalTimer64();
   block_index = blockIdx.y * gridDim.x + blockIdx.x;
   if (start_clock < block_times[block_index * 2]) {
     block_times[block_index * 2] = start_clock;
@@ -295,7 +295,7 @@ __global__ void MatrixMultiplyKernel(float *a, float *b, float *c, int width,
   row = blockIdx.y * blockDim.y + threadIdx.y;
   if ((col >= width) || (row >= width)) {
     // Don't try doing computations if we're outside of the matrix.
-    block_times[block_index * 2 + 1] = clock64();
+    block_times[block_index * 2 + 1] = GlobalTimer64();
     return;
   }
 
@@ -307,7 +307,7 @@ __global__ void MatrixMultiplyKernel(float *a, float *b, float *c, int width,
     v_c += v_a * v_b;
   }
   c[row * width + col] = v_c;
-  block_times[block_index * 2 + 1] = clock64();
+  block_times[block_index * 2 + 1] = GlobalTimer64();
 }
 
 static int Execute(void *data) {
