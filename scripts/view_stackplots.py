@@ -215,7 +215,7 @@ def get_stackplot_values(benchmarks):
         to_return.append(v)
     return to_return
 
-def plot_scenario(benchmarks, name, max_threads, use_percent, save):
+def plot_scenario(benchmarks, name, max_threads, use_percent, height, width, save):
     """Takes a list of parsed benchmark results and a scenario name and
     generates a plot showing the timeline of benchmark behaviors for the
     specific scenario. Returns a matplotlib Figure object."""
@@ -227,7 +227,7 @@ def plot_scenario(benchmarks, name, max_threads, use_percent, save):
         if "label" in b:
             label = b["label"]
         labels.append(label)
-    figure = plot.figure(figsize=(3.5, 2.0))
+    figure = plot.figure(figsize=(width, height))
     axes = figure.add_subplot(1, 1, 1)
     axes.set_title(name)
     values = get_stackplot_values(benchmarks)
@@ -239,17 +239,30 @@ def plot_scenario(benchmarks, name, max_threads, use_percent, save):
         locs = range(0, max_threads + 1, max_threads // 10)
         ticks = ["%.f%%" % (100 * loc / max_threads) for loc in locs]
         plot.yticks(locs, ticks)
-        axes.set_ylabel("Utilization")
+        axes.set_ylabel("Cores Utilized")
     else:
         axes.set_ylabel("Threads")
     axes.set_xlabel("Time (seconds)")
     plot.legend()
+    # Plot arrows to indicate release times, using a style that matches the
+    # arrows drawn by view_blocksbysm.py, and colors that match the plotted
+    # data.
+    matching_colors = plot.rcParams['axes.prop_cycle'].by_key()['color']
+    for (b, color) in zip(benchmarks, matching_colors):
+        release = b["release_time"]
+        axes.annotate("", (release, -13), xytext=(release, -28),
+                      xycoords=("data", "axes points"),
+                      arrowprops=dict(arrowstyle="simple, head_length=0.3, \
+                                                  head_width=0.6, \
+                                                  tail_width=0.2",
+                                      edgecolor=color, linewidth=1,
+                                      facecolor=(0,0,0,0), mutation_scale=16))
     plot.tight_layout()
     if save:
         plot.savefig(name + ".svg")
     return figure
 
-def show_plots(filenames, use_percent, save):
+def show_plots(filenames, use_percent, height, width, save):
     """Takes a list of filenames, and generates one plot per scenario found in
     the files."""
     parsed_files = []
@@ -263,11 +276,12 @@ def show_plots(filenames, use_percent, save):
         if not scenario in scenarios:
             scenarios[scenario] = []
         scenarios[scenario].append(benchmark)
+    px = 1/plot.rcParams['figure.dpi']
     figures = []
     for scenario in scenarios:
         figures.append(plot_scenario(scenarios[scenario], scenario,
                                      benchmark["max_resident_threads"],
-                                     use_percent, save))
+                                     use_percent, height*px, width*px, save))
     plot.show()
 
 if __name__ == "__main__":
@@ -275,14 +289,22 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--percent",
         help="Use percent utilization, rather than raw thread count, on the y-axis",
         action="store_true")
+    parser.add_argument("-v", "--height",
+        help="Height (in pixels) of the plot (400 default).", default=400, type=int)
+    parser.add_argument("-w", "--width",
+        help="Width (in pixels) of the plot (600 default).", default=600, type=int)
     parser.add_argument("-r", "--regex",
         help="Regex for which to match JSON files in passed directories",
         default="*.json")
+    # No short option for font size. Use IEEEtran footnote size by default
+    parser.add_argument("--font-size",
+        help="Font size to use in figures (8pt default).", default=8, type=int)
     parser.add_argument("result_file_to_plot", nargs="*", default=["./results"],
         help="List of result files, or directories of result files, to plot (./results default)")
     parser.add_argument("-o", "--output",
         help="Should plots be saved?", action="store_true")
     args = parser.parse_args()
+    plot.rcParams["font.size"] = args.font_size
     filenames = []
     # If a positional argument is a directory, it's automatically expanded out
     # to include all contained *.json files. This supports the old usage:
@@ -295,4 +317,4 @@ if __name__ == "__main__":
         else:
             print("Input path '%s' not found as valid file or directory." % f, file=sys.stderr)
             exit(1)
-    show_plots(filenames, args.percent, args.output)
+    show_plots(filenames, args.percent, args.height, args.width, args.output)

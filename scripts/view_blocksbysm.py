@@ -38,6 +38,9 @@ else:
     # invalid!
     MAX_YVAL = 0
 
+# Font size to use on block labels. Default configured as parser arg; see __main__
+g_font_size = None
+
 ###################################################
 # Drawing                                         #
 ###################################################
@@ -61,7 +64,9 @@ idToColorMap = {0: 'azure',
                 15: 'gold4'}
 
 patternColorToBgColorMap = {"light pink": "misty rose",
-                            "azure": "sky blue",
+                            # "sky blue" (#87cceb) was paired with azure, but it's too dark printed.
+                            # #97dcff instead is about 10% brighter but barely distinguishable to the eye.
+                            "azure": "#97dcff",
                             "LightGoldenrod2": "light yellow",
                             "DarkSeaGreen1": "SeaGreen3",
                             "MediumPurple1": "lavender",
@@ -418,7 +423,7 @@ class BlockSMRect(object):
         self.label = Text(Point(px, py), "%s:%s" % (kernelName, block.id))
         if USE_BOLD_FONT:
             self.label.setStyle("bold")
-        self.label.setSize(10)
+        self.label.setSize(g_font_size)
 
     def draw(self, canvas):
         self.block.draw(canvas)
@@ -1213,12 +1218,16 @@ if __name__ == "__main__":
         help="What time to start plotting from.", default=0, type=float)
     parser.add_argument("-e", "--end",
         help="What time to end plotting at.", default=0, type=float)
+    # No short option for font size. Use IEEEtran text size by default
+    parser.add_argument("--font-size",
+        help="Font size to use on thread blocks (10pt default).", default=10, type=int)
     parser.add_argument("result_file_to_plot", nargs="*", default=["./results"],
         help="List of result files, or directories of result files, to plot (./results default)")
     if SAVE_AVIL:
         parser.add_argument("-o", "--output",
             help="Should plots be saved?", action="store_true")
     args = parser.parse_args()
+    g_font_size = args.font_size
     filenames = []
     # If a positional argument is a directory, it's automatically expanded out
     # to include all contained *.json files. This supports the old usage:

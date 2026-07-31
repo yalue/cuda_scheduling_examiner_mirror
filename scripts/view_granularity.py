@@ -17,7 +17,6 @@ import sys
 # Standard figure styling
 plot.rcParams["pdf.use14corefonts"] = "True" # So that it doesn't try to embed Tex Gyre Heros
 plot.rcParams["font.sans-serif"] = ["TeX Gyre Heros", "Nimbus Sans", "Helvetica", "Arimo"]
-plot.rcParams["font.size"] = 8 # Default IEEEtran footnote size
 
 def convert_to_float(s):
     """Takes a string s and parses it as a floating-point number. If s can not
@@ -193,9 +192,13 @@ if __name__ == "__main__":
         help="Height (in pixels) of the plot (400 default).", default=400, type=int)
     parser.add_argument("-w", "--width",
         help="Width (in pixels) of the plot (600 default).", default=600, type=int)
+    # No short option for font size. Use IEEEtran footnote size by default
+    parser.add_argument("--font-size",
+        help="Font size to use in figures (8pt default).", default=8, type=int)
     parser.add_argument("result_file_to_plot", nargs="*", default=["./results"],
         help="List of result files, or directories of result files, to plot (./results default)")
     args = parser.parse_args()
+    plot.rcParams["font.size"] = args.font_size
     filenames = []
     # If a positional argument is a directory, it's automatically expanded out
     # to include all contained *.json files. This supports the old usage:
