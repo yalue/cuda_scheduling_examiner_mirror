@@ -100,7 +100,7 @@ def plot_scenario(scenario, name):
         legend.set_draggable(True)
     return figure
 
-def show_plots(filenames, times_key):
+def show_plots(filenames, times_key, save_path):
     """Takes a list of filenames and generates one plot per named scenario
     across all of the files."""
     # Maps benchmark names to benchmark data, where the benchmark data is a map
@@ -128,7 +128,10 @@ def show_plots(filenames, times_key):
     figures = []
     for scenario in all_scenarios:
         figures.append(plot_scenario(all_scenarios[scenario], scenario))
-    plot.show()
+    if save_path is None:
+        plot.show()
+    else:
+        plot.savefig(save_path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -137,6 +140,7 @@ if __name__ == "__main__":
         default="execute_times")
     parser.add_argument("result_file_to_plot", nargs="*", default=["./results"],
         help="List of result files, or directories of result files, to plot (./results default)")
+    parser.add_argument("-o", "--out", help="Path to save the figure", nargs=1, metavar="PATH", default=[None])
     args = parser.parse_args()
     filenames = []
     # If a positional argument is a directory, it's automatically expanded out
@@ -149,5 +153,5 @@ if __name__ == "__main__":
         else:
             print("Input path '%s' not found as valid file or directory." % f, file=sys.stderr)
             exit(1)
-    show_plots(filenames, args.times_key)
+    show_plots(filenames, args.times_key, args.out[0])
 

@@ -262,7 +262,7 @@ def plot_scenario(benchmarks, name, max_threads, use_percent, height, width, sav
         plot.savefig(name + ".svg")
     return figure
 
-def show_plots(filenames, use_percent, height, width, save):
+def show_plots(filenames, use_percent, height, width, save_each, out_path):
     """Takes a list of filenames, and generates one plot per scenario found in
     the files."""
     parsed_files = []
@@ -281,8 +281,11 @@ def show_plots(filenames, use_percent, height, width, save):
     for scenario in scenarios:
         figures.append(plot_scenario(scenarios[scenario], scenario,
                                      benchmark["max_resident_threads"],
-                                     use_percent, height*px, width*px, save))
-    plot.show()
+                                     use_percent, height*px, width*px, save_each))
+    if out_path is None:
+        plot.show()
+    else:
+        plot.savefig(out_path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -301,8 +304,9 @@ if __name__ == "__main__":
         help="Font size to use in figures (8pt default).", default=8, type=int)
     parser.add_argument("result_file_to_plot", nargs="*", default=["./results"],
         help="List of result files, or directories of result files, to plot (./results default)")
-    parser.add_argument("-o", "--output",
-        help="Should plots be saved?", action="store_true")
+    parser.add_argument("-s", "--save-each",
+        help="Save each plot as a separate svg?", action="store_true")
+    parser.add_argument("-o", "--out", help="Path to save the final figure", nargs=1, metavar="PATH", default=[None])
     args = parser.parse_args()
     plot.rcParams["font.size"] = args.font_size
     filenames = []
@@ -317,4 +321,4 @@ if __name__ == "__main__":
         else:
             print("Input path '%s' not found as valid file or directory." % f, file=sys.stderr)
             exit(1)
-    show_plots(filenames, args.percent, args.height, args.width, args.output)
+    show_plots(filenames, args.percent, args.height, args.width, args.save_each, args.out[0])

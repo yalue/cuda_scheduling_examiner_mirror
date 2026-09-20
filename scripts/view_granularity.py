@@ -138,7 +138,7 @@ def add_scenario_to_plot(axes, scenario, name, style_dict):
         legend.set_draggable(True)
     return None
 
-def show_plots(filenames, times_key, h, w):
+def show_plots(filenames, times_key, h, w, save_path):
     """ Takes a list of filenames and generates one plot. This differs from the
     hip_plugin_framework script in that it only generates a single plot,
     containing only the average times. It will show one distribution per named
@@ -181,7 +181,10 @@ def show_plots(filenames, times_key, h, w):
     add_plot_padding(axes)
     #plot.subplots_adjust(bottom=0.35)
     plot.tight_layout()
-    plot.show()
+    if save_path is None:
+        plot.show()
+    else:
+        plot.savefig(save_path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -197,6 +200,7 @@ if __name__ == "__main__":
         help="Font size to use in figures (8pt default).", default=8, type=int)
     parser.add_argument("result_file_to_plot", nargs="*", default=["./results"],
         help="List of result files, or directories of result files, to plot (./results default)")
+    parser.add_argument("-o", "--out", help="Path to save the figure", nargs=1, metavar="PATH", default=[None])
     args = parser.parse_args()
     plot.rcParams["font.size"] = args.font_size
     filenames = []
@@ -211,5 +215,4 @@ if __name__ == "__main__":
         else:
             print("Input path '%s' not found as valid file or directory." % f, file=sys.stderr)
             exit(1)
-    show_plots(filenames, args.times_key, args.height, args.width)
-
+    show_plots(filenames, args.times_key, args.height, args.width, args.out[0])
