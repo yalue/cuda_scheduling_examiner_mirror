@@ -148,11 +148,12 @@ http://mcsp.wartburg.edu/zelle/python for a quick reference"""
 #     Added ability to set text atttributes.
 #     Added Entry boxes.
 
-import time, os, sys
+import os
+import time
 
 try:  # import as appropriate for 2.x vs. 3.x
    import tkinter as tk
-except:
+except ImportError:
    import Tkinter as tk
 
 
@@ -640,21 +641,21 @@ class Text(GraphicsObject):
 
     def setFace(self, face):
         if face in ['helvetica','arial','courier','times roman']:
-            f,s,b = self.config['font']
+            _, s, b = self.config['font']
             self._reconfig("font",(face,s,b))
         else:
             raise GraphicsError(BAD_OPTION)
 
     def setSize(self, size):
         if 5 <= size <= 36:
-            f,s,b = self.config['font']
+            f, _, b = self.config['font']
             self._reconfig("font", (f,size,b))
         else:
             raise GraphicsError(BAD_OPTION)
 
     def setStyle(self, style):
         if style in ['bold','normal','italic', 'bold italic']:
-            f,s,b = self.config['font']
+            f, s, _ = self.config['font']
             self._reconfig("font", (f,s,style))
         else:
             raise GraphicsError(BAD_OPTION)
@@ -804,7 +805,7 @@ class Image(GraphicsObject):
         """
 
         value = self.img.get(x,y)
-        if type(value) ==  type(0):
+        if type(value) is int:
             return [value, value, value]
         else:
             return list(map(int, value.split()))

@@ -7,13 +7,16 @@
 #
 # Supports Python 2 and Python 3
 from __future__ import print_function
+
 import argparse
 import glob
 import json
-import matplotlib.pyplot as plot
-import numpy
 import os
 import sys
+
+import matplotlib.pyplot as plot
+import numpy
+
 
 def get_kernel_timeline(kernel_times):
     """Takes a single kernel invocation's information from the benchmark struct
@@ -44,7 +47,7 @@ def get_kernel_timeline(kernel_times):
             break
         if len(end_times) == 0:
             print("Error! The last block end time was before a start time.", file=sys.stderr)
-            exit(1)
+            sys.exit(1)
         current_time = 0.0
         previous_thread_count = current_thread_count
         if len(start_times) != 0:
@@ -172,8 +175,7 @@ def get_stackplot_values(benchmarks):
             n = indices[i]
             if n >= len(times_lists[i]):
                 continue
-            if times_lists[i][n] < current_min:
-                current_min = times_lists[i][n]
+            current_min = min(current_min, times_lists[i][n])
         return current_min
 
     # Returns true if we've seen all the times in every list.
@@ -207,11 +209,7 @@ def get_stackplot_values(benchmarks):
         update_values()
         update_indices(current_time)
 
-    to_return = []
-    to_return.append(new_times)
-    for v in new_values:
-        to_return.append(v)
-    return to_return
+    return [new_times] + new_values
 
 def get_total_timeline(benchmarks):
     """Similar to get_stackplot_values, but only returns a single list of
@@ -247,7 +245,6 @@ def draw_release_arrow(axes, release_time):
     axes.arrow(release_time, bottom, 0, height, color=color, lw=2, width=width,
         length_includes_head=True, head_length=height * 0.15,
         head_width=width * 5)
-    return
 
 def benchmark_sort_key(benchmark):
     """Returns the key that may be used to sort benchmarks by label."""
@@ -283,7 +280,6 @@ def plot_scenario(benchmarks, name):
     total_timeline = get_total_timeline(benchmarks)
     min_time = min(total_timeline[0])
     max_time = max(total_timeline[0])
-    max_resident_threads = benchmarks[0]["max_resident_threads"]
     # Plot each timeline in a separate subplot
     for i in range(len(benchmarks)):
         benchmark = benchmarks[i]
@@ -321,8 +317,8 @@ def show_plots(filenames, save_path):
             scenarios[scenario] = []
         scenarios[scenario].append(benchmark)
     figures = []
-    for scenario in scenarios:
-        figures.append(plot_scenario(scenarios[scenario], scenario))
+    for name, scenario in scenarios.items():
+        figures.append(plot_scenario(scenario, name))
     if save_path is None:
         plot.show()
     else:
