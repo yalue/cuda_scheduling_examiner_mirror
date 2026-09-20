@@ -2,16 +2,19 @@
 #
 # Supports Python 2 and Python 3
 from __future__ import print_function
+
+import argparse
 import glob
 import itertools
 import json
-import matplotlib.pyplot as plot
-import numpy
+import os
 import re
 import sys
-import argparse
+
+import matplotlib.pyplot as plot
+import numpy
 from scipy import stats
-import os
+
 
 def get_benchmark_raw_values(benchmark, times_key):
     """Takes a parsed benchmark result JSON file and returns raw values of the
@@ -35,7 +38,7 @@ def nice_sort_key(label):
     def tryint(s):
         try:
             return int(s)
-        except:
+        except ValueError:
             return s
     return [tryint(c) for c in re.split(r'([0-9]+)', label)]
 
@@ -52,15 +55,6 @@ def get_line_styles():
     global all_styles
     if all_styles is not None:
         return all_styles
-    color_options = [
-        "blue",
-        "green",
-        "red",
-        "cyan",
-        "magenta",
-        "y",
-        "black"
-    ]
     style_options = [
         "-",
         "--",
@@ -103,7 +97,6 @@ def add_plot_padding(axes):
         x_range / 5.0))
     axes.yaxis.set_ticks(numpy.arange(y_limits[0], y_limits[1] + y_pad,
         y_range / 5.0))
-    return
 
 def get_x_range(raw_data, sample_count = 2000):
     """Takes a list of raw data, and returns a range of points to use as the
@@ -144,11 +137,11 @@ def plot_scenario(benchmarks, name, times_key):
     legend = plot.legend()
     try:
         legend.draggable()
-    except:
+    except AttributeError:
         legend.set_draggable(True)
     return figure
 
-def show_plots(filenames, times_key="block_times"):
+def show_plots(filenames, save_path, times_key="block_times"):
     """Takes a list of filenames, and generates one plot per scenario found in
     the files. See get_benchmark_cdf for an explanation of the times_key
     argument."""
@@ -164,10 +157,13 @@ def show_plots(filenames, times_key="block_times"):
             scenarios[scenario] = []
         scenarios[scenario].append(benchmark)
     figures = []
-    for scenario in scenarios:
+    for name, scenario in scenarios.items():
         print(scenario)
-        figures.append(plot_scenario(scenarios[scenario], scenario, times_key))
-    plot.show()
+        figures.append(plot_scenario(scenario, name, times_key))
+    if save_path is None:
+        plot.show()
+    else:
+        plot.savefig(save_path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -179,6 +175,7 @@ if __name__ == "__main__":
         default="*.json")
     parser.add_argument("result_file_to_plot", nargs="*", default=["./results"],
         help="List of result files, or directories of result files, to plot (./results default)")
+    parser.add_argument("-o", "--out", help="Path to save the figure", nargs=1, metavar="PATH", default=[None])
     args = parser.parse_args()
     filenames = []
     # If a positional argument is a directory, it's automatically expanded out
@@ -190,5 +187,5 @@ if __name__ == "__main__":
             filenames.append(f)
         else:
             print("Input path '%s' not found as valid file or directory." % f, file=sys.stderr)
-            exit(1)
-    show_plots(filenames, args.times_key)
+            sys.exit(1)
+    show_plots(filenames, args.out[0], args.times_key)

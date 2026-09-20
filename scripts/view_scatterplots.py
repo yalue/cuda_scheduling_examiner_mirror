@@ -7,23 +7,24 @@
 #
 # Supports Python 2 and Python 3
 from __future__ import print_function
+
 import argparse
 import glob
 import json
+import os
+import sys
+
 import matplotlib.pyplot as plot
 import numpy
-import sys
-import os
+
 
 def convert_to_float(s):
     """Takes a string s and parses it as a floating-point number. If s can not
     be converted to a float, this returns None instead."""
-    to_return = None
     try:
-        to_return = float(s)
-    except:
-        to_return = None
-    return to_return
+        return float(s)
+    except ValueError:
+        return None
 
 def benchmark_summary_values(benchmark, times_key):
     """Takes a single benchmark results (one parsed output file) and returns
@@ -48,9 +49,7 @@ def scenario_to_distribution(scenario):
     """Takes a scenario, mapping numbers to triplets, and re-shapes the data.
     Returns an array of 4 arrays: [[x values], [min y values], [max y values],
     [average y values]]."""
-    x_values = []
-    for k in scenario:
-        x_values.append(k)
+    x_values = scenario[:]
     x_values.sort()
     min_y_values = []
     max_y_values = []
@@ -96,11 +95,11 @@ def plot_scenario(scenario, name):
     legend = plot.legend()
     try:
         legend.draggable()
-    except:
+    except AttributeError:
         legend.set_draggable(True)
     return figure
 
-def show_plots(filenames, times_key):
+def show_plots(filenames, times_key, save_path):
     """Takes a list of filenames and generates one plot per named scenario
     across all of the files."""
     # Maps benchmark names to benchmark data, where the benchmark data is a map
@@ -126,9 +125,12 @@ def show_plots(filenames, times_key):
             all_scenarios[name][float_value] = summary_values
     # Draw each scenario's plot.
     figures = []
-    for scenario in all_scenarios:
-        figures.append(plot_scenario(all_scenarios[scenario], scenario))
-    plot.show()
+    for name, scenario in all_scenarios.items():
+        figures.append(plot_scenario(scenario, name))
+    if save_path is None:
+        plot.show()
+    else:
+        plot.savefig(save_path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -137,6 +139,7 @@ if __name__ == "__main__":
         default="execute_times")
     parser.add_argument("result_file_to_plot", nargs="*", default=["./results"],
         help="List of result files, or directories of result files, to plot (./results default)")
+    parser.add_argument("-o", "--out", help="Path to save the figure", nargs=1, metavar="PATH", default=[None])
     args = parser.parse_args()
     filenames = []
     # If a positional argument is a directory, it's automatically expanded out
@@ -148,6 +151,6 @@ if __name__ == "__main__":
             filenames.append(f)
         else:
             print("Input path '%s' not found as valid file or directory." % f, file=sys.stderr)
-            exit(1)
-    show_plots(filenames, args.times_key)
+            sys.exit(1)
+    show_plots(filenames, args.times_key, args.out[0])
 

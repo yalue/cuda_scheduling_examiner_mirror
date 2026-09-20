@@ -2,15 +2,18 @@
 #
 # Supports both Python 2 and Python 3
 from __future__ import print_function
+
 import argparse
 import glob
 import itertools
 import json
-import matplotlib.pyplot as plot
-import numpy
+import os
 import re
 import sys
-import os
+
+import matplotlib.pyplot as plot
+import numpy
+
 
 def convert_values_to_cdf(values):
     """Takes a 1-D list of values and converts it to a CDF representation. The
@@ -58,7 +61,7 @@ def nice_sort_key(label):
     def tryint(s):
         try:
             return int(s)
-        except:
+        except ValueError:
             return s
     return [tryint(c) for c in re.split(r'([0-9]+)', label)]
 
@@ -160,11 +163,11 @@ def plot_scenario(benchmarks, name, times_key):
     legend = plot.legend()
     try:
         legend.draggable()
-    except: # matplotlib 3+
+    except AttributeError: # matplotlib 3+
         legend.set_draggable(True)
     return figure
 
-def show_plots(filenames, times_key="block_times"):
+def show_plots(filenames, save_path, times_key="block_times"):
     """Takes a list of filenames, and generates one plot per scenario found in
     the files. See get_benchmark_cdf for an explanation of the times_key
     argument."""
@@ -180,9 +183,12 @@ def show_plots(filenames, times_key="block_times"):
             scenarios[scenario] = []
         scenarios[scenario].append(benchmark)
     figures = []
-    for scenario in scenarios:
-        figures.append(plot_scenario(scenarios[scenario], scenario, times_key))
-    plot.show()
+    for name, scenario in scenarios.items():
+        figures.append(plot_scenario(scenario, name, times_key))
+    if save_path is None:
+        plot.show()
+    else:
+        plot.savefig(save_path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -193,6 +199,7 @@ if __name__ == "__main__":
         default="*.json")
     parser.add_argument("result_file_to_plot", nargs="*", default=["./results"],
         help="List of result files, or directories of result files, to plot (./results default)")
+    parser.add_argument("-o", "--out", help="Path to save the figure", nargs=1, metavar="PATH", default=[None])
     args = parser.parse_args()
     filenames = []
     # If a positional argument is a directory, it's automatically expanded out
@@ -204,5 +211,5 @@ if __name__ == "__main__":
             filenames.append(f)
         else:
             print("Input path '%s' not found as valid file or directory." % f, file=sys.stderr)
-            exit(1)
-    show_plots(filenames, args.times_key)
+            sys.exit(1)
+    show_plots(filenames, args.out[0], args.times_key)

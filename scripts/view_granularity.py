@@ -6,13 +6,14 @@
 # other scripts, one plot will be created for each "name" in the output files.
 import argparse
 import copy
-import itertools
 import glob
+import itertools
 import json
-import matplotlib.pyplot as plot
-import numpy
 import os
 import sys
+
+import matplotlib.pyplot as plot
+import numpy
 
 # Standard figure styling
 plot.rcParams["pdf.use14corefonts"] = "True" # So that it doesn't try to embed Tex Gyre Heros
@@ -21,12 +22,10 @@ plot.rcParams["font.sans-serif"] = ["TeX Gyre Heros", "Nimbus Sans", "Helvetica"
 def convert_to_float(s):
     """Takes a string s and parses it as a floating-point number. If s can not
     be converted to a float, this returns None instead."""
-    to_return = None
     try:
-        to_return = float(s)
-    except:
-        to_return = None
-    return to_return
+        return float(s)
+    except ValueError:
+        return None
 
 def plugin_summary_values(plugin, times_key):
     """Takes a single plugin results (one parsed output file) and returns
@@ -51,9 +50,7 @@ def scenario_to_distribution(scenario):
     """Takes a scenario, mapping numbers to triplets, and re-shapes the data.
     Returns an array of 4 arrays: [[x values], [min y values], [max y values],
     [average y values]]."""
-    x_values = []
-    for k in scenario:
-        x_values.append(k)
+    x_values = scenario[:]
     x_values.sort()
     min_y_values = []
     max_y_values = []
@@ -82,7 +79,6 @@ def add_plot_padding(axes):
     #axes.xaxis.set_ticks([1, 15, 30, 45, 60])
     #axes.yaxis.set_ticks(numpy.arange(y_limits[0], y_limits[1] + y_pad,
     #    y_range / 5.0))
-    return None
 
 def get_marker_styles():
     """ Returns a list of dicts of marker style kwargs. The plot will cycle
@@ -134,11 +130,10 @@ def add_scenario_to_plot(axes, scenario, name, style_dict):
     legend = plot.legend()
     try:
         legend.draggable()
-    except:
+    except AttributeError:
         legend.set_draggable(True)
-    return None
 
-def show_plots(filenames, times_key, h, w):
+def show_plots(filenames, times_key, h, w, save_path):
     """ Takes a list of filenames and generates one plot. This differs from the
     hip_plugin_framework script in that it only generates a single plot,
     containing only the average times. It will show one distribution per named
@@ -175,13 +170,15 @@ def show_plots(filenames, times_key, h, w):
     figure.canvas.manager.set_window_title("TPC partition size vs. MM8192 Time")
     axes = figure.add_subplot(1, 1, 1)
     axes.autoscale(enable=True, axis='both', tight=True)
-    for name in all_scenarios:
-        add_scenario_to_plot(axes, all_scenarios[name], name,
-            next(style_cycler))
+    for name, scenario in all_scenarios.items():
+        add_scenario_to_plot(axes, scenario, name, next(style_cycler))
     add_plot_padding(axes)
     #plot.subplots_adjust(bottom=0.35)
     plot.tight_layout()
-    plot.show()
+    if save_path is None:
+        plot.show()
+    else:
+        plot.savefig(save_path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -197,6 +194,7 @@ if __name__ == "__main__":
         help="Font size to use in figures (8pt default).", default=8, type=int)
     parser.add_argument("result_file_to_plot", nargs="*", default=["./results"],
         help="List of result files, or directories of result files, to plot (./results default)")
+    parser.add_argument("-o", "--out", help="Path to save the figure", nargs=1, metavar="PATH", default=[None])
     args = parser.parse_args()
     plot.rcParams["font.size"] = args.font_size
     filenames = []
@@ -210,6 +208,5 @@ if __name__ == "__main__":
             filenames.append(f)
         else:
             print("Input path '%s' not found as valid file or directory." % f, file=sys.stderr)
-            exit(1)
-    show_plots(filenames, args.times_key, args.height, args.width)
-
+            sys.exit(1)
+    show_plots(filenames, args.times_key, args.height, args.width, args.out[0])
